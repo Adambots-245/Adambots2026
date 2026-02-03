@@ -89,10 +89,46 @@ public final class Constants {
         // public static final double kIdleSpeed = 0.1;         // Motor power for idle
         // public static final double kVelocityTolerance = 2.0; // RPS tolerance for "at speed"
 
-        // TODO: Turret settings
-        // public static final double kTurretGearRatio = 100.0; // Motor rotations per turret rotation
-        // public static final double kTurretManualSpeed = 0.5; // Max manual control speed
-        // public static final double kTurretAngleTolerance = 2.0; // Degrees tolerance for "on target"
+        // Flywheel Velocity PID Gains
+        public static final double kFlywheelKP = 0.1;
+        public static final double kFlywheelKI = 0.0;
+        public static final double kFlywheelKD = 0.0;
+
+        // Flywheel Feed-Forward
+        // Feed-forward predicts the voltage needed to maintain a target velocity, so PID only
+        // corrects for small errors. Without FF, PID has to "discover" the right voltage from
+        // scratch, causing slow spin-up and oscillation. With FF, the motor reaches target speed
+        // quickly and PID just fine-tunes it.
+        //
+        // Formula: kV = 12V / motorFreeSpeedRPS
+        // At free speed, the motor needs full voltage (12V), so this ratio gives volts-per-RPS.
+        //
+        // Common motor free speeds (from datasheets):
+        //   Kraken X60: 6000 RPM = 100 RPS
+        //   Kraken X44: 7530 RPM = 125.5 RPS
+        //   Minion:     7700 RPM = 128.3 RPS
+        //
+        // TODO: Set to your flywheel motor's free speed in RPS
+        public static final double kFlywheelMaxFreeSpeedRPS = 100.0;  // Kraken X60 free speed
+        public static final double kFlywheelFF = 12.0 / kFlywheelMaxFreeSpeedRPS;  // Volts per RPS
+
+        public static final double kFlywheelTolerance = 2.0;  // RPS tolerance for "at speed"
+
+        // Turret settings
+        public static final double kTurretGearRatio = 100.0; // Motor rotations per turret rotation
+        public static final double kTurretManualSpeed = 0.5; // Max manual control speed
+        public static final double kTurretAngleTolerance = 2.0; // Degrees tolerance for "on target"
+
+        // Turret Position PID Gains
+        public static final double kTurretKP = 0.05;
+        public static final double kTurretKI = 0.0;
+        public static final double kTurretKD = 0.0;
+
+        // TODO: Turret encoder DIO port (REV Through Bore Encoder)
+        // public static final int kTurretEncoderPort = 0;  // DIO port 0-9
+
+        // TODO: Turret encoder offset (degrees) - align encoder zero with turret forward
+        // public static final double kTurretEncoderOffset = 0.0;
 
         // ==================== Hub Tracking / Scan Settings ====================
         /** Turret motor power during scan rotation (0 to 1) */

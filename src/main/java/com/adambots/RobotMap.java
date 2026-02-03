@@ -87,6 +87,10 @@ public class RobotMap {
     public static final BaseMotor kShooterRightMotor = new TalonFXMotor(kShooterRightMotorPort, true, 1.0, false);  // Inverted to spin opposite
     public static final BaseMotor kShooterTurretMotor = new TalonFXMotor(kShooterTurretMotorPort, false, 1.0, true);  // Brake mode for turret
 
+    // TODO: Add turret encoder (REV Through Bore via DIO)
+    // import com.adambots.lib.sensors.ThroughBoreEncoder;
+    // public static final ThroughBoreEncoder kTurretEncoder = new ThroughBoreEncoder(ShooterConstants.kTurretEncoderPort);
+
     // ==================== CLIMBER ====================
     // Port assignments
     private static final int kClimberLeftMotorPort = 20;

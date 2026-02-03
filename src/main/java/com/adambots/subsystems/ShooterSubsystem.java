@@ -4,8 +4,19 @@
 
 package com.adambots.subsystems;
 
-import com.adambots.lib.actuators.BaseMotor;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+// TODO: Import for turret encoder
+// import static edu.wpi.first.units.Units.Degrees;
 
+import java.util.Map;
+
+import com.adambots.lib.actuators.BaseMotor;
+// TODO: Import for turret encoder
+// import com.adambots.lib.sensors.ThroughBoreEncoder;
+import com.adambots.lib.utils.StateMachine;
+
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -36,11 +47,29 @@ public class ShooterSubsystem extends SubsystemBase {
     private final BaseMotor leftMotor;      // Left flywheel (leader)
     private final BaseMotor rightMotor;     // Right flywheel (follower)
     private final BaseMotor turretMotor;    // Turret rotation
+    // TODO: Add turret encoder for absolute angle feedback
+    // private final ThroughBoreEncoder turretEncoder;  // REV Through Bore (AdambotsLib)
 
     // ==================== SECTION: STATE ====================
     // TODO: Declare state variables here
     // private double targetVelocity = 0;
     // private double targetTurretAngle = 0;
+
+    // PID Controllers for closed-loop control
+    private final PIDController flywheelPID;
+    private final SimpleMotorFeedforward flywheelFF;
+    private double flywheelSetpoint = 0;
+
+    // Turret position PID
+    // The turret PID is controlled via the turretPIDEnabled flag:
+    // - false at startup (turret won't move until explicitly commanded)
+    // - Enabled by aimTurret() when aiming commands run
+    // - Disabled by stopTurret() when stopping or switching to manual/scan mode
+    // - When enabled, periodic() runs the PID loop to reach turretSetpointDegrees
+    // - When disabled, the turret motor is stopped (no active holding)
+    private final PIDController turretPID;
+    private double turretSetpointDegrees = 0;
+    private boolean turretPIDEnabled = false;
 
     // ==================== TRACKING STATE MACHINE ====================
     /**
@@ -64,7 +93,67 @@ public class ShooterSubsystem extends SubsystemBase {
         FAILED
     }
 
-    // Current tracking state
+    /**
+     * Properties for each tracking state.
+     *
+     * <p>Using an inner class allows state-specific configuration to be passed to actions
+     * during state transitions. The StateMachine automatically looks up properties by state
+     * when using the Map-based constructor.
+     *
+     * <p>Example usage in transition:
+     * <pre>
+     * trackingStateMachine.to(TrackingState.SCANNING)
+     *     .executing(props -> {
+     *         turretMotor.set(props.turretSpeed());  // Use state-specific speed
+     *     })
+     *     .request();
+     * </pre>
+     *
+     * @param turretSpeed Motor speed for this state (-1 to 1). Use 0 for states that hold position.
+     * @param description Human-readable description for logging/dashboard display.
+     */
+    public record TrackingStateProperties(
+        double turretSpeed,
+        String description
+        // TODO: Add additional properties as needed, for example:
+        // int targetLostThreshold,  // Cycles before transitioning to SCANNING
+        // double scanAngleLimit     // Max angle to scan before giving up
+    ) {
+        /** Creates properties with just a speed (description defaults to empty) */
+        public TrackingStateProperties(double turretSpeed) {
+            this(turretSpeed, "");
+        }
+    }
+
+    // State properties map - defines configuration for each tracking state
+    // TODO: Adjust these values based on your robot's behavior
+    private static final Map<TrackingState, TrackingStateProperties> TRACKING_STATE_PROPERTIES = Map.of(
+        TrackingState.DISABLED, new TrackingStateProperties(0.0, "Tracking disabled, holding position"),
+        TrackingState.TRACKING, new TrackingStateProperties(0.0, "Actively tracking target"),
+        TrackingState.SCANNING, new TrackingStateProperties(0.3, "Scanning for lost target"),  // TODO: Use ShooterConstants.kScanSpeed
+        TrackingState.FAILED,   new TrackingStateProperties(0.0, "Scan failed, awaiting manual reset")
+    );
+
+    // AdambotsLib StateMachine for tracking behavior
+    // StateMachine provides: automatic state transitions, transition listeners, invalid transition checking
+    //
+    // StateMachine<S, P> where:
+    //   S = State enum type (TrackingState)
+    //   P = Properties type for each state (TrackingStateProperties)
+    //
+    // API usage:
+    //   trackingStateMachine.to(TrackingState.TRACKING)  // Start a transition
+    //       .executing(props -> { /* action to run immediately */ })  // Optional: action on transition
+    //       .when(() -> isTargetVisible())  // Optional: condition to complete transition
+    //       .request();  // Execute the transition request
+    //
+    //   trackingStateMachine.getCurrentState()  // Get current state
+    //   trackingStateMachine.getTargetProperties()  // Get properties for current target state
+    //   trackingStateMachine.isTransitioning()  // Check if mid-transition
+    //   trackingStateMachine.periodic()  // Must call in periodic() to complete conditional transitions
+    private final StateMachine<TrackingState, TrackingStateProperties> trackingStateMachine;
+
+    // Legacy tracking state (kept for reference, will be replaced by StateMachine)
     private TrackingState trackingState = TrackingState.DISABLED;
 
     // Scan state tracking
@@ -81,7 +170,8 @@ public class ShooterSubsystem extends SubsystemBase {
      * Returns true when the shooter flywheels are at the target velocity (ready to shoot).
      */
     public Trigger isAtSpeedTrigger() {
-        // TODO: Check if flywheel is at target velocity within tolerance
+        // TODO: Return flywheelPID.atSetpoint() instead of hardcoded false
+        // return new Trigger(() -> flywheelPID.atSetpoint());
         return new Trigger(() -> false);
     }
 
@@ -105,8 +195,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Returns true when the turret is at the target angle.
      */
     public Trigger isTurretAtTargetTrigger() {
-        // TODO: Check if turret position is within tolerance of target
-        return new Trigger(() -> false);
+        return new Trigger(() -> turretPIDEnabled && turretPID.atSetpoint());
     }
 
     /**
@@ -147,9 +236,12 @@ public class ShooterSubsystem extends SubsystemBase {
      * or scan to find it.
      */
     public Trigger isTrackingEnabledTrigger() {
+        // Using StateMachine API:
         // TODO: Return true when in TRACKING or SCANNING state
-        // return new Trigger(() -> trackingState == TrackingState.TRACKING
-        //     || trackingState == TrackingState.SCANNING);
+        // return new Trigger(() -> {
+        //     var state = trackingStateMachine.getCurrentState();
+        //     return state == TrackingState.TRACKING || state == TrackingState.SCANNING;
+        // });
         return new Trigger(() -> false);
     }
 
@@ -159,8 +251,6 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public Trigger isActivelyTrackingTrigger() {
         // TODO: Return true when in TRACKING state AND target is visible
-        // return new Trigger(() -> trackingState == TrackingState.TRACKING
-        //     && isTargetVisible());
         return new Trigger(() -> false);
     }
 
@@ -169,8 +259,8 @@ public class ShooterSubsystem extends SubsystemBase {
      * Useful for LED feedback or dashboard display.
      */
     public Trigger isScanningTrigger() {
+        // Using StateMachine API:
         // TODO: Return true when in SCANNING state
-        // return new Trigger(() -> trackingState == TrackingState.SCANNING);
         return new Trigger(() -> false);
     }
 
@@ -179,8 +269,8 @@ public class ShooterSubsystem extends SubsystemBase {
      * Indicates manual intervention is needed.
      */
     public Trigger isTrackingFailedTrigger() {
+        // Using StateMachine API:
         // TODO: Return true when in FAILED state
-        // return new Trigger(() -> trackingState == TrackingState.FAILED);
         return new Trigger(() -> false);
     }
 
@@ -194,16 +284,6 @@ public class ShooterSubsystem extends SubsystemBase {
         return new Trigger(() -> false);
     }
 
-    /**
-     * Returns true when the hub target is visible to the vision system.
-     * Used to determine if tracking is possible.
-     */
-    public Trigger isTargetVisibleTrigger() {
-        // TODO: Check if vision system can see the hub target
-        // return new Trigger(() -> vision.hasTarget());
-        return new Trigger(() -> false);
-    }
-
     // ==================== SECTION: CONSTRUCTOR ====================
     /**
      * Creates a new ShooterSubsystem.
@@ -212,10 +292,15 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param rightMotor The right flywheel motor controller (follower)
      * @param turretMotor The turret rotation motor controller
      */
+    // TODO: Add turretEncoder parameter to constructor
+    // public ShooterSubsystem(BaseMotor leftMotor, BaseMotor rightMotor,
+    //                         BaseMotor turretMotor, ThroughBoreEncoder turretEncoder) {
     public ShooterSubsystem(BaseMotor leftMotor, BaseMotor rightMotor, BaseMotor turretMotor) {
         this.leftMotor = leftMotor;
         this.rightMotor = rightMotor;
         this.turretMotor = turretMotor;
+        // TODO: Assign turret encoder
+        // this.turretEncoder = turretEncoder;
 
         // TODO: Configure motor settings
         // leftMotor.setInverted(true);
@@ -225,6 +310,47 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // TODO: Configure turret soft limits to prevent over-rotation
         // turretMotor.configureSoftLimits(minPosition, maxPosition, true);
+
+        // Initialize flywheel velocity PID
+        flywheelPID = new PIDController(
+            ShooterConstants.kFlywheelKP,
+            ShooterConstants.kFlywheelKI,
+            ShooterConstants.kFlywheelKD
+        );
+        flywheelPID.setTolerance(ShooterConstants.kFlywheelTolerance);
+
+        // Feed-forward compensates for motor physics (kS=0, kV=FF)
+        flywheelFF = new SimpleMotorFeedforward(0, ShooterConstants.kFlywheelFF);
+
+        // Initialize turret position PID
+        turretPID = new PIDController(
+            ShooterConstants.kTurretKP,
+            ShooterConstants.kTurretKI,
+            ShooterConstants.kTurretKD
+        );
+        turretPID.setTolerance(ShooterConstants.kTurretAngleTolerance);
+
+        // Initialize tracking state machine with auto-lookup properties map
+        // The Map-based constructor automatically loads properties for each state,
+        // so you don't need to call .withProperties() on each transition.
+        //
+        // The logger parameter enables debug output (use Dash::log or null to disable)
+        trackingStateMachine = new StateMachine<>(
+            TrackingState.DISABLED,
+            TRACKING_STATE_PROPERTIES,
+            null  // TODO: Replace with Dash::log for debug output
+        );
+
+        // TODO: Optionally mark invalid transitions:
+        // trackingStateMachine.addInvalidTransition(TrackingState.FAILED, TrackingState.TRACKING,
+        //     "Cannot go directly to TRACKING from FAILED - must scan first");
+
+        // TODO: Optionally add transition listeners for logging or side effects:
+        // trackingStateMachine.addTransitionListener((from, to) -> {
+        //     SmartDashboard.putString("Shooter/TrackingState", to.name());
+        //     SmartDashboard.putString("Shooter/StateDescription",
+        //         trackingStateMachine.getTargetProperties().description());
+        // });
     }
 
     // ==================== SECTION: COMMAND FACTORIES - FLYWHEEL ====================
@@ -232,13 +358,11 @@ public class ShooterSubsystem extends SubsystemBase {
 
     /**
      * Returns a command that spins up the shooter to the default velocity.
-     * TODO: Set target velocity in Constants
+     * Uses PID + feed-forward control via flywheelSetpoint (applied in periodic()).
      */
     public Command spinUpCommand() {
         return run(() -> {
-            // TODO: Set flywheel to target velocity using velocity control
-            // leftMotor.setVelocity(Constants.ShooterConstants.kDefaultVelocity);
-            // Note: Right motor follows automatically if configured as follower
+            // TODO: Set flywheelSetpoint to the target velocity from Constants
         }).withName("SpinUp");
     }
 
@@ -250,19 +374,16 @@ public class ShooterSubsystem extends SubsystemBase {
     public Command spinUpCommand(double velocityRPS) {
         return run(() -> {
             // TODO: Set flywheel to specified velocity
-            // leftMotor.setVelocity(velocityRPS);
         }).withName("SpinUp(" + velocityRPS + ")");
     }
 
     /**
      * Returns a command that stops the shooter flywheels.
+     * Sets flywheelSetpoint to 0, which stops PID control in periodic().
      */
     public Command stopFlywheelCommand() {
         return runOnce(() -> {
-            // TODO: Stop the flywheel motors
-            // leftMotor.set(0);
-            // If not using follower mode, also stop right motor
-            // rightMotor.set(0);
+            // TODO: Set flywheelSetpoint to 0 to stop the flywheel
         }).withName("StopFlywheel");
     }
 
@@ -283,7 +404,6 @@ public class ShooterSubsystem extends SubsystemBase {
     public Command idleCommand() {
         return run(() -> {
             // TODO: Set flywheel to idle velocity
-            // leftMotor.set(Constants.ShooterConstants.kIdleSpeed);
         }).withName("IdleShooter");
     }
 
@@ -292,15 +412,39 @@ public class ShooterSubsystem extends SubsystemBase {
 
     /**
      * Returns a command that rotates the turret to a specific angle.
+     * Enables turret PID while running. When the command ends, PID is disabled
+     * and the turret stops (no active position holding after command ends).
      *
      * @param angleDegrees Target angle in degrees (0 = forward, positive = left)
      */
     public Command aimTurretCommand(double angleDegrees) {
         return run(() -> {
-            // TODO: Set turret to target angle using position control
-            // double targetPosition = angleDegrees / 360.0 * Constants.ShooterConstants.kTurretGearRatio;
-            // turretMotor.setPosition(targetPosition);
-        }).withName("AimTurret(" + angleDegrees + ")");
+            aimTurret(angleDegrees);
+        })
+        .finallyDo(() -> stopTurret())
+        .withName("AimTurret(" + angleDegrees + ")");
+    }
+
+    /**
+     * Returns a command that continuously aims the turret at an angle from a supplier.
+     * Use this with vision by passing a supplier that returns the target angle.
+     * Enables turret PID while running. When the command ends, PID is disabled
+     * and the turret stops (no active position holding after command ends).
+     *
+     * <p>Example usage with vision:
+     * <pre>
+     * // In TurretTrackingCommands or RobotContainer:
+     * shooter.aimTurretCommand(() -> visionSubsystem.getTargetAngle())
+     * </pre>
+     *
+     * @param angleSupplier Supplies the target angle in degrees (e.g., vision::getTargetAngle)
+     */
+    public Command aimTurretCommand(java.util.function.DoubleSupplier angleSupplier) {
+        return run(() -> {
+            aimTurret(angleSupplier.getAsDouble());
+        })
+        .finallyDo(() -> stopTurret())
+        .withName("AimTurretDynamic");
     }
 
     /**
@@ -312,24 +456,28 @@ public class ShooterSubsystem extends SubsystemBase {
 
     /**
      * Returns a command that manually rotates the turret.
+     * Disables PID control and directly sets motor speed.
+     * When the command ends, the turret motor is stopped.
      *
      * @param speed Speed supplier (typically from joystick, -1 to 1)
      */
     public Command manualTurretCommand(java.util.function.DoubleSupplier speed) {
         return run(() -> {
-            // TODO: Set turret motor to supplied speed with limits check
-            // double adjustedSpeed = speed.getAsDouble() * Constants.ShooterConstants.kTurretManualSpeed;
+            // Disable PID when in manual mode
+            // turretPIDEnabled = false;
+            // double adjustedSpeed = speed.getAsDouble() * ShooterConstants.kTurretManualSpeed;
             // turretMotor.set(adjustedSpeed);
-        }).withName("ManualTurret");
+        })
+        .finallyDo(() -> turretMotor.set(0))
+        .withName("ManualTurret");
     }
 
     /**
-     * Returns a command that stops the turret.
+     * Returns a command that stops the turret and disables PID control.
      */
     public Command stopTurretCommand() {
         return runOnce(() -> {
-            // TODO: Stop the turret motor
-            // turretMotor.set(0);
+            stopTurret();
         }).withName("StopTurret");
     }
 
@@ -344,204 +492,38 @@ public class ShooterSubsystem extends SubsystemBase {
             .withName("AimAndWait");
     }
 
+
+    // ==================== SECTION: COMMAND FACTORIES - TURRET TRACKING ====================
+    // Basic turret tracking commands (vision-agnostic primitives)
+    // For vision-integrated tracking, use TurretTrackingCommands which coordinates
+    // this subsystem with vision suppliers.
+
     /**
-     * Returns a command that tracks a target using vision.
-     * Requires integration with vision subsystem.
-     * Note: This command tracks regardless of the tracking flag - use for one-shot tracking.
+     * Returns a command that stops turret tracking and holds the current position.
+     * Use this to disable any active tracking behavior.
      */
-    public Command trackTargetCommand() {
+    public Command stopTrackingCommand() {
+        return runOnce(() -> {
+            stopTurret();
+            // TODO: Transition state machine to DISABLED state
+            // trackingStateMachine.to(TrackingState.DISABLED).request();
+        }).withName("StopTracking");
+    }
+
+    /**
+     * Returns a command that rotates the turret at scan speed.
+     * This is a vision-agnostic primitive that just rotates the turret.
+     * When the command ends, the turret motor is stopped.
+     * Use TurretTrackingCommands for vision-integrated scan-and-reacquire behavior.
+     */
+    public Command scanTurretCommand() {
         return run(() -> {
-            // TODO: Get target angle from vision and aim turret
-            // double targetAngle = getTargetAngleFromVision();
-            // aimTurret(targetAngle);
-        }).withName("TrackTarget");
-    }
-
-    // ==================== SECTION: COMMAND FACTORIES - HUB TRACKING ====================
-    // Commands for continuous hub tracking mode with scan-to-reacquire
-    // When enabled, the turret automatically orients toward the hub target using vision
-    // If target is lost, performs one full scan rotation to reacquire
-
-    /**
-     * Returns a command that enables hub tracking mode.
-     * If target is visible, goes to TRACKING state.
-     * If target is NOT visible, goes to SCANNING state to find it.
-     *
-     * <p>Usage in RobotContainer:
-     * <pre>
-     * Buttons.XboxLeftBumper.onTrue(shooter.enableTrackingCommand());
-     * </pre>
-     */
-    public Command enableTrackingCommand() {
-        return runOnce(() -> {
-            // TODO: Check if target is visible to determine starting state
-            // if (isTargetVisible()) {
-            //     trackingState = TrackingState.TRACKING;
-            // } else {
-            //     // Target not visible - start scanning to find it
-            //     trackingState = TrackingState.SCANNING;
-            //     scanStartPosition = getTurretAngle();  // Record start position
-            // }
-            // targetLostCycles = 0;
-            //
-            // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-        }).withName("EnableTracking");
-    }
-
-    /**
-     * Returns a command that disables hub tracking mode.
-     * The turret will hold its current position when disabled.
-     */
-    public Command disableTrackingCommand() {
-        return runOnce(() -> {
-            // TODO: Set state to DISABLED and stop turret
-            // trackingState = TrackingState.DISABLED;
-            // targetLostCycles = 0;
-            // turretMotor.set(0);
-            //
-            // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-        }).withName("DisableTracking");
-    }
-
-    /**
-     * Returns a command that toggles hub tracking mode on/off.
-     * Convenient for binding to a single button.
-     */
-    public Command toggleTrackingCommand() {
-        return runOnce(() -> {
-            // TODO: Toggle between DISABLED and enabled states
-            // if (trackingState == TrackingState.DISABLED) {
-            //     // Enable - same logic as enableTrackingCommand
-            //     if (isTargetVisible()) {
-            //         trackingState = TrackingState.TRACKING;
-            //     } else {
-            //         trackingState = TrackingState.SCANNING;
-            //         scanStartPosition = getTurretAngle();
-            //     }
-            // } else {
-            //     trackingState = TrackingState.DISABLED;
-            //     turretMotor.set(0);
-            // }
-            // targetLostCycles = 0;
-            //
-            // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-        }).withName("ToggleTracking");
-    }
-
-    /**
-     * Returns a command that manually triggers a scan for the target.
-     * Useful after FAILED state to try again, or when robot moves to new location.
-     *
-     * <p>Usage in RobotContainer:
-     * <pre>
-     * Buttons.XboxYButton.onTrue(shooter.scanForTargetCommand());
-     * </pre>
-     */
-    public Command scanForTargetCommand() {
-        return runOnce(() -> {
-            // TODO: Start a new scan
-            // trackingState = TrackingState.SCANNING;
-            // scanStartPosition = getTurretAngle();  // Record current position
-            // targetLostCycles = 0;
-            //
-            // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-        }).withName("ScanForTarget");
-    }
-
-    /**
-     * Returns a command that continuously manages hub tracking via state machine.
-     * This handles all tracking states: DISABLED, TRACKING, SCANNING, and FAILED.
-     *
-     * <p>State machine behavior:
-     * <ul>
-     *   <li>DISABLED: Hold turret position, do nothing</li>
-     *   <li>TRACKING: Aim at visible target; if lost for N cycles, transition to SCANNING</li>
-     *   <li>SCANNING: Rotate turret slowly; if target found, go to TRACKING; if full rotation done, go to FAILED</li>
-     *   <li>FAILED: Hold position, wait for manual intervention (enableTracking or scanForTarget)</li>
-     * </ul>
-     *
-     * <p>This is intended to be used as the DEFAULT COMMAND for the shooter subsystem.
-     *
-     * <p>Usage in RobotContainer:
-     * <pre>
-     * // Set as default command (always runs when nothing else needs turret)
-     * shooter.setDefaultCommand(shooter.autoTrackCommand());
-     *
-     * // Bind enable/disable to buttons
-     * Buttons.XboxLeftBumper.onTrue(shooter.enableTrackingCommand());
-     * Buttons.XboxRightBumper.onTrue(shooter.disableTrackingCommand());
-     *
-     * // Manual scan button (useful after FAILED state)
-     * Buttons.XboxYButton.onTrue(shooter.scanForTargetCommand());
-     * </pre>
-     */
-    public Command autoTrackCommand() {
-        return run(() -> {
-            // TODO: Implement state machine logic
-            //
-            // switch (trackingState) {
-            //     case DISABLED:
-            //         // Hold position - do nothing (or optionally stop motor)
-            //         // turretMotor.set(0);
-            //         break;
-            //
-            //     case TRACKING:
-            //         if (isTargetVisible()) {
-            //             // Target visible - aim at it
-            //             // double targetAngle = getTargetAngleFromVision();
-            //             // aimTurret(targetAngle);
-            //             // targetLostCycles = 0;  // Reset lost counter
-            //         } else {
-            //             // Target not visible - increment lost counter
-            //             // targetLostCycles++;
-            //             //
-            //             // // Check if we've lost target long enough to start scanning
-            //             // if (targetLostCycles >= Constants.ShooterConstants.kTargetLostCycles) {
-            //             //     trackingState = TrackingState.SCANNING;
-            //             //     scanStartPosition = getTurretAngle();
-            //             //     SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-            //             // }
-            //             //
-            //             // // While waiting, hold current position
-            //             // turretMotor.set(0);
-            //         }
-            //         break;
-            //
-            //     case SCANNING:
-            //         if (isTargetVisible()) {
-            //             // Found target during scan - transition to TRACKING
-            //             // trackingState = TrackingState.TRACKING;
-            //             // targetLostCycles = 0;
-            //             // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-            //         } else if (hasCompletedFullRotation()) {
-            //             // Completed full scan without finding target - give up
-            //             // trackingState = TrackingState.FAILED;
-            //             // turretMotor.set(0);
-            //             // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
-            //         } else {
-            //             // Continue scanning - rotate turret slowly
-            //             // turretMotor.set(getScanSpeed());
-            //         }
-            //         break;
-            //
-            //     case FAILED:
-            //         // Scan failed - hold position and wait for manual intervention
-            //         // turretMotor.set(0);
-            //         // User must call enableTrackingCommand() or scanForTargetCommand() to retry
-            //         break;
-            // }
-        }).withName("AutoTrack");
-    }
-
-    /**
-     * Returns a command that enables tracking, waits until on target, then disables.
-     * Useful for one-shot aim-and-lock behavior.
-     */
-    public Command trackUntilOnTargetCommand() {
-        return enableTrackingCommand()
-            .andThen(autoTrackCommand().until(isTurretAtTargetTrigger()))
-            .andThen(disableTrackingCommand())
-            .withName("TrackUntilOnTarget");
+            // Disable PID when scanning (open-loop rotation)
+            // turretPIDEnabled = false;
+            // turretMotor.set(getScanSpeed());
+        })
+        .finallyDo(() -> turretMotor.set(0))
+        .withName("ScanTurret");
     }
 
     // ==================== SECTION: COMMAND FACTORIES - COMBINED ====================
@@ -580,6 +562,37 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     @Override
     public void periodic() {
+        // TODO: Update the state machine (required for conditional transitions to complete)
+        // trackingStateMachine.periodic();
+
+        // TODO: Run flywheel PID loop when flywheelSetpoint > 0
+        // Steps:
+        // 1. Get current velocity from motor encoder: double currentVelocity = leftMotor.getVelocity();
+        // 2. Calculate PID output: double pidOutput = flywheelPID.calculate(currentVelocity, flywheelSetpoint);
+        // 3. Calculate feed-forward: double ffOutput = flywheelFF.calculate(flywheelSetpoint);
+        // 4. Apply combined output: leftMotor.setVoltage(pidOutput + ffOutput);
+        //
+        // Example implementation:
+        // if (flywheelSetpoint > 0) {
+        //     double currentVelocity = leftMotor.getVelocity().in(RotationsPerSecond);
+        //     double pidOutput = flywheelPID.calculate(currentVelocity, flywheelSetpoint);
+        //     double ffOutput = flywheelFF.calculate(flywheelSetpoint);
+        //     leftMotor.set(pidOutput + ffOutput);
+        // }
+
+        // Run turret position PID loop when enabled
+        // The turret PID is enabled by aimTurret() and disabled by stopTurret()
+        // if (turretPIDEnabled) {
+        //     double currentAngle = getTurretAngle();
+        //     double pidOutput = turretPID.calculate(currentAngle, turretSetpointDegrees);
+        //     turretMotor.set(pidOutput);
+        // }
+
+        // TODO: Add telemetry to SmartDashboard
+        // SmartDashboard.putNumber("Shooter/FlywheelSetpoint", flywheelSetpoint);
+        // SmartDashboard.putNumber("Shooter/FlywheelVelocity", leftMotor.getVelocity());
+        // SmartDashboard.putBoolean("Shooter/AtSpeed", flywheelPID.atSetpoint());
+
         // TODO: Cache velocity values
         // double leftVelocity = leftMotor.getVelocity();
         // double rightVelocity = rightMotor.getVelocity();
@@ -615,61 +628,43 @@ public class ShooterSubsystem extends SubsystemBase {
      * @return The turret angle (0 = forward, positive = left)
      */
     private double getTurretAngle() {
-        // TODO: Convert motor position to degrees
+        // TODO: Use ThroughBoreEncoder absolute position instead of motor encoder
+        // The REV Through Bore Encoder returns position as WPILib Angle (0-360 degrees)
+        //
+        // double rawAngle = turretEncoder.getPosition().in(Degrees);  // 0.0 to 360.0
+        //
+        // Apply offset if encoder zero doesn't align with turret forward:
+        // double angle = rawAngle - ShooterConstants.kTurretEncoderOffset;
+        //
+        // Normalize to -180 to +180 range (optional):
+        // if (angle > 180) angle -= 360;
+        // if (angle < -180) angle += 360;
+        // return angle;
+
+        // Fallback: use motor encoder (requires zeroing on startup)
         // return turretMotor.getPosition() * 360.0 / Constants.ShooterConstants.kTurretGearRatio;
         return 0;
     }
 
     /**
-     * Gets the target angle from the vision system.
-     * This method should query PhotonVision or Limelight for the hub target.
-     *
-     * @return The angle to the hub target in degrees, or 0 if no target visible
-     */
-    private double getTargetAngleFromVision() {
-        // TODO: Implement vision integration
-        // Option 1: Using PhotonVision
-        // var result = photonCamera.getLatestResult();
-        // if (result.hasTargets()) {
-        //     return result.getBestTarget().getYaw();
-        // }
-        //
-        // Option 2: Using Limelight NetworkTables
-        // double tx = NetworkTableInstance.getDefault()
-        //     .getTable("limelight").getEntry("tx").getDouble(0);
-        // return tx;
-        //
-        // Option 3: Using AdambotsLib vision (if integrated with swerve)
-        // Get target pose from swerve vision and calculate angle
-        return 0;
-    }
-
-    /**
-     * Checks if the vision system can see the hub target.
-     *
-     * @return true if a valid target is visible
-     */
-    private boolean isTargetVisible() {
-        // TODO: Implement target visibility check
-        // Option 1: Using PhotonVision
-        // return photonCamera.getLatestResult().hasTargets();
-        //
-        // Option 2: Using Limelight
-        // return NetworkTableInstance.getDefault()
-        //     .getTable("limelight").getEntry("tv").getDouble(0) == 1;
-        return false;
-    }
-
-    /**
      * Sets the turret to aim at a specific angle.
      * Internal helper used by tracking and manual aim commands.
+     * Enables the turret PID and sets the setpoint - the PID loop in periodic() does the control.
      *
      * @param angleDegrees Target angle in degrees (0 = forward)
      */
     private void aimTurret(double angleDegrees) {
-        // TODO: Convert angle to motor position and set
-        // double targetPosition = angleDegrees / 360.0 * Constants.ShooterConstants.kTurretGearRatio;
-        // turretMotor.setPosition(targetPosition);
+        turretSetpointDegrees = angleDegrees;
+        turretPIDEnabled = true;
+    }
+
+    /**
+     * Stops the turret motor and disables the turret PID.
+     * Call this when you want to hold position or transition to manual control.
+     */
+    private void stopTurret() {
+        turretPIDEnabled = false;
+        turretMotor.set(0);
     }
 
     // ==================== SCAN SUPPORT METHODS ====================

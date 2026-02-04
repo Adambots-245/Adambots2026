@@ -7,6 +7,9 @@ package com.adambots;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.ControllerType;
 
+import edu.wpi.first.epilogue.Epilogue;
+import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -16,9 +19,12 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  * the TimedRobot documentation. If you change the name of this class or the package after
  * creating this project, you must also update the Main.java file in the project.
  */
+@Logged
 public class Robot extends TimedRobot {
     private Command autonomousCommand;
-    private RobotContainer robotContainer;
+
+    @Logged
+    private RobotContainer container;
 
     /**
      * This function is run when the robot is first started up and should be used for any
@@ -26,7 +32,10 @@ public class Robot extends TimedRobot {
      */
     @Override
     public void robotInit() {
-        // Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
+        // 1. Start data logging FIRST
+        DataLogManager.start();
+
+        // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
         Buttons.init(
             RobotMap.kDriverJoystickPort,
             RobotMap.kOperatorXboxPort,
@@ -34,9 +43,11 @@ public class Robot extends TimedRobot {
             ControllerType.XBOX
         );
 
-        // Instantiate our RobotContainer. This will perform all our button bindings,
-        // and put our autonomous chooser on the dashboard.
-        robotContainer = new RobotContainer();
+        // 3. Create RobotContainer (creates all subsystems)
+        container = new RobotContainer();
+
+        // 4. Bind Epilogue AFTER all @Logged objects exist
+        Epilogue.bind(this);
     }
 
     /**
@@ -65,7 +76,7 @@ public class Robot extends TimedRobot {
     /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
     @Override
     public void autonomousInit() {
-        autonomousCommand = robotContainer.getAutonomousCommand();
+        autonomousCommand = container.getAutonomousCommand();
 
         // Schedule the autonomous command
         if (autonomousCommand != null) {

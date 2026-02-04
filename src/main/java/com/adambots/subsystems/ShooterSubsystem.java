@@ -15,6 +15,9 @@ import com.adambots.lib.actuators.BaseMotor;
 // import com.adambots.lib.sensors.ThroughBoreEncoder;
 import com.adambots.lib.utils.StateMachine;
 
+import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.NotLogged;
+
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -41,6 +44,7 @@ import com.adambots.Constants.ShooterConstants;
  *   <li>Coordinate between subsystems by binding commands to triggers</li>
  * </ul>
  */
+@Logged
 public class ShooterSubsystem extends SubsystemBase {
 
     // ==================== SECTION: HARDWARE ====================
@@ -151,6 +155,7 @@ public class ShooterSubsystem extends SubsystemBase {
     //   trackingStateMachine.getTargetProperties()  // Get properties for current target state
     //   trackingStateMachine.isTransitioning()  // Check if mid-transition
     //   trackingStateMachine.periodic()  // Must call in periodic() to complete conditional transitions
+    @NotLogged
     private final StateMachine<TrackingState, TrackingStateProperties> trackingStateMachine;
 
     // Legacy tracking state (kept for reference, will be replaced by StateMachine)

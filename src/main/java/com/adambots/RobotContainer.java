@@ -17,6 +17,7 @@ import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
+import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -41,6 +42,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
  * <p>This class uses Inversion of Control (IoC) - hardware devices are created in RobotMap
  * and passed to subsystems here. This allows for easier testing and hardware abstraction.
  */
+@Logged
 public class RobotContainer {
 
     // ==================== SECTION: SUBSYSTEMS ====================

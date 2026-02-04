@@ -33,5 +33,7 @@ desktop.ini
 
 # Logs
 *.log
+*.wpilog
+logs/
 hs_err_pid*
 replay_pid*

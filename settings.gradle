@@ -4,6 +4,9 @@ pluginManagement {
     repositories {
         mavenLocal()
         gradlePluginPortal()
+        maven {
+            url = "https://adambots-245.github.io/AdambotsLib/maven"
+        }
         String frcYear = '2026'
         File frcHome
         if (OperatingSystem.current().isWindows()) {

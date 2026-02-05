@@ -7,6 +7,7 @@ package com.adambots.subsystems;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.LimitSwitch;
 
+import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -27,6 +28,7 @@ import org.littletonrobotics.junction.Logger;
  *   <li>Coordinate between subsystems by binding commands to triggers</li>
  * </ul>
  */
+@Logged
 public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: HARDWARE ====================

@@ -7,9 +7,12 @@ package com.adambots.subsystems;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseProximitySensor;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Hopper/Indexer subsystem for storing and staging game pieces.
@@ -197,6 +200,8 @@ public class HopperSubsystem extends SubsystemBase {
      */
     @Override
     public void periodic() {
+        double startTime = Timer.getFPGATimestamp();
+
         // TODO: Cache sensor values
         // hasGamePiece = hopperSensor.isDetecting();
 
@@ -204,6 +209,8 @@ public class HopperSubsystem extends SubsystemBase {
         // SmartDashboard.putBoolean("Hopper/HasGamePiece", hasGamePiece);
         // SmartDashboard.putNumber("Hopper/CarouselVelocity", carouselMotor.getVelocity());
         // SmartDashboard.putNumber("Hopper/UptakeVelocity", uptakeMotor.getVelocity());
+
+        Logger.recordOutput("Timing/HopperSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
     }
 
     // ==================== SECTION: PRIVATE HELPERS ====================

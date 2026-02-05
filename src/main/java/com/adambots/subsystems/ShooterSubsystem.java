@@ -17,6 +17,9 @@ import com.adambots.lib.utils.StateMachine;
 
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
+import edu.wpi.first.wpilibj.Timer;
+
+import org.littletonrobotics.junction.Logger;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
@@ -567,6 +570,8 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     @Override
     public void periodic() {
+        double startTime = Timer.getFPGATimestamp();
+
         // TODO: Update the state machine (required for conditional transitions to complete)
         // trackingStateMachine.periodic();
 
@@ -611,6 +616,8 @@ public class ShooterSubsystem extends SubsystemBase {
         // SmartDashboard.putBoolean("Shooter/TurretOnTarget", isTurretAtTargetTrigger().getAsBoolean());
         // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
         // SmartDashboard.putBoolean("Shooter/TargetVisible", isTargetVisibleTrigger().getAsBoolean());
+
+        Logger.recordOutput("Timing/ShooterSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
     }
 
     // ==================== SECTION: PRIVATE HELPERS ====================

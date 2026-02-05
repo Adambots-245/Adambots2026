@@ -7,9 +7,12 @@ package com.adambots.subsystems;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.LimitSwitch;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Climber subsystem for end-game climbing.
@@ -199,6 +202,8 @@ public class ClimberSubsystem extends SubsystemBase {
      */
     @Override
     public void periodic() {
+        double startTime = Timer.getFPGATimestamp();
+
         // TODO: Cache limit switch values
         // isLeftAtBottom = leftLimitSwitch.isPressed();
         // isRightAtBottom = rightLimitSwitch.isPressed();
@@ -208,6 +213,8 @@ public class ClimberSubsystem extends SubsystemBase {
         // SmartDashboard.putBoolean("Climber/RightAtBottom", isRightAtBottom);
         // SmartDashboard.putNumber("Climber/LeftPosition", leftMotor.getPosition());
         // SmartDashboard.putNumber("Climber/RightPosition", rightMotor.getPosition());
+
+        Logger.recordOutput("Timing/ClimberSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
     }
 
     // ==================== SECTION: PRIVATE HELPERS ====================

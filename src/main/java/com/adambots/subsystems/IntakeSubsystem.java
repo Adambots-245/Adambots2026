@@ -7,9 +7,12 @@ package com.adambots.subsystems;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseProximitySensor;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Intake subsystem for acquiring game pieces from the field.
@@ -111,12 +114,16 @@ public class IntakeSubsystem extends SubsystemBase {
      */
     @Override
     public void periodic() {
+        double startTime = Timer.getFPGATimestamp();
+
         // TODO: Cache sensor values
         // hasGamePiece = intakeSensor.isDetected();
 
         // TODO: Update telemetry
         // SmartDashboard.putBoolean("Intake/HasGamePiece", hasGamePiece);
         // SmartDashboard.putNumber("Intake/MotorVelocity", intakeMotor.getVelocity());
+
+        Logger.recordOutput("Timing/IntakeSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
     }
 
     // ==================== SECTION: PRIVATE HELPERS ====================

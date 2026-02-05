@@ -4,11 +4,12 @@
 
 package com.adambots.subsystems;
 
-import static edu.wpi.first.units.Units.RotationsPerSecond;
 // TODO: Import for turret encoder
 // import static edu.wpi.first.units.Units.Degrees;
 
 import java.util.Map;
+
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 import com.adambots.lib.actuators.BaseMotor;
 // TODO: Import for turret encoder
@@ -58,6 +59,34 @@ public class ShooterSubsystem extends SubsystemBase {
     // TODO: Declare state variables here
     // private double targetVelocity = 0;
     // private double targetTurretAngle = 0;
+
+    // ==================== DISTANCE-TO-RPS LOOKUP TABLE ====================
+    /**
+     * Interpolating lookup table: distance (meters) → flywheel RPS
+     *
+     * <p>This table maps measured distances to target to the required flywheel
+     * speed for a successful shot. Values between entries are interpolated.
+     *
+     * <p>Tuning process:
+     * <ol>
+     *   <li>Run simulation with robot at known distances</li>
+     *   <li>Adjust RPS until shots consistently hit target</li>
+     *   <li>Add/update entries in this table</li>
+     * </ol>
+     */
+    private static final InterpolatingDoubleTreeMap distanceToRPS = new InterpolatingDoubleTreeMap();
+    static {
+        // Distance (meters) → Flywheel RPS
+        // These are initial estimates - tune in simulation!
+        distanceToRPS.put(1.5, 40.0);   // Close shot
+        distanceToRPS.put(2.0, 45.0);   //
+        distanceToRPS.put(2.5, 50.0);   //
+        distanceToRPS.put(3.0, 55.0);   // Mid shot
+        distanceToRPS.put(4.0, 62.0);   //
+        distanceToRPS.put(5.0, 70.0);   // Far shot
+        distanceToRPS.put(6.0, 78.0);   // Long range
+        distanceToRPS.put(7.0, 85.0);   // Maximum range
+    }
 
     // PID Controllers for closed-loop control
     private final PIDController flywheelPID;
@@ -611,6 +640,40 @@ public class ShooterSubsystem extends SubsystemBase {
         // SmartDashboard.putBoolean("Shooter/TurretOnTarget", isTurretAtTargetTrigger().getAsBoolean());
         // SmartDashboard.putString("Shooter/TrackingState", trackingState.name());
         // SmartDashboard.putBoolean("Shooter/TargetVisible", isTargetVisibleTrigger().getAsBoolean());
+    }
+
+    // ==================== SECTION: DISTANCE-BASED SHOOTING ====================
+
+    /**
+     * Gets the required flywheel RPS for a given distance to target.
+     *
+     * <p>Uses interpolation between calibrated distance-RPS pairs.
+     * If the distance is outside the calibrated range, extrapolates.
+     *
+     * @param distanceMeters Distance to target in meters
+     * @return Required flywheel RPS for that distance
+     */
+    public double getRPSForDistance(double distanceMeters) {
+        return distanceToRPS.get(distanceMeters);
+    }
+
+    /**
+     * Returns a command that spins up the shooter to the RPS appropriate for a given distance.
+     *
+     * <p>Use with vision by passing a distance supplier:
+     * <pre>
+     * shooter.spinUpForDistanceCommand(visionSubsystem::getDistanceToTarget)
+     * </pre>
+     *
+     * @param distanceSupplier Supplies the current distance to target in meters
+     */
+    public Command spinUpForDistanceCommand(java.util.function.DoubleSupplier distanceSupplier) {
+        return run(() -> {
+            double distance = distanceSupplier.getAsDouble();
+            double rps = getRPSForDistance(distance);
+            flywheelSetpoint = rps;
+            // TODO: Apply setpoint in periodic() PID loop
+        }).withName("SpinUpForDistance");
     }
 
     // ==================== SECTION: PRIVATE HELPERS ====================

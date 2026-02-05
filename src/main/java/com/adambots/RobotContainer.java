@@ -8,6 +8,7 @@ import java.io.File;
 
 import com.adambots.commands.IntakeCommands;
 import com.adambots.commands.ShootCommands;
+import com.adambots.commands.test.PIDTunerTestCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
@@ -15,6 +16,8 @@ import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
+import com.adambots.subsystems.VisionSimSubsystem;
+import com.adambots.subsystems.test.TestTurretSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
@@ -66,6 +69,12 @@ public class RobotContainer {
     /** LED subsystem using CANdle for robot status indication */
     private final CANdleSubsystem leds;
 
+    /** Vision simulation subsystem for AprilTag detection in simulation */
+    private final VisionSimSubsystem visionSim;
+
+    /** Test turret subsystem for PID tuning experiments */
+    private final TestTurretSubsystem testTurret;
+
     // ==================== SECTION: AUTONOMOUS CHOOSER ====================
     /** Autonomous routine selector displayed on the dashboard */
     private final SendableChooser<Command> autoChooser = new SendableChooser<>();
@@ -97,6 +106,12 @@ public class RobotContainer {
         climber = new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
                                           RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
         leds = new CANdleSubsystem(RobotMap.kCANdlePort);
+
+        // Initialize vision simulation subsystem
+        visionSim = new VisionSimSubsystem("shooter_camera");
+
+        // Initialize test turret for PID tuning experiments
+        testTurret = new TestTurretSubsystem(RobotMap.kTestTurretMotor);
 
         // 3. Setup vision
         configureVision();
@@ -267,6 +282,7 @@ public class RobotContainer {
 
         // Example: Auto-index when intake detects game piece
         // intake.hasGamePieceTrigger().onTrue(hopper.indexOneCommand());
+
     }
 
     // ==================== SECTION: PATHPLANNER COMMANDS ====================
@@ -336,6 +352,14 @@ public class RobotContainer {
         // SmartDashboard.putData("Shooter", shooter);
         // SmartDashboard.putData("Climber", climber);
         // SmartDashboard.putData("LEDs", leds);
+
+        // === PID Tuning Test Commands ===
+        // These commands appear as buttons in SmartDashboard/Shuffleboard
+        SmartDashboard.putData("PID Tuning/Tune Turret", PIDTunerTestCommands.tuneTurretPosition(testTurret));
+        SmartDashboard.putData("PID Tuning/Test 90deg", PIDTunerTestCommands.testTunedPerformance(testTurret, 90));
+        SmartDashboard.putData("PID Tuning/Test -90deg", PIDTunerTestCommands.testTunedPerformance(testTurret, -90));
+        SmartDashboard.putData("PID Tuning/Test 45deg", PIDTunerTestCommands.testTunedPerformance(testTurret, 45));
+        SmartDashboard.putData("PID Tuning/Center Turret", PIDTunerTestCommands.testTunedPerformance(testTurret, 0));
     }
 
     /**
@@ -345,5 +369,34 @@ public class RobotContainer {
      */
     public Command getAutonomousCommand() {
         return autoChooser.getSelected();
+    }
+
+    // ==================== SECTION: SIMULATION GETTERS ====================
+
+    /**
+     * Gets the swerve subsystem for simulation pose updates.
+     *
+     * @return The SwerveSubsystem instance
+     */
+    public SwerveSubsystem getSwerve() {
+        return swerve;
+    }
+
+    /**
+     * Gets the vision simulation subsystem.
+     *
+     * @return The VisionSimSubsystem instance
+     */
+    public VisionSimSubsystem getVisionSim() {
+        return visionSim;
+    }
+
+    /**
+     * Gets the shooter subsystem for simulation shooting.
+     *
+     * @return The ShooterSubsystem instance
+     */
+    public ShooterSubsystem getShooter() {
+        return shooter;
     }
 }

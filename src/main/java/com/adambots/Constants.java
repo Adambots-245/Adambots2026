@@ -142,6 +142,88 @@ public final class Constants {
         // public static final int kTargetLostCycles = 5;
     }
 
+    // ==================== SimulationConstants ====================
+    /**
+     * Constants for 3D simulation with AdvantageScope, including FUEL physics
+     * and PhotonVision camera simulation parameters.
+     */
+    public static final class SimulationConstants {
+        // === FUEL Game Piece Physics (2026) ===
+        /** FUEL diameter in meters (15.0 cm / 5.91 inches) */
+        public static final double kFuelDiameterMeters = 0.15;
+        /** FUEL mass in kg (~0.2 kg / 0.45 lbs) */
+        public static final double kFuelMassKg = 0.2;
+        /** Drag coefficient for FUEL (sphere approximation) */
+        public static final double kFuelDragCoefficient = 0.47;
+
+        // === Shooter Physics ===
+        /** Fixed hood angle in degrees (measured from horizontal) */
+        public static final double kHoodAngleDegrees = 55.0;
+        /** Launch height from ground in meters */
+        public static final double kLaunchHeightMeters = 0.45;
+        /** Flywheel wheel radius in meters (for exit velocity calculation) */
+        public static final double kFlywheelRadiusMeters = 0.05;  // 2 inch radius
+        /** Exit velocity multiplier (accounts for slip, typically 0.7-0.9) */
+        public static final double kExitVelocityMultiplier = 0.85;
+
+        // === Camera Simulation ===
+        /** Camera resolution width in pixels */
+        public static final int kCameraResolutionWidth = 1280;
+        /** Camera resolution height in pixels */
+        public static final int kCameraResolutionHeight = 720;
+        /** Camera horizontal FOV in degrees */
+        public static final double kCameraFOVDegrees = 70.0;
+        /** Camera position relative to robot center (X = forward) */
+        public static final double kCameraXMeters = 0.3;
+        /** Camera position relative to robot center (Y = left) */
+        public static final double kCameraYMeters = 0.0;
+        /** Camera position relative to robot center (Z = up) */
+        public static final double kCameraZMeters = 0.5;
+        /** Camera pitch angle in degrees (negative = looking down) */
+        public static final double kCameraPitchDegrees = -20.0;
+        /** Camera yaw angle in degrees (0 = forward) */
+        public static final double kCameraYawDegrees = 0.0;
+
+        // === Target Heights (2026 Hub) ===
+        /** Low hub target height in meters */
+        public static final double kLowHubHeightMeters = 1.04;
+        /** High hub target height in meters */
+        public static final double kHighHubHeightMeters = 2.64;
+    }
+
+    // ==================== TestTurretConstants ====================
+    /**
+     * Constants for the test turret subsystem used to verify PIDAutoTuner functionality.
+     *
+     * <p>This is a dummy turret for testing purposes. The physics constants are
+     * tuned to provide realistic simulation response for PID tuning experiments.
+     */
+    public static final class TestTurretConstants {
+        // Motor settings
+        /** Gear ratio: motor rotations per turret rotation */
+        public static final double kGearRatio = 100.0;  // 100:1 reduction
+
+        // Position limits (degrees)
+        /** Minimum turret angle in degrees */
+        public static final double kMinAngle = -180.0;
+        /** Maximum turret angle in degrees */
+        public static final double kMaxAngle = 180.0;
+
+        // Simulation physics
+        /** Moment of inertia in kg*m^2 (affects acceleration response) */
+        public static final double kMomentOfInertia = 0.1;
+        /** Friction coefficient (affects damping and steady-state) */
+        public static final double kFrictionCoefficient = 0.02;
+
+        // Default PID (before tuning)
+        /** Default proportional gain */
+        public static final double kP = 0.05;
+        /** Default integral gain */
+        public static final double kI = 0.0;
+        /** Default derivative gain */
+        public static final double kD = 0.0;
+    }
+
     // ==================== [MechanismName]Constants ====================
     // Add new nested classes for each mechanism
     // Example:

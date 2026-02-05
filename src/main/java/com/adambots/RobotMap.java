@@ -111,4 +111,14 @@ public class RobotMap {
     // ==================== VISION ====================
     // Camera names are configured in VisionConstants, not here
     // PhotonVision cameras are accessed by name, not port
+
+    // ==================== TEST TURRET (PID TUNING) ====================
+    // This is a test subsystem for verifying PIDAutoTuner functionality.
+    // Uses a high CAN ID to avoid conflicts with other subsystems.
+    private static final int kTestTurretMotorPort = 30;
+
+    // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
+    public static final BaseMotor kTestTurretMotor = new TalonFXMotor(
+        kTestTurretMotorPort, false, 1.0, true  // Brake mode for position control
+    );
 }

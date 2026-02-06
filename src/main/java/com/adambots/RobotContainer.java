@@ -8,16 +8,15 @@ import java.io.File;
 
 import com.adambots.commands.IntakeCommands;
 import com.adambots.commands.ShootCommands;
-import com.adambots.commands.test.PIDTunerTestCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
+import com.adambots.lib.vision.PhotonVision;
+import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
-import com.adambots.subsystems.VisionSimSubsystem;
-import com.adambots.subsystems.test.TestTurretSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
@@ -26,6 +25,7 @@ import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 
@@ -69,11 +69,8 @@ public class RobotContainer {
     /** LED subsystem using CANdle for robot status indication */
     private final CANdleSubsystem leds;
 
-    /** Vision simulation subsystem for AprilTag detection in simulation */
-    private final VisionSimSubsystem visionSim;
-
-    /** Test turret subsystem for PID tuning experiments */
-    private final TestTurretSubsystem testTurret;
+    /** PhotonVision system for AprilTag detection and pose estimation */
+    private VisionSystem vision;
 
     // ==================== SECTION: AUTONOMOUS CHOOSER ====================
     /** Autonomous routine selector displayed on the dashboard */
@@ -107,12 +104,6 @@ public class RobotContainer {
                                           RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
         leds = new CANdleSubsystem(RobotMap.kCANdlePort);
 
-        // Initialize vision simulation subsystem
-        visionSim = new VisionSimSubsystem("shooter_camera");
-
-        // Initialize test turret for PID tuning experiments
-        testTurret = new TestTurretSubsystem(RobotMap.kTestTurretMotor);
-
         // 3. Setup vision
         configureVision();
 
@@ -137,15 +128,24 @@ public class RobotContainer {
 
     // ==================== SECTION: VISION SETUP ====================
     /**
-     * Configure PhotonVision cameras for the swerve subsystem.
+     * Configure PhotonVision cameras (decoupled from swerve).
+     *
+     * <p>New 3-step initialization pattern:
+     * <ol>
+     *   <li>Build VisionSystemConfig using VisionConfigBuilder</li>
+     *   <li>Create PhotonVision instance with config, pose supplier, and Field2d</li>
+     *   <li>Connect vision to swerve via swerve.setupVision()</li>
+     * </ol>
      *
      * <p>Uses VisionConfigBuilder from AdambotsLib to configure cameras:
      * <ul>
      *   <li>addCamera(name) - Camera name in PhotonVision</li>
      *   <li>position(x, y, z) - Position relative to robot center using Distance units</li>
      *   <li>rotation(roll, pitch, yaw) - Camera angle using Angle units</li>
-     *   <li>purpose(CameraPurpose) - APRIL_TAGS or OBJECT_DETECTION</li>
+     *   <li>purpose(CameraPurpose) - ODOMETRY, ALIGNMENT, or BOTH</li>
      *   <li>singleTagStdDevs / multiTagStdDevs - Pose estimation trust levels</li>
+     *   <li>maxTagDistance(Distance) - Maximum distance to recognize AprilTags</li>
+     *   <li>allowedTags(int[]) - Filter which tags this camera processes</li>
      * </ul>
      *
      * TODO: Update camera names and positions for your robot
@@ -153,23 +153,47 @@ public class RobotContainer {
     private void configureVision() {
         // TODO: Configure vision cameras using VisionConfigBuilder
         // import static edu.wpi.first.units.Units.*;
+        // import com.adambots.lib.vision.*;
         // import com.adambots.lib.vision.config.*;
+        // import com.adambots.lib.utils.Utils;
         //
+        // Step 1: Build the configuration
         // VisionSystemConfig visionConfig = VisionConfigBuilder.create()
-        //     .addCamera("front_camera")
-        //         .position(Meters.of(0.3), Meters.of(0), Meters.of(0.5))
-        //         .rotation(Degrees.of(0), Degrees.of(-20), Degrees.of(0))
-        //         .purpose(VisionCameraConfig.CameraPurpose.APRIL_TAGS)
+        //     .addCamera("left_odom")
+        //         .position(Meters.of(0.3), Meters.of(0.3), Meters.of(0.2))
+        //         .rotation(Degrees.of(0), Degrees.of(-15), Degrees.of(0))
+        //         .purpose(CameraPurpose.ODOMETRY)
+        //         .singleTagStdDevs(Meters.of(0.5), Meters.of(0.5), Radians.of(1.0))
+        //         .multiTagStdDevs(Meters.of(0.2), Meters.of(0.2), Radians.of(0.5))
+        //         .maxTagDistance(Meters.of(4.0))
         //         .done()
-        //     .addCamera("back_camera")
-        //         .position(Meters.of(-0.3), Meters.of(0), Meters.of(0.5))
-        //         .rotation(Degrees.of(0), Degrees.of(-20), Degrees.of(180))
-        //         .purpose(VisionCameraConfig.CameraPurpose.APRIL_TAGS)
+        //     .addCamera("right_odom")
+        //         .position(Meters.of(0.3), Meters.of(-0.3), Meters.of(0.2))
+        //         .rotation(Degrees.of(0), Degrees.of(-15), Degrees.of(0))
+        //         .purpose(CameraPurpose.ODOMETRY)
+        //         .singleTagStdDevs(Meters.of(0.5), Meters.of(0.5), Radians.of(1.0))
+        //         .multiTagStdDevs(Meters.of(0.2), Meters.of(0.2), Radians.of(0.5))
+        //         .maxTagDistance(Meters.of(4.0))
         //         .done()
-        //     .ambiguityThreshold(0.2)  // Reject ambiguous poses
+        //     .addCamera("turret")
+        //         .position(Meters.of(0.1), Meters.of(0), Meters.of(0.15))
+        //         .rotation(Degrees.of(0), Degrees.of(0), Degrees.of(0))
+        //         .purpose(CameraPurpose.ALIGNMENT)
+        //         .maxTagDistance(Meters.of(6.0))
+        //         .allowedTags(Constants.VisionConstants.getHubTags(Utils.isOnRedAlliance()))
+        //         .done()
+        //     .ambiguityThreshold(0.2)
         //     .build();
         //
-        // swerve.setupPhotonVision(visionConfig);
+        // Step 2: Create PhotonVision independently
+        // vision = new PhotonVision(
+        //     visionConfig,
+        //     swerve::getPose,      // Supplier<Pose2d> for current robot pose
+        //     swerve.getField()     // Field2d for visualization
+        // );
+        //
+        // Step 3: Connect vision to swerve
+        // swerve.setupVision(vision);
     }
 
     // ==================== SECTION: LED SETUP ====================
@@ -282,7 +306,6 @@ public class RobotContainer {
 
         // Example: Auto-index when intake detects game piece
         // intake.hasGamePieceTrigger().onTrue(hopper.indexOneCommand());
-
     }
 
     // ==================== SECTION: PATHPLANNER COMMANDS ====================
@@ -352,14 +375,6 @@ public class RobotContainer {
         // SmartDashboard.putData("Shooter", shooter);
         // SmartDashboard.putData("Climber", climber);
         // SmartDashboard.putData("LEDs", leds);
-
-        // === PID Tuning Test Commands ===
-        // These commands appear as buttons in SmartDashboard/Shuffleboard
-        SmartDashboard.putData("PID Tuning/Tune Turret", PIDTunerTestCommands.tuneTurretPosition(testTurret));
-        SmartDashboard.putData("PID Tuning/Test 90deg", PIDTunerTestCommands.testTunedPerformance(testTurret, 90));
-        SmartDashboard.putData("PID Tuning/Test -90deg", PIDTunerTestCommands.testTunedPerformance(testTurret, -90));
-        SmartDashboard.putData("PID Tuning/Test 45deg", PIDTunerTestCommands.testTunedPerformance(testTurret, 45));
-        SmartDashboard.putData("PID Tuning/Center Turret", PIDTunerTestCommands.testTunedPerformance(testTurret, 0));
     }
 
     /**
@@ -369,34 +384,5 @@ public class RobotContainer {
      */
     public Command getAutonomousCommand() {
         return autoChooser.getSelected();
-    }
-
-    // ==================== SECTION: SIMULATION GETTERS ====================
-
-    /**
-     * Gets the swerve subsystem for simulation pose updates.
-     *
-     * @return The SwerveSubsystem instance
-     */
-    public SwerveSubsystem getSwerve() {
-        return swerve;
-    }
-
-    /**
-     * Gets the vision simulation subsystem.
-     *
-     * @return The VisionSimSubsystem instance
-     */
-    public VisionSimSubsystem getVisionSim() {
-        return visionSim;
-    }
-
-    /**
-     * Gets the shooter subsystem for simulation shooting.
-     *
-     * @return The ShooterSubsystem instance
-     */
-    public ShooterSubsystem getShooter() {
-        return shooter;
     }
 }

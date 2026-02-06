@@ -142,86 +142,181 @@ public final class Constants {
         // public static final int kTargetLostCycles = 5;
     }
 
-    // ==================== SimulationConstants ====================
+    // ==================== VisionConstants ====================
     /**
-     * Constants for 3D simulation with AdvantageScope, including FUEL physics
-     * and PhotonVision camera simulation parameters.
-     */
-    public static final class SimulationConstants {
-        // === FUEL Game Piece Physics (2026) ===
-        /** FUEL diameter in meters (15.0 cm / 5.91 inches) */
-        public static final double kFuelDiameterMeters = 0.15;
-        /** FUEL mass in kg (~0.2 kg / 0.45 lbs) */
-        public static final double kFuelMassKg = 0.2;
-        /** Drag coefficient for FUEL (sphere approximation) */
-        public static final double kFuelDragCoefficient = 0.47;
-
-        // === Shooter Physics ===
-        /** Fixed hood angle in degrees (measured from horizontal) */
-        public static final double kHoodAngleDegrees = 55.0;
-        /** Launch height from ground in meters */
-        public static final double kLaunchHeightMeters = 0.45;
-        /** Flywheel wheel radius in meters (for exit velocity calculation) */
-        public static final double kFlywheelRadiusMeters = 0.05;  // 2 inch radius
-        /** Exit velocity multiplier (accounts for slip, typically 0.7-0.9) */
-        public static final double kExitVelocityMultiplier = 0.85;
-
-        // === Camera Simulation ===
-        /** Camera resolution width in pixels */
-        public static final int kCameraResolutionWidth = 1280;
-        /** Camera resolution height in pixels */
-        public static final int kCameraResolutionHeight = 720;
-        /** Camera horizontal FOV in degrees */
-        public static final double kCameraFOVDegrees = 70.0;
-        /** Camera position relative to robot center (X = forward) */
-        public static final double kCameraXMeters = 0.3;
-        /** Camera position relative to robot center (Y = left) */
-        public static final double kCameraYMeters = 0.0;
-        /** Camera position relative to robot center (Z = up) */
-        public static final double kCameraZMeters = 0.5;
-        /** Camera pitch angle in degrees (negative = looking down) */
-        public static final double kCameraPitchDegrees = -20.0;
-        /** Camera yaw angle in degrees (0 = forward) */
-        public static final double kCameraYawDegrees = 0.0;
-
-        // === Target Heights (2026 Hub) ===
-        /** Low hub target height in meters */
-        public static final double kLowHubHeightMeters = 1.04;
-        /** High hub target height in meters */
-        public static final double kHighHubHeightMeters = 2.64;
-    }
-
-    // ==================== TestTurretConstants ====================
-    /**
-     * Constants for the test turret subsystem used to verify PIDAutoTuner functionality.
+     * Constants for the vision system including camera names, positions, and pose estimation parameters.
      *
-     * <p>This is a dummy turret for testing purposes. The physics constants are
-     * tuned to provide realistic simulation response for PID tuning experiments.
+     * <p>Camera Position Coordinate System (robot-centric):
+     * <ul>
+     *   <li>X: Forward is positive (towards front of robot)</li>
+     *   <li>Y: Left is positive (towards left side of robot)</li>
+     *   <li>Z: Up is positive (towards top of robot)</li>
+     * </ul>
+     *
+     * <p>Camera Rotation (Euler angles):
+     * <ul>
+     *   <li>Roll: Rotation around X-axis (camera tilting side-to-side)</li>
+     *   <li>Pitch: Rotation around Y-axis (camera tilting up/down, negative = pitched down)</li>
+     *   <li>Yaw: Rotation around Z-axis (camera rotated left/right, 0 = facing forward)</li>
+     * </ul>
      */
-    public static final class TestTurretConstants {
-        // Motor settings
-        /** Gear ratio: motor rotations per turret rotation */
-        public static final double kGearRatio = 100.0;  // 100:1 reduction
+    public static final class VisionConstants {
+        // ==================== Camera Names ====================
+        // These must match the camera names configured in PhotonVision
 
-        // Position limits (degrees)
-        /** Minimum turret angle in degrees */
-        public static final double kMinAngle = -180.0;
-        /** Maximum turret angle in degrees */
-        public static final double kMaxAngle = 180.0;
+        /** Left odometry camera name (Arducam OV9281 on front-left swerve module) */
+        public static final String kLeftOdomCameraName = "left_odom";
 
-        // Simulation physics
-        /** Moment of inertia in kg*m^2 (affects acceleration response) */
-        public static final double kMomentOfInertia = 0.1;
-        /** Friction coefficient (affects damping and steady-state) */
-        public static final double kFrictionCoefficient = 0.02;
+        /** Right odometry camera name (Arducam OV9281 on front-right swerve module) */
+        public static final String kRightOdomCameraName = "right_odom";
 
-        // Default PID (before tuning)
-        /** Default proportional gain */
-        public static final double kP = 0.05;
-        /** Default integral gain */
-        public static final double kI = 0.0;
-        /** Default derivative gain */
-        public static final double kD = 0.0;
+        /** Turret camera name (Microsoft LifeCam HD-3000 on turret) */
+        public static final String kTurretCameraName = "turret";
+
+        /** Human player station camera name */
+        public static final String kHPStationCameraName = "hp_station";
+
+        // ==================== Camera Positions ====================
+        // TODO: Update these values with actual measurements from CAD
+        // All measurements are from robot center (between swerve modules at floor level)
+
+        // Left Odometry Camera (front-left swerve module)
+        /** X position of left odom camera in meters (forward from robot center) */
+        public static final double kLeftOdomCameraX = 0.3;  // TODO: Measure from CAD
+        /** Y position of left odom camera in meters (left from robot center) */
+        public static final double kLeftOdomCameraY = 0.3;  // TODO: Measure from CAD
+        /** Z position of left odom camera in meters (up from floor) */
+        public static final double kLeftOdomCameraZ = 0.2;  // TODO: Measure from CAD
+        /** Roll of left odom camera in degrees */
+        public static final double kLeftOdomCameraRoll = 0.0;
+        /** Pitch of left odom camera in degrees (negative = pitched down) */
+        public static final double kLeftOdomCameraPitch = -15.0;
+        /** Yaw of left odom camera in degrees */
+        public static final double kLeftOdomCameraYaw = 0.0;
+
+        // Right Odometry Camera (front-right swerve module)
+        /** X position of right odom camera in meters (forward from robot center) */
+        public static final double kRightOdomCameraX = 0.3;  // TODO: Measure from CAD
+        /** Y position of right odom camera in meters (right from robot center, negative) */
+        public static final double kRightOdomCameraY = -0.3;  // TODO: Measure from CAD
+        /** Z position of right odom camera in meters (up from floor) */
+        public static final double kRightOdomCameraZ = 0.2;  // TODO: Measure from CAD
+        /** Roll of right odom camera in degrees */
+        public static final double kRightOdomCameraRoll = 0.0;
+        /** Pitch of right odom camera in degrees (negative = pitched down) */
+        public static final double kRightOdomCameraPitch = -15.0;
+        /** Yaw of right odom camera in degrees */
+        public static final double kRightOdomCameraYaw = 0.0;
+
+        // Turret Camera (mounted on turret, centered on rotation axis)
+        /** X position of turret camera in meters (forward from turret center) */
+        public static final double kTurretCameraX = 0.1;  // TODO: Measure from CAD
+        /** Y position of turret camera in meters (should be ~0 if centered) */
+        public static final double kTurretCameraY = 0.0;
+        /** Z position of turret camera in meters (up from turret base) */
+        public static final double kTurretCameraZ = 0.15;  // TODO: Measure from CAD
+        /** Roll of turret camera in degrees */
+        public static final double kTurretCameraRoll = 0.0;
+        /** Pitch of turret camera in degrees */
+        public static final double kTurretCameraPitch = 0.0;
+        /** Yaw of turret camera in degrees (relative to turret forward) */
+        public static final double kTurretCameraYaw = 0.0;
+
+        // ==================== Pose Estimation Parameters ====================
+
+        /**
+         * Ambiguity threshold for rejecting poses (0.0 to 1.0).
+         * Lower = more strict, rejects more ambiguous poses.
+         * Recommended: 0.2 for competition, 0.3 for testing.
+         */
+        public static final double kAmbiguityThreshold = 0.2;
+
+        /**
+         * Standard deviations for single-tag pose estimation.
+         * Higher values = less trust in the measurement.
+         * Format: {x meters, y meters, rotation radians}
+         */
+        public static final double[] kSingleTagStdDevs = {0.5, 0.5, 1.0};
+
+        /**
+         * Standard deviations for multi-tag pose estimation.
+         * Multi-tag is more accurate, so lower std devs.
+         * Format: {x meters, y meters, rotation radians}
+         */
+        public static final double[] kMultiTagStdDevs = {0.2, 0.2, 0.5};
+
+        // ==================== AprilTag Groups ====================
+        // Game-specific tag groups for filtering and detection
+        // Use with vision.hasID() or allowedTags() in VisionConfigBuilder
+        // Reference: plans/vision-implementation.md for full tag layout
+
+        // TODO: Verify tag IDs match 2026 REBUILT field layout
+
+        /** Red alliance HUB tags - primary targets for scoring */
+        public static final int[] kRedHubTags = {};  // TODO: Add tag IDs
+
+        /** Blue alliance HUB tags - primary targets for scoring */
+        public static final int[] kBlueHubTags = {};  // TODO: Add tag IDs
+
+        /** Red alliance TOWER WALL tags - good for pose estimation */
+        public static final int[] kRedTowerTags = {};  // TODO: Add tag IDs
+
+        /** Blue alliance TOWER WALL tags - good for pose estimation */
+        public static final int[] kBlueTowerTags = {};  // TODO: Add tag IDs
+
+        /** Red alliance TRENCH tags */
+        public static final int[] kRedTrenchTags = {};  // TODO: Add tag IDs
+
+        /** Blue alliance TRENCH tags */
+        public static final int[] kBlueTrenchTags = {};  // TODO: Add tag IDs
+
+        /**
+         * Gets the HUB tags for the current alliance.
+         * @param alliance The current alliance from DriverStation
+         * @return Array of HUB tag IDs for the alliance
+         */
+        public static int[] getHubTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
+            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
+                ? kRedHubTags : kBlueHubTags;
+        }
+
+        /**
+         * Gets the HUB tags for the current alliance.
+         * Use with Utils.isOnRedAlliance() for cleaner code.
+         * @param isRedAlliance true if on red alliance, false if on blue
+         * @return Array of HUB tag IDs for the alliance
+         */
+        public static int[] getHubTags(boolean isRedAlliance) {
+            return isRedAlliance ? kRedHubTags : kBlueHubTags;
+        }
+
+        /**
+         * Gets the TOWER WALL tags for the current alliance.
+         * @param alliance The current alliance from DriverStation
+         * @return Array of TOWER tag IDs for the alliance
+         */
+        public static int[] getTowerTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
+            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
+                ? kRedTowerTags : kBlueTowerTags;
+        }
+
+        /**
+         * Gets the TOWER WALL tags for the current alliance.
+         * Use with Utils.isOnRedAlliance() for cleaner code.
+         * @param isRedAlliance true if on red alliance, false if on blue
+         * @return Array of TOWER tag IDs for the alliance
+         */
+        public static int[] getTowerTags(boolean isRedAlliance) {
+            return isRedAlliance ? kRedTowerTags : kBlueTowerTags;
+        }
+
+        // ==================== Network Configuration ====================
+
+        /** PhotonVision coprocessor IP address (OrangePi) */
+        public static final String kPhotonVisionIP = "10.2.45.11";
+
+        /** PhotonVision web dashboard port */
+        public static final int kPhotonVisionPort = 5800;
     }
 
     // ==================== [MechanismName]Constants ====================

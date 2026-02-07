@@ -113,7 +113,7 @@ The drivetrain team is responsible for the swerve drive system and autonomous pa
 - [X] Consider alliance partner coordination
 - [X] Create path sketches for each routine
 
-### 3.2 Build Practice Auto Routines - *Week 4*
+### 3.2 Build Practice Auto Routines - *Week 5*
 **Owner: Drivetrain Subteam**
 **Files:** `src/main/deploy/pathplanner/autos/`
 

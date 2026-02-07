@@ -37,82 +37,83 @@ The drivetrain team is responsible for the swerve drive system and autonomous pa
 
 ## Phase 1: Chassisbot Familiarization
 
-### 1.1 YAGSL Configuration Review
+### 1.1 YAGSL Configuration Review - *Done*
 **Owner: Drivetrain Subteam**
 **Files:** `src/main/deploy/swerve/`
 
-- [ ] Review existing YAGSL JSON configuration files
-- [ ] Understand module layout (frontleft, frontright, backleft, backright)
-- [ ] Review `swervedrive.json` for overall drive configuration
-- [ ] Review `physicalproperties.json` for wheel diameter, gear ratios
-- [ ] Review `pidfproperties.json` for PID tuning values
-- [ ] Review `controllerproperties.json` for heading correction settings
+- [X] Review existing YAGSL JSON configuration files
+- [X] Understand module layout (frontleft, frontright, backleft, backright)
+- [X] Review `swervedrive.json` for overall drive configuration
+- [X] Review `physicalproperties.json` for wheel diameter, gear ratios
+- [X] Review `pidfproperties.json` for PID tuning values
+- [X] Review `controllerproperties.json` for heading correction settings
 
-### 1.2 Basic Driving Practice
+### 1.2 Basic Driving Practice - *Done*
 **Owner: Drivetrain Subteam**
 
-- [ ] Deploy code to chassisbot
-- [ ] Test field-centric driving in all directions
-- [ ] Verify gyro heading resets correctly
-- [ ] Practice quick direction changes and rotations
-- [ ] Document any drift or alignment issues
+- [X] Deploy code to chassisbot
+- [X] Test field-centric driving in all directions
+- [X] Verify gyro heading resets correctly
+- [X] Practice quick direction changes and rotations
+- [X] Document any drift or alignment issues
+   - Piece hanging off of the robot causing drift (remove the piece)
 
-### 1.3 Telemetry Verification
+### 1.3 Telemetry Verification - *Week 4*
 **Owner: Drivetrain Subteam**
 **File:** `RobotContainer.java`
 
-- [ ] Verify module states appear in AdvantageScope
-- [ ] Verify odometry position updates correctly
-- [ ] Check wheel velocities match expected values
-- [ ] Verify turn motor angles are accurate
-- [ ] Test pose reset functionality
+- [X] Verify module states appear in AdvantageScope
+- [X] Verify odometry position updates correctly
+- [X] Check wheel velocities match expected values
+- [X] Verify turn motor angles are accurate
+- [X] Test pose reset functionality
 
 ---
 
 ## Phase 2: PathPlanner Setup
 
-### 2.1 PathPlanner Configuration
+### 2.1 PathPlanner Configuration - *Done*
 **Owner: Drivetrain Subteam**
 **Files:** `src/main/deploy/pathplanner/settings.json`
 
-- [ ] Open PathPlanner GUI and connect to project
-- [ ] Configure robot dimensions (length, width) in settings
-- [ ] Set up default constraints (max velocity, max acceleration, max angular velocity)
-- [ ] Verify PathPlanner GUI connects to robot via NetworkTables
+- [X] Open PathPlanner GUI and connect to project
+- [X] Configure robot dimensions (length, width) in settings
+- [X] Set up default constraints (max velocity, max acceleration, max angular velocity)
+- [X] Verify PathPlanner GUI connects to robot via NetworkTables
 
-### 2.2 Create Test Paths
+### 2.2 Create Test Paths - *Done*
 **Owner: Drivetrain Subteam**
 **Files:** `src/main/deploy/pathplanner/paths/`
 
-- [ ] Create simple straight-line test path (2m forward)
-- [ ] Create 90-degree turn path
-- [ ] Create S-curve path to test smooth motion
-- [ ] Test each path on chassisbot
-- [ ] Document any path-following issues
+- [X] Create simple straight-line test path (2m forward)
+- [X] Create 90-degree turn path
+- [X] Create S-curve path to test smooth motion
+- [X] Test each path on chassisbot
+- [X] Document any path-following issues
 
-### 2.3 Named Commands Setup
+### 2.3 Named Commands Setup - *Done*
 **Owner: Drivetrain Subteam**
 **File:** `RobotContainer.java`
 
-- [ ] Register placeholder named commands for subsystem actions
-- [ ] Create test autonomous routine combining paths and commands
-- [ ] Test command sequencing during path execution
-- [ ] Verify event markers trigger correctly
+- [X] Register placeholder named commands for subsystem actions
+- [X] Create test autonomous routine combining paths and commands
+- [X] Test command sequencing during path execution
+- [X] Verify event markers trigger correctly
 
 ---
 
 ## Phase 3: Autonomous Routine Development (On Chassisbot)
 
-### 3.1 Develop Auto Strategy
+### 3.1 Develop Auto Strategy - *Done*
 **Owner: Drivetrain + Strategy Subteams**
 
-- [ ] Study 2026 REBUILT game manual for scoring opportunities
-- [ ] Identify key autonomous starting positions
-- [ ] Plan 1-piece, 2-piece, and 3-piece auto routines
-- [ ] Consider alliance partner coordination
-- [ ] Create path sketches for each routine
+- [X] Study 2026 REBUILT game manual for scoring opportunities
+- [X] Identify key autonomous starting positions
+- [X] Plan 1-piece, 2-piece, and 3-piece auto routines
+- [X] Consider alliance partner coordination
+- [X] Create path sketches for each routine
 
-### 3.2 Build Practice Auto Routines
+### 3.2 Build Practice Auto Routines - *Week 4*
 **Owner: Drivetrain Subteam**
 **Files:** `src/main/deploy/pathplanner/autos/`
 
@@ -122,7 +123,7 @@ The drivetrain team is responsible for the swerve drive system and autonomous pa
 - [ ] Tune path-following PID as needed
 - [ ] Document timing of each routine
 
-### 3.3 Auto Selector Setup
+### 3.3 Auto Selector Setup - *Week 5*
 **Owner: Drivetrain Subteam**
 **File:** `RobotContainer.java`
 

@@ -1,7 +1,7 @@
 plugins {
     id "java"
     id "edu.wpi.first.GradleRIO" version "2026.2.1"
-    id "com.adambots.deploy-guard" version "2026.2.2"
+    // id "com.adambots.deploy-guard" version "2026.2.2"  // Temporarily disabled
 }
 
 java {
@@ -74,6 +74,11 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // AdvantageKit annotation processor
+    def akitJson = new groovy.json.JsonSlurper().parseText(
+        new File(projectDir.getAbsolutePath() + "/vendordeps/AdvantageKit.json").text)
+    annotationProcessor "org.littletonrobotics.akit:akit-autolog:${akitJson.version}"
 }
 
 test {

@@ -4,6 +4,9 @@
 
 package com.adambots;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.ironmaple.simulation.SimulatedArena;
 
 import com.adambots.lib.utils.Buttons;
@@ -11,10 +14,18 @@ import com.adambots.lib.utils.Buttons.ControllerType;
 
 import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.logging.EpilogueBackend;
+import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
 /**
  * The methods in this class are called automatically corresponding to each mode, as described in
@@ -22,11 +33,34 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  * creating this project, you must also update the Main.java file in the project.
  */
 @Logged
-public class Robot extends TimedRobot {
+public class Robot extends LoggedRobot {
     private Command autonomousCommand;
 
     @Logged
     private RobotContainer container;
+
+    // For tracking command execution times
+    private final Map<Command, Double> commandStartTimes = new HashMap<>();
+
+    // Epilogue backend for logging (since we can't use bind() with LoggedRobot)
+    private EpilogueBackend epilogueBackend;
+
+    /**
+     * Constructor - AdvantageKit Logger MUST be configured here, before LoggedRobot initialization.
+     */
+    public Robot() {
+        // Configure AdvantageKit Logger FIRST (required before LoggedRobot parent init)
+        Logger.recordMetadata("ProjectName", "Adambots2026");
+
+        if (isReal()) {
+            Logger.addDataReceiver(new WPILOGWriter());
+            Logger.addDataReceiver(new NT4Publisher());
+        } else {
+            Logger.addDataReceiver(new NT4Publisher());
+        }
+
+        Logger.start();
+    }
 
     /**
      * This function is run when the robot is first started up and should be used for any
@@ -34,7 +68,7 @@ public class Robot extends TimedRobot {
      */
     @Override
     public void robotInit() {
-        // 1. Start data logging FIRST
+        // 1. Start WPILib data logging (Epilogue uses this)
         DataLogManager.start();
 
         // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
@@ -48,8 +82,12 @@ public class Robot extends TimedRobot {
         // 3. Create RobotContainer (creates all subsystems)
         container = new RobotContainer();
 
-        // 4. Bind Epilogue AFTER all @Logged objects exist
-        Epilogue.bind(this);
+        // 4. Setup CommandScheduler timing hooks for troubleshooting overruns
+        setupCommandSchedulerHooks();
+
+        // 5. Setup Epilogue backend AFTER all @Logged objects exist
+        // Note: We can't use Epilogue.bind() with LoggedRobot, so we manually setup the backend
+        epilogueBackend = new NTEpilogueBackend(NetworkTableInstance.getDefault());
     }
 
     /**
@@ -61,11 +99,20 @@ public class Robot extends TimedRobot {
      */
     @Override
     public void robotPeriodic() {
+        // Time the entire scheduler run (includes command execute + subsystem periodic)
+        double schedulerStart = Timer.getFPGATimestamp();
+
         // Runs the Scheduler. This is responsible for polling buttons, adding newly-scheduled
         // commands, running already-scheduled commands, removing finished or interrupted commands,
         // and running subsystem periodic() methods. This must be called from the robot's periodic
         // block in order for anything in the Command-based framework to work.
         CommandScheduler.getInstance().run();
+
+        double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
+        Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
+
+        // Update Epilogue logging (manual invocation since we use LoggedRobot instead of TimedRobot)
+        Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
     }
 
     /** This function is called once each time the robot enters Disabled mode. */
@@ -132,5 +179,34 @@ public class Robot extends TimedRobot {
 
         // Update the simulated arena (processes projectiles, game pieces, etc.)
         SimulatedArena.getInstance().simulationPeriodic();
+    }
+
+    /**
+     * Sets up CommandScheduler hooks to log command timing for troubleshooting overruns.
+     * Logs:
+     * - Commands/Running/{name}: Boolean indicating if command is active
+     * - Commands/Duration/{name}: How long the command ran (in milliseconds)
+     */
+    private void setupCommandSchedulerHooks() {
+        CommandScheduler scheduler = CommandScheduler.getInstance();
+
+        scheduler.onCommandInitialize(command -> {
+            commandStartTimes.put(command, Timer.getFPGATimestamp());
+            Logger.recordOutput("Commands/Running/" + command.getName(), true);
+        });
+
+        scheduler.onCommandFinish(command -> {
+            Double startTime = commandStartTimes.remove(command);
+            if (startTime != null) {
+                double durationMs = (Timer.getFPGATimestamp() - startTime) * 1000.0;
+                Logger.recordOutput("Commands/Duration/" + command.getName(), durationMs);
+            }
+            Logger.recordOutput("Commands/Running/" + command.getName(), false);
+        });
+
+        scheduler.onCommandInterrupt(command -> {
+            commandStartTimes.remove(command);
+            Logger.recordOutput("Commands/Running/" + command.getName(), false);
+        });
     }
 }

@@ -42,7 +42,7 @@ public class RobotMap {
 
     // Back Left Module
     public static final int kBackLeftDriveMotorPort = 1;
-    public static final int kBackLeftTurnMotorPort = 10;
+    public static final int kBackLeftTurnMotorPort = 9;
     public static final int kBackLeftEncoderPort = -1;
 
     // Back Right Module

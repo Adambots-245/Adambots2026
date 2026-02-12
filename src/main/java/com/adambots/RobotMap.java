@@ -31,24 +31,45 @@ public class RobotMap {
 
     // ==================== SWERVE DRIVE CAN IDs ====================
     // Front Left Module
-    public static final int kFrontLeftDriveMotorPort = 1;
-    public static final int kFrontLeftTurnMotorPort = 2;
-    public static final int kFrontLeftEncoderPort = 9;
+    public static final int kFrontLeftDriveMotorPort = 3;
+    public static final int kFrontLeftTurnMotorPort = 10;
+    public static final int kFrontLeftEncoderPort = -1;
 
     // Front Right Module
-    public static final int kFrontRightDriveMotorPort = 3;
-    public static final int kFrontRightTurnMotorPort = 4;
-    public static final int kFrontRightEncoderPort = 10;
+    public static final int kFrontRightDriveMotorPort = 0;
+    public static final int kFrontRightTurnMotorPort = 8;
+    public static final int kFrontRightEncoderPort = -1;
 
     // Back Left Module
-    public static final int kBackLeftDriveMotorPort = 5;
-    public static final int kBackLeftTurnMotorPort = 6;
-    public static final int kBackLeftEncoderPort = 11;
+    public static final int kBackLeftDriveMotorPort = 1;
+    public static final int kBackLeftTurnMotorPort = 10;
+    public static final int kBackLeftEncoderPort = -1;
 
     // Back Right Module
-    public static final int kBackRightDriveMotorPort = 7;
-    public static final int kBackRightTurnMotorPort = 8;
-    public static final int kBackRightEncoderPort = 12;
+    public static final int kBackRightDriveMotorPort = 2;
+    public static final int kBackRightTurnMotorPort = 11;
+    public static final int kBackRightEncoderPort = -1;
+
+    // ==================== DRIVE ====================
+    // Front Left Module
+    public static final BaseMotor kFrontLeftDriveMotor = new TalonFXMotor(kFrontLeftDriveMotorPort, false, 60.0, true);
+    public static final BaseMotor kFrontLeftTurnMotor = new TalonFXMotor(kFrontLeftTurnMotorPort, false, 44.0, true);
+    // public static final BaseMotor kFrontLeftEncoderMotor = -1;
+
+    // Front Right Module
+    public static final BaseMotor kFrontRightDriveMotor = new TalonFXMotor(kFrontRightDriveMotorPort, false, 60.0, true);
+    public static final BaseMotor kFrontRightTurnMotor = new TalonFXMotor(kFrontRightTurnMotorPort, false, 44.0, true);
+    // public static final BaseMotor kFrontRightEncoderMotor = -1;
+
+    // Back Left Module
+    public static final BaseMotor kBackLeftDriveMotor = new TalonFXMotor(kBackLeftDriveMotorPort, false, 60.0, true);
+    public static final BaseMotor kBackLeftTurnMotor = new TalonFXMotor(kBackLeftTurnMotorPort, false, 44.0, true);
+    // public static final BaseMotor kBackLeftEncoderMotor = -1;
+
+    // Back Right Module
+    public static final BaseMotor kBackRightDriveMotor = new TalonFXMotor(kBackRightDriveMotorPort, false, 60.0, true);
+    public static final BaseMotor kBackRightTurnMotor = new TalonFXMotor(kBackRightTurnMotorPort, false, 44.0, true);
+    // public static final BaseMotor kBackRightEncoderPort = -1;
 
     // ==================== IMU ====================
     public static final int kPigeonPort = 0;

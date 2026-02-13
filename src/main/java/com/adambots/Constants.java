@@ -6,6 +6,7 @@ package com.adambots;
 
 import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Distance;
@@ -84,8 +85,9 @@ public final class Constants {
      * Constants for the shooter subsystem including flywheel speeds, turret limits, and tracking.
      */
     public static final class ShooterConstants {
-        // TODO: Flywheel velocity settings
-        public static final double kDefaultVelocity = 50.0;  // RPS
+        // Flywheel velocity settings
+        // Target: 3586 RPM (62% of max) = 59.8 RPS
+        public static final double kDefaultVelocity = 59.8;  // RPS
         // public static final double kIdleSpeed = 0.1;         // Motor power for idle
         // public static final double kVelocityTolerance = 2.0; // RPS tolerance for "at speed"
 
@@ -245,6 +247,13 @@ public final class Constants {
          */
         public static final double[] kMultiTagStdDevs = {0.2, 0.2, 0.5};
 
+        // ==================== Hub Centers ====================
+        // Field positions of alliance hub centers (for distance calculations)
+        /** Blue alliance hub center position on the field (meters) */
+        public static final Translation2d kBlueHubCenter = new Translation2d(4.62, 4.03);
+        /** Red alliance hub center position on the field (meters) */
+        public static final Translation2d kRedHubCenter = new Translation2d(12.43, 4.03);
+
         // ==================== AprilTag Groups ====================
         // Game-specific tag groups for filtering and detection
         // Use with vision.hasID() or allowedTags() in VisionConfigBuilder
@@ -253,22 +262,22 @@ public final class Constants {
         // TODO: Verify tag IDs match 2026 REBUILT field layout
 
         /** Red alliance HUB tags - primary targets for scoring */
-        public static final int[] kRedHubTags = {};  // TODO: Add tag IDs
+        public static final int[] kRedHubTags = {2, 3, 4, 5, 8, 9, 10, 11};
 
         /** Blue alliance HUB tags - primary targets for scoring */
-        public static final int[] kBlueHubTags = {};  // TODO: Add tag IDs
+        public static final int[] kBlueHubTags = {18, 19, 20, 21, 24, 25, 26, 27};
 
         /** Red alliance TOWER WALL tags - good for pose estimation */
-        public static final int[] kRedTowerTags = {};  // TODO: Add tag IDs
+        public static final int[] kRedTowerTags = {13, 14, 15, 16};
 
         /** Blue alliance TOWER WALL tags - good for pose estimation */
-        public static final int[] kBlueTowerTags = {};  // TODO: Add tag IDs
+        public static final int[] kBlueTowerTags = {29, 30, 31, 32};
 
         /** Red alliance TRENCH tags */
-        public static final int[] kRedTrenchTags = {};  // TODO: Add tag IDs
+        public static final int[] kRedTrenchTags = {1, 6, 7, 12};
 
         /** Blue alliance TRENCH tags */
-        public static final int[] kBlueTrenchTags = {};  // TODO: Add tag IDs
+        public static final int[] kBlueTrenchTags = {17, 22, 23, 28};
 
         /**
          * Gets the HUB tags for the current alliance.
@@ -310,6 +319,15 @@ public final class Constants {
             return isRedAlliance ? kRedTowerTags : kBlueTowerTags;
         }
 
+        /**
+         * Gets the hub center position for the current alliance.
+         * @param isRedAlliance true if on red alliance, false if on blue
+         * @return Translation2d of the hub center
+         */
+        public static Translation2d getHubCenter(boolean isRedAlliance) {
+            return isRedAlliance ? kRedHubCenter : kBlueHubCenter;
+        }
+
         // ==================== Network Configuration ====================
 
         /** PhotonVision coprocessor IP address (OrangePi) */
@@ -317,6 +335,88 @@ public final class Constants {
 
         /** PhotonVision web dashboard port */
         public static final int kPhotonVisionPort = 5800;
+    }
+
+    // ==================== SimulationConstants ====================
+    /**
+     * Constants for 3D simulation with AdvantageScope, including FUEL physics
+     * and PhotonVision camera simulation parameters.
+     */
+    public static final class SimulationConstants {
+        // === FUEL Game Piece Physics (2026) ===
+        /** FUEL diameter in meters (15.0 cm / 5.91 inches) */
+        public static final double kFuelDiameterMeters = 0.15;
+        /** FUEL mass in kg (0.227 kg / 0.5 lbs) - confirmed by mechanical team */
+        public static final double kFuelMassKg = 0.227;
+        /** Drag coefficient for FUEL (sphere approximation) */
+        public static final double kFuelDragCoefficient = 0.47;
+
+        // === Shooter Physics (confirmed by mechanical team) ===
+        /** Fixed hood angle in degrees (measured from horizontal) - confirmed 60° */
+        public static final double kHoodAngleDegrees = 60.0;
+        /** Launch height from ground in meters - TODO: waiting for exit height from mechanical */
+        public static final double kLaunchHeightMeters = 0.45;
+        /** Flywheel wheel radius in meters (2 inches = 0.0508m) - confirmed */
+        public static final double kFlywheelRadiusMeters = 0.0508;
+        /** Exit velocity multiplier (accounts for slip, typically 0.7-0.9) */
+        public static final double kExitVelocityMultiplier = 0.85;
+
+        // === Camera Simulation ===
+        /** Camera resolution width in pixels */
+        public static final int kCameraResolutionWidth = 1280;
+        /** Camera resolution height in pixels */
+        public static final int kCameraResolutionHeight = 720;
+        /** Camera horizontal FOV in degrees */
+        public static final double kCameraFOVDegrees = 70.0;
+        /** Camera position relative to robot center (X = forward) */
+        public static final double kCameraXMeters = 0.3;
+        /** Camera position relative to robot center (Y = left) */
+        public static final double kCameraYMeters = 0.0;
+        /** Camera position relative to robot center (Z = up) */
+        public static final double kCameraZMeters = 0.5;
+        /** Camera pitch angle in degrees (negative = looking down) */
+        public static final double kCameraPitchDegrees = -20.0;
+        /** Camera yaw angle in degrees (0 = forward) */
+        public static final double kCameraYawDegrees = 0.0;
+
+        // === Target Heights (2026 Hub) ===
+        /** Low hub target height in meters */
+        public static final double kLowHubHeightMeters = 1.04;
+        /** High hub target height in meters (72 inches = 1.83m) - from game manual */
+        public static final double kHighHubHeightMeters = 1.83;
+    }
+
+    // ==================== TestTurretConstants ====================
+    /**
+     * Constants for the test turret subsystem used to verify PIDAutoTuner functionality.
+     *
+     * <p>This is a dummy turret for testing purposes. The physics constants are
+     * tuned to provide realistic simulation response for PID tuning experiments.
+     */
+    public static final class TestTurretConstants {
+        // Motor settings
+        /** Gear ratio: motor rotations per turret rotation */
+        public static final double kGearRatio = 100.0;  // 100:1 reduction
+
+        // Position limits (degrees)
+        /** Minimum turret angle in degrees */
+        public static final double kMinAngle = -180.0;
+        /** Maximum turret angle in degrees */
+        public static final double kMaxAngle = 180.0;
+
+        // Simulation physics
+        /** Moment of inertia in kg*m^2 (affects acceleration response) */
+        public static final double kMomentOfInertia = 0.1;
+        /** Friction coefficient (affects damping and steady-state) */
+        public static final double kFrictionCoefficient = 0.02;
+
+        // Default PID (before tuning)
+        /** Default proportional gain */
+        public static final double kP = 0.05;
+        /** Default integral gain */
+        public static final double kI = 0.0;
+        /** Default derivative gain */
+        public static final double kD = 0.0;
     }
 
     // ==================== [MechanismName]Constants ====================

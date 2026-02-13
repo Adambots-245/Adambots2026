@@ -40,7 +40,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  */
 public class FuelProjectile {
 
-    // Hood angle (55 degrees from horizontal)
+    // Hood angle (60 degrees from horizontal - confirmed by mechanical)
     private static final Angle HOOD_ANGLE = Degrees.of(SimulationConstants.kHoodAngleDegrees);
 
     // Launch height from ground
@@ -59,10 +59,12 @@ public class FuelProjectile {
         0.6    // coefficientOfRestitution (bounciness)
     );
 
-    // Target position (hub center) - field-relative
+    // Target position (Blue Reef hub center) - field-relative
+    // Blue Reef AprilTags (IDs 18-21, 24-27) center at approximately (4.62, 4.03)
+    // TODO: Switch to Red Reef (11.90, 4.03) when on red alliance
     private static final Translation3d HIGH_HUB_CENTER = new Translation3d(
-        8.23,   // X position (center of field)
-        4.11,   // Y position (center of field)
+        4.62,   // X position (Blue Reef center)
+        4.03,   // Y position (field center-line)
         SimulationConstants.kHighHubHeightMeters
     );
 

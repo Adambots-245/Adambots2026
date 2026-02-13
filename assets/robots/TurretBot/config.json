@@ -1,0 +1,63 @@
+{
+  "name": "Turret Bot",
+  "isFTC": false,
+  "rotations": [
+    {
+      "axis": "x",
+      "degrees": 90
+    },
+    {
+      "axis": "z",
+      "degrees": 90
+    }
+  ],
+  "position": [
+    -0.3,
+    0,
+    0.05
+  ],
+  "cameras": [
+    {
+      "name": "Camera",
+      "rotations": [
+        {
+          "axis": "y",
+          "degrees": -25
+        },
+        {
+          "axis": "z",
+          "degrees": 180
+        }
+      ],
+      "position": [
+        0.35,
+        0,
+        0.5
+      ],
+      "resolution": [
+        960,
+        720
+      ],
+      "fov": 90
+    }
+  ],
+  "components": [
+    {
+      "zeroedRotations": [
+        {
+          "axis": "x",
+          "degrees": 90
+        },
+        {
+          "axis": "z",
+          "degrees": 90
+        }
+      ],
+      "zeroedPosition": [
+        0.0,
+        0.0,
+        0.15
+      ]
+    }
+  ]
+}

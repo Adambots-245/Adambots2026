@@ -50,6 +50,7 @@ public class VisionSimSubsystem extends SubsystemBase {
 
     // ==================== STATE ====================
     private double lastDistanceToTarget = 0.0;
+    private double lastTargetYawDegrees = 0.0;
     private boolean hasTarget = false;
     private int targetId = -1;
 
@@ -155,11 +156,20 @@ public class VisionSimSubsystem extends SubsystemBase {
                     transform.getX() * transform.getX() +
                     transform.getY() * transform.getY()
                 );
+
+                // Get yaw angle to target (degrees, positive = target is to the left)
+                lastTargetYawDegrees = bestTarget.getYaw();
             } else {
                 targetId = -1;
-                // Keep the last known distance (don't reset to 0)
+                // Keep the last known distance and yaw (don't reset)
             }
         }
+
+        // Publish live telemetry for simulation testing
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Vision/HasTarget", hasTarget);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putNumber("Vision/Distance", lastDistanceToTarget);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putNumber("Vision/TargetYaw", lastTargetYawDegrees);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putNumber("Vision/TagId", targetId);
     }
 
     // ==================== PUBLIC GETTERS ====================
@@ -171,6 +181,16 @@ public class VisionSimSubsystem extends SubsystemBase {
      */
     public double getDistanceToTarget() {
         return lastDistanceToTarget;
+    }
+
+    /**
+     * Gets the yaw angle to the currently tracked target.
+     * Positive means the target is to the left of the camera center.
+     *
+     * @return Yaw angle in degrees, or the last known yaw if no target
+     */
+    public double getTargetYawDegrees() {
+        return lastTargetYawDegrees;
     }
 
     /**

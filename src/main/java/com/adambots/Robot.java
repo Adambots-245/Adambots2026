@@ -9,6 +9,9 @@ import java.util.Map;
 
 import org.ironmaple.simulation.SimulatedArena;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.ControllerType;
 
@@ -71,11 +74,12 @@ public class Robot extends LoggedRobot {
         // 1. Start WPILib data logging (Epilogue uses this)
         DataLogManager.start();
 
-        // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
+        // 2. Initialize buttons with Xbox controllers for both driver and operator
+        // NOTE: Changed driver from EXTREME_3D_PRO to XBOX for simulation testing
         Buttons.init(
             RobotMap.kDriverJoystickPort,
             RobotMap.kOperatorXboxPort,
-            ControllerType.EXTREME_3D_PRO,
+            ControllerType.XBOX,
             ControllerType.XBOX
         );
 
@@ -168,6 +172,10 @@ public class Robot extends LoggedRobot {
         // Initialize the maple-sim simulated arena
         // This sets up the physics simulation environment for projectiles
         SimulatedArena.getInstance();
+
+        // Set default starting pose: ~3m from Blue Reef, facing toward it
+        container.getSwerve().resetOdometry(
+            new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0)));
     }
 
     /** This function is called periodically whilst in simulation. */

@@ -6,17 +6,27 @@ package com.adambots;
 
 import java.io.File;
 
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import com.adambots.lib.utils.tuning.PIDAutoTuner;
+import com.adambots.lib.utils.tuning.TuningResult;
 import com.adambots.commands.IntakeCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
+import com.adambots.lib.utils.Utils;
 import com.adambots.lib.vision.PhotonVision;
 import com.adambots.lib.vision.VisionSystem;
+import edu.wpi.first.wpilibj.GenericHID;
+import com.adambots.simulation.FuelProjectile;
 import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
+import com.adambots.subsystems.VisionSimSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
@@ -24,6 +34,8 @@ import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -72,6 +84,9 @@ public class RobotContainer {
     /** PhotonVision system for AprilTag detection and pose estimation */
     private VisionSystem vision;
 
+    /** Vision simulation subsystem for PhotonVision sim */
+    private final VisionSimSubsystem visionSim;
+
     // ==================== SECTION: AUTONOMOUS CHOOSER ====================
     /** Autonomous routine selector displayed on the dashboard */
     private final SendableChooser<Command> autoChooser = new SendableChooser<>();
@@ -103,6 +118,9 @@ public class RobotContainer {
         climber = new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
                                           RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
         leds = new CANdleSubsystem(RobotMap.kCANdlePort);
+
+        // Initialize vision simulation subsystem
+        visionSim = new VisionSimSubsystem("shooter_camera");
 
         // 3. Setup vision
         configureVision();
@@ -242,15 +260,20 @@ public class RobotContainer {
      * Default commands run whenever no other command is using that subsystem.
      */
     private void configureDefaultCommands() {
-        // Get the joystick from Buttons
-        CommandJoystick joystick = Buttons.getJoystick();
+        // WORKAROUND: macOS Xbox controller axis mapping differs from WPILib's expected mapping.
+        // WPILib's getRightX() reads axis 4, but on macOS axis 4 is a trigger (rests at -1.0).
+        // Actual macOS mapping: axis 0=LeftX, 1=LeftY, 2=RightX, 3=RightY, 4/5=Triggers
+        // TODO: Revert to Buttons.createForwardSupplier() etc. when using Extreme 3D Pro on real robot
+        GenericHID driverHID = new GenericHID(RobotMap.kDriverJoystickPort);
+        double deadzone = Constants.DriveConstants.kDeadzone;
+        double rotDeadzone = Constants.DriveConstants.kRotationDeadzone;
 
-        // Swerve drive default command - field-oriented drive using joystick
+        climber.setDefaultCommand(Commands.run(()->System.out.println("Test Message"), climber));
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                () -> -Buttons.applyDeadzone(joystick.getY(), Constants.DriveConstants.kDeadzone),
-                () -> -Buttons.applyDeadzone(joystick.getX(), Constants.DriveConstants.kDeadzone),
-                () -> -Buttons.applyDeadzone(joystick.getTwist(), Constants.DriveConstants.kRotationDeadzone)
+                () -> -Buttons.applyDeadzone(driverHID.getRawAxis(1), deadzone),   // Left Y
+                () -> -Buttons.applyDeadzone(driverHID.getRawAxis(0), deadzone),   // Left X
+                () -> -Buttons.applyCubicCurve(Buttons.applyDeadzone(driverHID.getRawAxis(2), rotDeadzone)) // Right X (macOS) + cubic curve
             )
         );
 
@@ -279,8 +302,8 @@ public class RobotContainer {
      */
     private void configureButtonBindings() {
         // === Driver Controls ===
-        // Reset gyro heading with joystick button 2
-        Buttons.JoystickButton2.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+        // Reset gyro heading - use Xbox Start button (was JoystickButton2 for Extreme 3D Pro)
+        Buttons.XboxStartButton.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
         // TODO: Add driver bindings
         // Buttons.JoystickButton1.whileTrue(swerve.lockWheelsCommand());
@@ -375,6 +398,209 @@ public class RobotContainer {
         // SmartDashboard.putData("Shooter", shooter);
         // SmartDashboard.putData("Climber", climber);
         // SmartDashboard.putData("LEDs", leds);
+
+        // ==================== SIMULATION TEST COMMANDS ====================
+        // These commands are for testing the 3D shooter simulation in AdvantageScope.
+        // They appear as buttons in Shuffleboard/SmartDashboard.
+
+        // Reset robot pose to a sensible position (~3m from Blue Hub, facing toward it)
+        SmartDashboard.putData("Sim/Reset Pose", Commands.runOnce(() -> {
+            swerve.resetOdometry(new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0)));
+        }).withName("ResetPose"));
+
+        // Shoot at mid-range RPS (25 RPS, good for ~3m distance)
+        SmartDashboard.putData("Sim/Shoot Default", Commands.runOnce(() -> {
+            double rps = 25.0;
+            double exitVelocity = FuelProjectile.calculateExitVelocity(rps);
+            FuelProjectile.launch(swerve.getPose(), swerve.getRobotVelocity(), exitVelocity);
+            SmartDashboard.putNumber("Sim/LastShotRPS", rps);
+            SmartDashboard.putNumber("Sim/LastExitVelocity", exitVelocity);
+        }).withName("ShootDefault"));
+
+        // Shoot using vision distance (auto-calculate RPS from distance-to-RPS table)
+        SmartDashboard.putData("Sim/Shoot Vision", Commands.runOnce(() -> {
+            double distance = visionSim.getDistanceToTarget();
+            double rps = shooter.getRPSForDistance(distance);
+            double exitVelocity = FuelProjectile.calculateExitVelocity(rps);
+            FuelProjectile.launch(swerve.getPose(), swerve.getRobotVelocity(), exitVelocity);
+            SmartDashboard.putNumber("Sim/LastShotDistance", distance);
+            SmartDashboard.putNumber("Sim/LastShotRPS", rps);
+        }).withName("ShootVision"));
+
+        // Shoot with custom RPS (read from SmartDashboard number input)
+        SmartDashboard.putNumber("Sim/CustomRPS", 25.0);
+        SmartDashboard.putData("Sim/Shoot Custom RPS", Commands.runOnce(() -> {
+            double rps = SmartDashboard.getNumber("Sim/CustomRPS", 25.0);
+            double exitVelocity = FuelProjectile.calculateExitVelocity(rps);
+            FuelProjectile.launch(swerve.getPose(), swerve.getRobotVelocity(), exitVelocity);
+        }).withName("ShootCustomRPS"));
+
+        // Shoot at specific distances (for tuning the distance-to-RPS table)
+        SmartDashboard.putNumber("Sim/TestDistance", 3.0);
+        SmartDashboard.putData("Sim/Shoot At Distance", Commands.runOnce(() -> {
+            double distance = SmartDashboard.getNumber("Sim/TestDistance", 3.0);
+            double rps = shooter.getRPSForDistance(distance);
+            double exitVelocity = FuelProjectile.calculateExitVelocity(rps);
+            FuelProjectile.launch(swerve.getPose(), swerve.getRobotVelocity(), exitVelocity);
+            SmartDashboard.putNumber("Sim/LastShotRPS", rps);
+            SmartDashboard.putNumber("Sim/LastExitVelocity", exitVelocity);
+        }).withName("ShootAtDistance"));
+
+        // Estimate required RPS for a distance (physics calculation, no shot)
+        SmartDashboard.putData("Sim/Estimate RPS", Commands.runOnce(() -> {
+            double distance = SmartDashboard.getNumber("Sim/TestDistance", 3.0);
+            double estimatedRPS = FuelProjectile.estimateRequiredRPS(distance);
+            SmartDashboard.putNumber("Sim/EstimatedRPS", estimatedRPS);
+        }).withName("EstimateRPS"));
+
+        // ==================== ALIGNMENT TUNING ====================
+        // Tunable PID gains — change these live in Shuffleboard before pressing Auto Align.
+        // P: rad/s per radian of error (3.0 → 180°/s at 60° error)
+        // D: damping (opposes rotation to prevent overshoot)
+        // MaxOmega: caps angular velocity in rad/s
+        SmartDashboard.putNumber("Align/P", 3.0);
+        SmartDashboard.putNumber("Align/D", 0.1);
+        SmartDashboard.putNumber("Align/ToleranceDeg", 2.0);
+        SmartDashboard.putNumber("Align/MaxOmega", 6.0);
+
+        // Auto-align to hub center using a local PIDController with live-tunable gains.
+        // Uses its own PID (not YAGSL heading PID) so tuning doesn't affect normal driving.
+        // Debug values are published each cycle under "Align/" in Shuffleboard.
+        SmartDashboard.putData("Sim/Auto Align", Commands.defer(() -> {
+            Translation2d hubCenter = Constants.VisionConstants.getHubCenter(Utils.isOnRedAlliance());
+            Pose2d robotPose = swerve.getPose();
+            double targetRad = Math.atan2(
+                hubCenter.getY() - robotPose.getY(),
+                hubCenter.getX() - robotPose.getX());
+
+            PIDController pid = new PIDController(
+                SmartDashboard.getNumber("Align/P", 3.0),
+                0,
+                SmartDashboard.getNumber("Align/D", 0.1));
+            pid.enableContinuousInput(-Math.PI, Math.PI);
+            pid.setTolerance(Math.toRadians(SmartDashboard.getNumber("Align/ToleranceDeg", 2.0)));
+
+            // Diagnostic: show EXACTLY what values were used for target calculation
+            SmartDashboard.putNumber("Align/TargetDeg", Math.toDegrees(targetRad));
+            SmartDashboard.putNumber("Align/RobotX", robotPose.getX());
+            SmartDashboard.putNumber("Align/RobotY", robotPose.getY());
+            SmartDashboard.putNumber("Align/RobotHeadingDeg", robotPose.getRotation().getDegrees());
+            SmartDashboard.putNumber("Align/HubX", hubCenter.getX());
+            SmartDashboard.putNumber("Align/HubY", hubCenter.getY());
+            SmartDashboard.putBoolean("Align/IsRedAlliance", Utils.isOnRedAlliance());
+
+            return Commands.run(() -> {
+                // Live-update gains from Shuffleboard each cycle
+                pid.setP(SmartDashboard.getNumber("Align/P", 3.0));
+                pid.setD(SmartDashboard.getNumber("Align/D", 0.1));
+                pid.setTolerance(Math.toRadians(SmartDashboard.getNumber("Align/ToleranceDeg", 2.0)));
+
+                double currentRad = swerve.getPose().getRotation().getRadians();
+                double output = pid.calculate(currentRad, targetRad);
+                double maxOmega = SmartDashboard.getNumber("Align/MaxOmega", 6.0);
+                output = MathUtil.clamp(output, -maxOmega, maxOmega);
+
+                // Debug telemetry — watch these in Shuffleboard to diagnose alignment
+                SmartDashboard.putNumber("Align/CurrentDeg", Math.toDegrees(currentRad));
+                SmartDashboard.putNumber("Align/ErrorDeg", Math.toDegrees(pid.getError()));
+                SmartDashboard.putNumber("Align/PID_Output", output);
+                SmartDashboard.putNumber("Align/P_Contrib", pid.getP() * pid.getError());
+                SmartDashboard.putBoolean("Align/AtTarget", pid.atSetpoint());
+
+                swerve.drive(new ChassisSpeeds(0, 0, output));
+            }, swerve).until(pid::atSetpoint)
+              .finallyDo(() -> {
+                  swerve.drive(new ChassisSpeeds(0, 0, 0));
+                  SmartDashboard.putString("Sim/AlignStatus", "LOCKED");
+              });
+        }, java.util.Set.of(swerve)).withTimeout(10).withName("AutoAlign"));
+
+        // Auto-align to hub center then shoot once.
+        SmartDashboard.putData("Sim/Align and Shoot", Commands.defer(() -> {
+            Translation2d hubCenter = Constants.VisionConstants.getHubCenter(Utils.isOnRedAlliance());
+            double targetRad = Math.atan2(
+                hubCenter.getY() - swerve.getPose().getY(),
+                hubCenter.getX() - swerve.getPose().getX());
+
+            PIDController pid = new PIDController(
+                SmartDashboard.getNumber("Align/P", 3.0),
+                0,
+                SmartDashboard.getNumber("Align/D", 0.1));
+            pid.enableContinuousInput(-Math.PI, Math.PI);
+            pid.setTolerance(Math.toRadians(SmartDashboard.getNumber("Align/ToleranceDeg", 2.0)));
+
+            return Commands.run(() -> {
+                pid.setP(SmartDashboard.getNumber("Align/P", 3.0));
+                pid.setD(SmartDashboard.getNumber("Align/D", 0.1));
+                pid.setTolerance(Math.toRadians(SmartDashboard.getNumber("Align/ToleranceDeg", 2.0)));
+
+                double currentRad = swerve.getPose().getRotation().getRadians();
+                double output = pid.calculate(currentRad, targetRad);
+                double maxOmega = SmartDashboard.getNumber("Align/MaxOmega", 6.0);
+                output = MathUtil.clamp(output, -maxOmega, maxOmega);
+
+                SmartDashboard.putNumber("Align/ErrorDeg", Math.toDegrees(pid.getError()));
+                SmartDashboard.putNumber("Align/PID_Output", output);
+                SmartDashboard.putBoolean("Align/AtTarget", pid.atSetpoint());
+
+                swerve.drive(new ChassisSpeeds(0, 0, output));
+            }, swerve).until(pid::atSetpoint)
+              .finallyDo(() -> swerve.drive(new ChassisSpeeds(0, 0, 0)))
+              .andThen(Commands.runOnce(() -> {
+                  SmartDashboard.putString("Sim/AlignStatus", "SHOOTING");
+                  double distance = swerve.getPose().getTranslation().getDistance(hubCenter);
+                  double rps = shooter.getRPSForDistance(distance);
+                  double exitVelocity = FuelProjectile.calculateExitVelocity(rps);
+                  FuelProjectile.launch(swerve.getPose(), swerve.getRobotVelocity(), exitVelocity);
+                  SmartDashboard.putNumber("Sim/LastShotDistance", distance);
+                  SmartDashboard.putNumber("Sim/LastShotRPS", rps);
+              }));
+        }, java.util.Set.of(swerve)).withTimeout(10).withName("AlignAndShoot"));
+
+        // ==================== ALIGNMENT AUTO-TUNING ====================
+        // Uses AdambotsLib PIDAutoTuner (Ziegler-Nichols relay feedback) to find optimal P, I, D.
+        // Workflow: Reset Pose → Tune Alignment → Apply Tuned Gains → Auto Align
+        // IMPORTANT: Reset pose first (heading ≈ 0°) to avoid angle wrapping during oscillation.
+        Command tuneCmd = PIDAutoTuner.create("HeadingAlign")
+            .measureWith(() -> swerve.getPose().getRotation().getRadians())
+            .controlWith(omega -> swerve.drive(new ChassisSpeeds(0, 0, omega)))
+            .range(-Math.PI, Math.PI)
+            .maxOutput(3.0)    // ±3.0 rad/s during oscillation (~170°/s)
+            .timeout(15.0)
+            .buildCommand();
+
+        SmartDashboard.putData("Sim/Tune Alignment", Commands.sequence(
+            Commands.runOnce(() -> SmartDashboard.putString("Sim/TuneStatus", "TUNING..."), swerve),
+            tuneCmd,
+            Commands.runOnce(() -> {
+                swerve.drive(new ChassisSpeeds(0, 0, 0));
+                TuningResult result = PIDAutoTuner.getLastResult("HeadingAlign");
+                if (result != null) {
+                    SmartDashboard.putString("Sim/TuneStatus",
+                        String.format("Done: P=%.4f I=%.4f D=%.4f", result.kP(), result.kI(), result.kD()));
+                } else {
+                    SmartDashboard.putString("Sim/TuneStatus", "Tuning failed — no result");
+                }
+            })
+        ).finallyDo(() -> swerve.drive(new ChassisSpeeds(0, 0, 0)))
+         .withName("TuneAlignment"));
+
+        // Apply auto-tuned gains scaled to 50% (Z-N "no overshoot" rule).
+        // Raw Z-N gains target ~25% overshoot; halving gives a conservative starting point.
+        SmartDashboard.putData("Sim/Apply Tuned Gains", Commands.runOnce(() -> {
+            TuningResult result = PIDAutoTuner.getLastResult("HeadingAlign");
+            if (result != null) {
+                double scaledP = result.kP() * 0.5;
+                double scaledD = result.kD() * 0.5;
+                SmartDashboard.putNumber("Align/P", scaledP);
+                SmartDashboard.putNumber("Align/D", scaledD);
+                SmartDashboard.putString("Sim/TuneStatus",
+                    String.format("Applied (50%%): P=%.4f D=%.4f (raw: P=%.4f D=%.4f)",
+                        scaledP, scaledD, result.kP(), result.kD()));
+            } else {
+                SmartDashboard.putString("Sim/TuneStatus", "No result — run Tune Alignment first");
+            }
+        }).withName("ApplyTunedGains"));
     }
 
     /**
@@ -384,5 +610,23 @@ public class RobotContainer {
      */
     public Command getAutonomousCommand() {
         return autoChooser.getSelected();
+    }
+
+    /**
+     * Gets the swerve subsystem for simulation pose updates.
+     *
+     * @return The SwerveSubsystem instance
+     */
+    public SwerveSubsystem getSwerve() {
+        return swerve;
+    }
+
+    /**
+     * Gets the vision simulation subsystem.
+     *
+     * @return The VisionSimSubsystem instance
+     */
+    public VisionSimSubsystem getVisionSim() {
+        return visionSim;
     }
 }

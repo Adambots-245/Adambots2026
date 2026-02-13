@@ -80,15 +80,19 @@ public class ShooterSubsystem extends SubsystemBase {
     private static final InterpolatingDoubleTreeMap distanceToRPS = new InterpolatingDoubleTreeMap();
     static {
         // Distance (meters) → Flywheel RPS
-        // These are initial estimates - tune in simulation!
-        distanceToRPS.put(1.5, 40.0);   // Close shot
-        distanceToRPS.put(2.0, 45.0);   //
-        distanceToRPS.put(2.5, 50.0);   //
-        distanceToRPS.put(3.0, 55.0);   // Mid shot
-        distanceToRPS.put(4.0, 62.0);   //
-        distanceToRPS.put(5.0, 70.0);   // Far shot
-        distanceToRPS.put(6.0, 78.0);   // Long range
-        distanceToRPS.put(7.0, 85.0);   // Maximum range
+        // Range: 1.0m (close) to 4.5m (max scoring distance from barge)
+        // Hood: 60°, Hub height: 1.83m, Launch height: 0.45m
+        // Calculated from projectile motion: v² = g*d² / (2*cos²θ*(d*tanθ - Δh))
+        // then RPS = v / (2π * radius * multiplier)
+        // TODO: Tune these values in simulation!
+        distanceToRPS.put(1.0, 22.0);   // Close shot
+        distanceToRPS.put(1.5, 20.0);   //
+        distanceToRPS.put(2.0, 21.0);   //
+        distanceToRPS.put(2.5, 23.0);   // Mid shot
+        distanceToRPS.put(3.0, 25.0);   //
+        distanceToRPS.put(3.5, 27.0);   //
+        distanceToRPS.put(4.0, 29.0);   // Far shot
+        distanceToRPS.put(4.5, 31.0);   // Maximum range (near barge)
     }
 
     // PID Controllers for closed-loop control

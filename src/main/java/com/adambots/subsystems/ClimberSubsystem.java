@@ -5,6 +5,7 @@
 package com.adambots.subsystems;
 
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.actuators.BaseSolenoid;
 import com.adambots.lib.sensors.LimitSwitch;
 
 import edu.wpi.first.epilogue.Logged;
@@ -12,6 +13,8 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import org.littletonrobotics.junction.Logger;
 
@@ -32,49 +35,31 @@ import org.littletonrobotics.junction.Logger;
 public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: HARDWARE ====================
-    private final BaseMotor leftMotor;
-    private final BaseMotor rightMotor;
-    private final LimitSwitch leftLimitSwitch;
-    private final LimitSwitch rightLimitSwitch;
+    private final BaseMotor motor;
+    private final BaseSolenoid solenoid;
+    private final LimitSwitch limitSwitch;
 
     // ==================== SECTION: STATE ====================
-    // TODO: Declare state variables here
-    // private boolean isLeftAtBottom = false;
-    // private boolean isRightAtBottom = false;
-    // private boolean isClimbing = false;
+    private boolean isAtBottom = false;
+    private boolean isAtTop = false;
+    private boolean isClimbing = false;
 
     // ==================== SECTION: TRIGGERS ====================
     // Expose state as yes/no questions via Trigger objects
 
     /**
-     * Returns true when the left climber is at the bottom (retracted).
+     * Returns true when the climber is at the bottom (retracted).
      */
-    public Trigger isLeftAtBottomTrigger() {
+    public Trigger isAtBottomTrigger() {
         // TODO: Implement limit switch logic
         return new Trigger(() -> false);
     }
 
     /**
-     * Returns true when the right climber is at the bottom (retracted).
+     * Returns true when the climber is at the top (extended).
      */
-    public Trigger isRightAtBottomTrigger() {
+    public Trigger isAtTopTrigger() {
         // TODO: Implement limit switch logic
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when both climbers are at the bottom (fully retracted).
-     */
-    public Trigger isFullyRetractedTrigger() {
-        // TODO: Implement combined limit switch logic
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when the climber is extended (ready to climb).
-     */
-    public Trigger isExtendedTrigger() {
-        // TODO: Implement position check
         return new Trigger(() -> false);
     }
 
@@ -82,31 +67,24 @@ public class ClimberSubsystem extends SubsystemBase {
      * Returns true when the robot is climbing (motors under load).
      */
     public Trigger isClimbingTrigger() {
-        // TODO: Implement current check
-        return new Trigger(() -> false);
+        return new Trigger(() -> motor.getVelocity().in(RotationsPerSecond) > 0.0);
     }
 
     // ==================== SECTION: CONSTRUCTOR ====================
     /**
      * Creates a new ClimberSubsystem.
      *
-     * @param leftMotor The left climber motor controller (passed from RobotContainer)
-     * @param rightMotor The right climber motor controller (passed from RobotContainer)
-     * @param leftLimitSwitch The left bottom limit switch (passed from RobotContainer)
-     * @param rightLimitSwitch The right bottom limit switch (passed from RobotContainer)
+     * @param motor The climber motor controller (passed from RobotContainer)
+     * @param solenoid The ratchet solenoid (passed from RobotContainer)
+     * @param limitSwitch The limit switch at the top of the climber (passed from RobotContainer)
      */
-    public ClimberSubsystem(BaseMotor leftMotor, BaseMotor rightMotor,
-                            LimitSwitch leftLimitSwitch, LimitSwitch rightLimitSwitch) {
-        this.leftMotor = leftMotor;
-        this.rightMotor = rightMotor;
-        this.leftLimitSwitch = leftLimitSwitch;
-        this.rightLimitSwitch = rightLimitSwitch;
+    public ClimberSubsystem(BaseMotor motor, BaseSolenoid solenoid, LimitSwitch limitSwitch) {
+        this.motor = motor;
+        this.solenoid = solenoid;
+        this.limitSwitch = limitSwitch;
 
-        // TODO: Configure motor settings if needed
-        // leftMotor.setCurrentLimit(60);  // Climbers need high current
-        // rightMotor.setCurrentLimit(60);
-        // leftMotor.setBrakeMode(true);   // Important for climbing!
-        // rightMotor.setBrakeMode(true);
+        motor.setBrakeMode(true);
+
     }
 
     // ==================== SECTION: COMMAND FACTORIES ====================

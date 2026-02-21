@@ -54,19 +54,19 @@ public class RobotContainer {
     /** Swerve drive subsystem - configured via YAGSL JSON files in deploy/swerve/ */
     private final SwerveSubsystem swerve;
 
-    /** Intake subsystem for acquiring game pieces */
+    /** Intake subsystem for acquiring game pieces (null if disabled in RobotMap) */
     private final IntakeSubsystem intake;
 
-    /** Hopper subsystem for storing and staging game pieces */
+    /** Hopper subsystem for storing and staging game pieces (null if disabled in RobotMap) */
     private final HopperSubsystem hopper;
 
-    /** Shooter subsystem for launching game pieces */
+    /** Shooter subsystem for launching game pieces (null if disabled in RobotMap) */
     private final ShooterSubsystem shooter;
 
-    /** Climber subsystem for end-game climbing */
+    /** Climber subsystem for end-game climbing (null if disabled in RobotMap) */
     private final ClimberSubsystem climber;
 
-    /** LED subsystem using CANdle for robot status indication */
+    /** LED subsystem using CANdle for robot status indication (null if disabled in RobotMap) */
     private final CANdleSubsystem leds;
 
     /** PhotonVision system for AprilTag detection and pose estimation */
@@ -97,12 +97,18 @@ public class RobotContainer {
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
 
         // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
-        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor);
-        hopper = new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor);
-        shooter = new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor);
-        climber = new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
-                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
-        leds = new CANdleSubsystem(RobotMap.kCANdlePort);
+        // Subsystems are only created when their enable flag is true in RobotMap
+        intake = RobotMap.INTAKE_ENABLED
+            ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor) : null;
+        hopper = RobotMap.HOPPER_ENABLED
+            ? new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor) : null;
+        shooter = RobotMap.SHOOTER_ENABLED
+            ? new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor) : null;
+        climber = RobotMap.CLIMBER_ENABLED
+            ? new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
+                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
+        leds = RobotMap.LEDS_ENABLED
+            ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
 
         // 3. Setup vision
         configureVision();
@@ -224,6 +230,8 @@ public class RobotContainer {
      * </ul>
      */
     private void configureLEDs() {
+        if (leds == null) return;
+
         // Set default LED command - show alliance color when enabled
         leds.setDefaultCommand(leds.allianceColorCommand());
 
@@ -334,7 +342,9 @@ public class RobotContainer {
     private void configurePathPlannerCommands() {
         // ===== Shooter Commands =====
         // Spin up flywheel (use as event marker while driving to shooting position)
-        NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
+        if (shooter != null) {
+            NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
+        }
 
     }
 

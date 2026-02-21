@@ -26,7 +26,7 @@ public class RobotMap {
     // ==================== SUBSYSTEM ENABLE FLAGS ====================
     // Set to false for subsystems not yet physically built.
     // When disabled, no CAN/DIO devices are created → no CAN errors.
-    public static final boolean INTAKE_ENABLED = false;
+    public static final boolean INTAKE_ENABLED = true;
     public static final boolean HOPPER_ENABLED = false;
     public static final boolean SHOOTER_ENABLED = false;
     public static final boolean CLIMBER_ENABLED = false;
@@ -42,16 +42,15 @@ public class RobotMap {
 
     // ==================== INTAKE ====================
     // Port assignments
-    private static final int kIntakeMotorPort = 13;
-    private static final int kIntakeSensorPort = 0;  // DIO
+    private static final int kIntakeMotorPort = 33;
+    private static final int kIntakeMotorArmPort = 32;
 
     // Hardware devices
     // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
         ? new TalonFXMotor(kIntakeMotorPort, false, 1.0, false) : null;
-    // PhotoEye(port, inverted)
-    public static final BaseProximitySensor kIntakeSensor = INTAKE_ENABLED
-        ? new PhotoEye(kIntakeSensorPort, false) : null;
+    public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
+        ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
 
     // ==================== HOPPER ====================
     // Port assignments

@@ -3,6 +3,8 @@ package com.adambots;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.MinionMotor;
 import com.adambots.lib.actuators.TalonFXMotor;
+import com.adambots.lib.sensors.BaseDistanceSensor;
+import com.adambots.lib.sensors.CANRangeSensor;
 
 /**
  * RobotMap defines all hardware port assignments and motor instances for TestBoard.
@@ -26,7 +28,8 @@ public class RobotMap {
     public static final int kShooterRightPort = 22;  // Kraken X60 (follower)
     public static final int kTurretPort = 51;        // Minion (WCP GreyT Turret)
     public static final int kUptakePort = 20;        // Kraken X44
-
+    public static final int kHopperPort = 26;        // Kraken X60
+    public static final int kCANRangeHopperPort = 35; 
     // ==================== Motor Instances ====================
     // Using BaseMotor allows easy swap between motor types (TalonFX, NEO, etc.)
     // TalonFXMotor(portNum, isOnCANivore, supplyCurrentLimit, isKraken)
@@ -40,6 +43,12 @@ public class RobotMap {
 
     // Uptake motor (Kraken X44)
     public static final BaseMotor uptakeMotor = new TalonFXMotor(kUptakePort, false, 40.0, true);
+
+    // Hopper motor (Kraken X60)
+    public static final BaseMotor hopperMotor = new TalonFXMotor(kHopperPort, false, 60.0, true);
+
+    // CANRange for Hopper
+    public static final BaseDistanceSensor hopperPieceSensor = new CANRangeSensor(kCANRangeHopperPort, false);
 
     // ==================== Add Your Motors Here ====================
     // Example:

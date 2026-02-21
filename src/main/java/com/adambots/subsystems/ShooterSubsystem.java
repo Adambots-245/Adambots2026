@@ -37,14 +37,10 @@ public class ShooterSubsystem extends SubsystemBase {
     private GenericEntry flywheelIEntry;
     private GenericEntry flywheelDEntry;
     private GenericEntry flywheelFFEntry;
-    private GenericEntry turretPEntry;
-    private GenericEntry turretIEntry;
-    private GenericEntry turretDEntry;
     private GenericEntry targetDistanceEntry;
     private GenericEntry flywheelToleranceEntry;
     private GenericEntry exitVelocityMultiplierEntry;
     private GenericEntry exitHeightEntry;
-    private GenericEntry turretAngleEntry;
 
     // Interpolation table tunable entries (5 rows of distance + RPS)
     private final GenericEntry[] tableDistanceEntries = new GenericEntry[5];
@@ -52,7 +48,6 @@ public class ShooterSubsystem extends SubsystemBase {
 
     // Last-applied PID values to avoid flooding CAN bus
     private double lastFlywheelP, lastFlywheelI, lastFlywheelD, lastFlywheelFF;
-    private double lastTurretP, lastTurretI, lastTurretD;
 
     public ShooterSubsystem(BaseMotor leftFlywheel, BaseMotor rightFlywheel) {
         this.leftFlywheel = leftFlywheel;

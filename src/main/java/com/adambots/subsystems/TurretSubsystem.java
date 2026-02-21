@@ -6,9 +6,13 @@ package com.adambots.subsystems;
 
 import com.adambots.Constants.ShooterTestConstants;
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.actuators.BaseMotor.ControlMode;
 import com.adambots.lib.utils.Dash;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class TurretSubsystem extends SubsystemBase {
@@ -80,6 +84,21 @@ public class TurretSubsystem extends SubsystemBase {
         }
     }
 
+    public void setTurretAngle(double degrees){
+      degrees = MathUtil.clamp(degrees,
+        ShooterTestConstants.kTurretMinDegrees, ShooterTestConstants.kTurretMaxDegrees);
+      double rotations = (degrees/360.0) * ShooterTestConstants.kTurretGearRatio;
+      turretMotor.set(ControlMode.POSITION, rotations);
+    }
+
+    public void StopTurret(){
+      turretMotor.set(0);
+    }
+
+    public double getTurretAngleDegrees(){
+      return (turretMotor.getPosition() / ShooterTestConstants.kTurretGearRatio) * 360.0;
+    }
+
   @Override
     public void periodic() {
         // Read tunable PID values and apply only when changed
@@ -96,4 +115,27 @@ public class TurretSubsystem extends SubsystemBase {
             }
         }
     }
+
+
+
+
+    // ==================== Command Factories ====================
+
+    public Command aimTurretCommand(double degrees){
+      return Commands.runOnce(() -> setTurretAngle(degrees))
+        .withName("Turret " + degrees + " deg");
+    }
+    //use for/delete after tuning
+    public Command aimTurretManualCommand(){
+      return Commands.run(() -> setTurretAngle(
+            turretAngleEntry != null ? turretAngleEntry.getDouble(90.0) : 90.0))
+        .withName("Aim Turret Manual"); 
+    }
+
+    public Command stopTurret(){
+      return Commands.runOnce(this::stopTurret)
+        .withName("Stop Turret");
+    }
+
+
 }

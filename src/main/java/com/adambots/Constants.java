@@ -104,6 +104,12 @@ public final class Constants {
         public static final Current kUptakeCurrentLimit = Amps.of(40);
     }
 
+
+    public static final class HopperConstants{
+        public static final double kHopperSpeed = 0.5;
+        public static final double kDetectionRange = 2.0; //cm
+    }
+
     // ==================== Add Your Constants Here ====================
     // Example:
     // public static final class IntakeConstants {

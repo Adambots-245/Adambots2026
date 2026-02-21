@@ -51,7 +51,7 @@ public class RobotContainer {
 
     public RobotContainer() {
         shooter = new ShooterSubsystem(RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor);
-        hopper = new HopperSubsystem();
+        hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.hopperPieceSensor);
         turret = new TurretSubsystem(RobotMap.turretMotor); 
     }
 

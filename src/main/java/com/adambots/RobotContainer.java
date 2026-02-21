@@ -8,10 +8,15 @@ import java.io.File;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import com.adambots.lib.utils.tuning.PIDAutoTuner;
 import com.adambots.lib.utils.tuning.TuningResult;
+import com.adambots.Constants.HangConstants;
+import com.adambots.commands.HangAlignCommands;
 import com.adambots.commands.IntakeCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
@@ -129,6 +134,21 @@ public class RobotContainer {
 
         // Initialize vision simulation subsystem
         visionSim = new VisionSimSubsystem("shooter_camera");
+
+        // Initialize rear camera for hang alignment
+        visionSim.initRearCamera(
+            HangConstants.kRearCameraName,
+            new Transform3d(
+                new Translation3d(
+                    HangConstants.kRearCameraXMeters,
+                    HangConstants.kRearCameraYMeters,
+                    HangConstants.kRearCameraZMeters),
+                new Rotation3d(
+                    0,
+                    Math.toRadians(HangConstants.kRearCameraPitchDegrees),
+                    Math.toRadians(HangConstants.kRearCameraYawDegrees))
+            )
+        );
 
         // 3. Setup vision
         configureVision();
@@ -278,7 +298,7 @@ public class RobotContainer {
         double deadzone = Constants.DriveConstants.kDeadzone;
         double rotDeadzone = Constants.DriveConstants.kRotationDeadzone;
 
-        Dash.add("Z", ()->Buttons.getJoystick().getZ());
+        // Dash.add("Z", ()->Buttons.getJoystick().getZ());
 
         if (climber != null) {
             climber.setDefaultCommand(Commands.run(()->System.out.println("Test Message"), climber));
@@ -617,6 +637,34 @@ public class RobotContainer {
                 SmartDashboard.putString("Sim/TuneStatus", "No result — run Tune Alignment first");
             }
         }).withName("ApplyTunedGains"));
+
+        // ==================== HANG ALIGNMENT COMMANDS ====================
+
+        // Tunable PID gains for hang alignment
+        SmartDashboard.putNumber("Hang/RotP", HangConstants.kRotP);
+        SmartDashboard.putNumber("Hang/RotD", HangConstants.kRotD);
+        SmartDashboard.putNumber("Hang/LatP", HangConstants.kLatP);
+        SmartDashboard.putNumber("Hang/LatD", HangConstants.kLatD);
+        SmartDashboard.putNumber("Hang/DistP", HangConstants.kDistP);
+        SmartDashboard.putNumber("Hang/DistD", HangConstants.kDistD);
+
+        // Tower selection toggle
+        SmartDashboard.putBoolean("Hang/UseUpperTower", true);
+
+        // Reset robot to human player station pose
+        SmartDashboard.putData("Sim/Reset to HP Station", Commands.runOnce(() -> {
+            boolean isRed = Utils.isOnRedAlliance();
+            Pose2d hpPose = HangConstants.getHPStationPose(isRed);
+            swerve.resetOdometry(hpPose);
+            SmartDashboard.putString("Hang/Status", "AT HP STATION");
+        }).withName("ResetToHPStation"));
+
+        // Full hang alignment sequence
+        SmartDashboard.putData("Sim/Hang Align", Commands.defer(() -> {
+            boolean isRed = Utils.isOnRedAlliance();
+            boolean useUpper = SmartDashboard.getBoolean("Hang/UseUpperTower", true);
+            return HangAlignCommands.hangAlignCommand(swerve, visionSim, isRed, useUpper);
+        }, java.util.Set.of(swerve)).withName("HangAlign"));
     }
 
     /**

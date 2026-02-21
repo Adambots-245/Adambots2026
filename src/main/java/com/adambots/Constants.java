@@ -6,6 +6,8 @@ package com.adambots;
 
 import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
@@ -417,6 +419,166 @@ public final class Constants {
         public static final double kI = 0.0;
         /** Default derivative gain */
         public static final double kD = 0.0;
+    }
+
+    // ==================== HangConstants ====================
+    /**
+     * Constants for simulated hang alignment using a rear-facing PhotonVision camera.
+     *
+     * <p>The hang mechanism mounts to the back of the robot and climbs from the side
+     * of the tower structure. A rear camera detects tower wall AprilTags and three
+     * PID controllers align rotation, lateral position, and standoff distance.
+     *
+     * <p>Tower Wall AprilTags are at z=0.55m on alliance walls:
+     * <ul>
+     *   <li>Red Upper: tags 13,14 at x=16.533m, y≈7.19m facing -X</li>
+     *   <li>Red Lower: tags 15,16 at x=16.533m, y≈4.11m facing -X</li>
+     *   <li>Blue Lower: tags 29,30 at x=0.008m, y≈0.88m facing +X</li>
+     *   <li>Blue Upper: tags 31,32 at x=0.008m, y≈3.96m facing +X</li>
+     * </ul>
+     */
+    public static final class HangConstants {
+        // ==================== Rear Camera Position ====================
+        /** Camera X: behind robot center (negative = backward) */
+        public static final double kRearCameraXMeters = -0.28;
+        /** Camera Y: centered on robot */
+        public static final double kRearCameraYMeters = 0.0;
+        /** Camera Z: 12 inches up from ground */
+        public static final double kRearCameraZMeters = 0.30;
+        /** Camera pitch: slightly up to see low-mounted tags (degrees) */
+        public static final double kRearCameraPitchDegrees = 5.0;
+        /** Camera yaw: facing backward (degrees) */
+        public static final double kRearCameraYawDegrees = 180.0;
+        /** Camera name in PhotonVision */
+        public static final String kRearCameraName = "hang_camera";
+
+        // ==================== Target Distance ====================
+        /** Target distance from robot center to wall (meters) */
+        public static final double kTargetDistanceFromWall = 0.60;
+
+        // ==================== PID Gains ====================
+        // Rotation PID (heading alignment)
+        public static final double kRotP = 3.0;
+        public static final double kRotI = 0.0;
+        public static final double kRotD = 0.1;
+        public static final double kRotToleranceDeg = 2.0;
+        public static final double kMaxOmega = 2.0; // rad/s
+
+        // Lateral PID (strafe to center tag in frame)
+        public static final double kLatP = 0.8;
+        public static final double kLatI = 0.0;
+        public static final double kLatD = 0.05;
+        public static final double kLatToleranceMeters = 0.03;
+        public static final double kMaxLateralSpeed = 1.0; // m/s
+
+        // Distance PID (forward/back to correct standoff)
+        public static final double kDistP = 1.5;
+        public static final double kDistI = 0.0;
+        public static final double kDistD = 0.1;
+        public static final double kDistToleranceMeters = 0.05;
+        public static final double kMaxForwardSpeed = 1.0; // m/s
+
+        // ==================== Tower Tag Pairs ====================
+        /** Red upper tower tags */
+        public static final int[] kRedUpperTowerTags = {13, 14};
+        /** Red lower tower tags */
+        public static final int[] kRedLowerTowerTags = {15, 16};
+        /** Blue lower tower tags */
+        public static final int[] kBlueLowerTowerTags = {29, 30};
+        /** Blue upper tower tags */
+        public static final int[] kBlueUpperTowerTags = {31, 32};
+
+        // ==================== Tower Rung Centers ====================
+        // Midpoints between each tag pair (field coordinates)
+        public static final Translation2d kRedUpperRungCenter = new Translation2d(16.533, 7.19);
+        public static final Translation2d kRedLowerRungCenter = new Translation2d(16.533, 4.11);
+        public static final Translation2d kBlueLowerRungCenter = new Translation2d(0.008, 0.88);
+        public static final Translation2d kBlueUpperRungCenter = new Translation2d(0.008, 3.96);
+
+        // ==================== Approach Poses ====================
+        // ~1.5m from wall, robot's back facing the wall
+        // Red towers: wall at x=16.533, approach from x=15.033, heading=0 (back faces +X wall)
+        // Blue towers: wall at x=0.008, approach from x=1.508, heading=180 (back faces -X wall)
+        public static final Pose2d kRedUpperApproach = new Pose2d(15.033, 7.19, Rotation2d.fromDegrees(0));
+        public static final Pose2d kRedLowerApproach = new Pose2d(15.033, 4.11, Rotation2d.fromDegrees(0));
+        public static final Pose2d kBlueLowerApproach = new Pose2d(1.508, 0.88, Rotation2d.fromDegrees(180));
+        public static final Pose2d kBlueUpperApproach = new Pose2d(1.508, 3.96, Rotation2d.fromDegrees(180));
+
+        // ==================== HP Station Poses ====================
+        // Human player station starting positions (near alliance wall, facing field)
+        public static final Pose2d kRedHPStation = new Pose2d(15.5, 1.0, Rotation2d.fromDegrees(180));
+        public static final Pose2d kBlueHPStation = new Pose2d(1.0, 1.0, Rotation2d.fromDegrees(0));
+
+        // ==================== Helper Methods ====================
+
+        /**
+         * Gets the approach pose for the selected tower.
+         * @param isRedAlliance true if red alliance
+         * @param useUpperTower true for upper tower, false for lower
+         * @return Approach Pose2d (~1.5m from wall, back facing wall)
+         */
+        public static Pose2d getApproachPose(boolean isRedAlliance, boolean useUpperTower) {
+            if (isRedAlliance) {
+                return useUpperTower ? kRedUpperApproach : kRedLowerApproach;
+            } else {
+                return useUpperTower ? kBlueUpperApproach : kBlueLowerApproach;
+            }
+        }
+
+        /**
+         * Gets the rung center for the selected tower.
+         * @param isRedAlliance true if red alliance
+         * @param useUpperTower true for upper tower, false for lower
+         * @return Translation2d of the rung center on the field
+         */
+        public static Translation2d getRungCenter(boolean isRedAlliance, boolean useUpperTower) {
+            if (isRedAlliance) {
+                return useUpperTower ? kRedUpperRungCenter : kRedLowerRungCenter;
+            } else {
+                return useUpperTower ? kBlueUpperRungCenter : kBlueLowerRungCenter;
+            }
+        }
+
+        /**
+         * Gets the tower tag IDs for the selected tower.
+         * @param isRedAlliance true if red alliance
+         * @param useUpperTower true for upper tower, false for lower
+         * @return Array of 2 AprilTag IDs for the tower
+         */
+        public static int[] getTowerTags(boolean isRedAlliance, boolean useUpperTower) {
+            if (isRedAlliance) {
+                return useUpperTower ? kRedUpperTowerTags : kRedLowerTowerTags;
+            } else {
+                return useUpperTower ? kBlueUpperTowerTags : kBlueLowerTowerTags;
+            }
+        }
+
+        /**
+         * Gets the HP station pose for the alliance.
+         * @param isRedAlliance true if red alliance
+         * @return Pose2d at the human player station
+         */
+        public static Pose2d getHPStationPose(boolean isRedAlliance) {
+            return isRedAlliance ? kRedHPStation : kBlueHPStation;
+        }
+
+        /**
+         * Gets the target heading when the robot's back faces the wall.
+         * Red towers are on the +X wall, so robot faces +X (heading=0) to have back face wall...
+         * Actually: back faces +X when heading=0 means front faces +X. We need back facing wall.
+         * Red wall at x=16.533: back must face +X → robot heading = 0° (front +X, back -X)...
+         * Wait — back facing the wall means the back of the robot points toward the wall.
+         * Red wall is at high X. Back points toward +X when heading = 180° (front faces -X).
+         * Blue wall is at low X. Back points toward -X when heading = 0° (front faces +X).
+         *
+         * @param isRedAlliance true if red alliance
+         * @return Target heading in radians for back-to-wall alignment
+         */
+        public static double getTargetHeadingRad(boolean isRedAlliance) {
+            // Red: wall at +X side, back must face +X → heading = 180° (π)
+            // Blue: wall at -X side, back must face -X → heading = 0° (0)
+            return isRedAlliance ? Math.PI : 0.0;
+        }
     }
 
     // ==================== [MechanismName]Constants ====================

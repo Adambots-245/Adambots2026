@@ -17,6 +17,8 @@ import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
+import com.adambots.lib.utils.Buttons.InputCurve;
+import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
 import com.adambots.lib.vision.PhotonVision;
 import com.adambots.lib.vision.VisionSystem;
@@ -39,7 +41,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
+
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -66,19 +68,19 @@ public class RobotContainer {
     /** Swerve drive subsystem - configured via YAGSL JSON files in deploy/swerve/ */
     private final SwerveSubsystem swerve;
 
-    /** Intake subsystem for acquiring game pieces */
+    /** Intake subsystem for acquiring game pieces (null if disabled in RobotMap) */
     private final IntakeSubsystem intake;
 
-    /** Hopper subsystem for storing and staging game pieces */
+    /** Hopper subsystem for storing and staging game pieces (null if disabled in RobotMap) */
     private final HopperSubsystem hopper;
 
-    /** Shooter subsystem for launching game pieces */
+    /** Shooter subsystem for launching game pieces (null if disabled in RobotMap) */
     private final ShooterSubsystem shooter;
 
-    /** Climber subsystem for end-game climbing */
+    /** Climber subsystem for end-game climbing (null if disabled in RobotMap) */
     private final ClimberSubsystem climber;
 
-    /** LED subsystem using CANdle for robot status indication */
+    /** LED subsystem using CANdle for robot status indication (null if disabled in RobotMap) */
     private final CANdleSubsystem leds;
 
     /** PhotonVision system for AprilTag detection and pose estimation */
@@ -112,12 +114,18 @@ public class RobotContainer {
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
 
         // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
-        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor);
-        hopper = new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor);
-        shooter = new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor);
-        climber = new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
-                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
-        leds = new CANdleSubsystem(RobotMap.kCANdlePort);
+        // Subsystems are only created when their enable flag is true in RobotMap
+        intake = RobotMap.INTAKE_ENABLED
+            ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor) : null;
+        hopper = RobotMap.HOPPER_ENABLED
+            ? new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor) : null;
+        shooter = RobotMap.SHOOTER_ENABLED
+            ? new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor) : null;
+        climber = RobotMap.CLIMBER_ENABLED
+            ? new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
+                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
+        leds = RobotMap.LEDS_ENABLED
+            ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
 
         // Initialize vision simulation subsystem
         visionSim = new VisionSimSubsystem("shooter_camera");
@@ -242,6 +250,8 @@ public class RobotContainer {
      * </ul>
      */
     private void configureLEDs() {
+        if (leds == null) return;
+
         // Set default LED command - show alliance color when enabled
         leds.setDefaultCommand(leds.allianceColorCommand());
 
@@ -268,7 +278,11 @@ public class RobotContainer {
         double deadzone = Constants.DriveConstants.kDeadzone;
         double rotDeadzone = Constants.DriveConstants.kRotationDeadzone;
 
-        climber.setDefaultCommand(Commands.run(()->System.out.println("Test Message"), climber));
+        Dash.add("Z", ()->Buttons.getJoystick().getZ());
+
+        if (climber != null) {
+            climber.setDefaultCommand(Commands.run(()->System.out.println("Test Message"), climber));
+        }
         swerve.setDefaultCommand(
             swerve.driveCommand(
                 () -> -Buttons.applyDeadzone(driverHID.getRawAxis(1), deadzone),   // Left Y
@@ -357,7 +371,9 @@ public class RobotContainer {
     private void configurePathPlannerCommands() {
         // ===== Shooter Commands =====
         // Spin up flywheel (use as event marker while driving to shooting position)
-        NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
+        if (shooter != null) {
+            NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
+        }
 
     }
 

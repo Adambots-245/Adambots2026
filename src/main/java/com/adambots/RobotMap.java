@@ -23,35 +23,22 @@ import com.adambots.lib.sensors.PhotoEye;
  */
 public class RobotMap {
 
+    // ==================== SUBSYSTEM ENABLE FLAGS ====================
+    // Set to false for subsystems not yet physically built.
+    // When disabled, no CAN/DIO devices are created → no CAN errors.
+    public static final boolean INTAKE_ENABLED = false;
+    public static final boolean HOPPER_ENABLED = false;
+    public static final boolean SHOOTER_ENABLED = false;
+    public static final boolean CLIMBER_ENABLED = false;
+    public static final boolean LEDS_ENABLED = true;
+
     // ==================== CONTROLLER PORTS ====================
     /** Driver controller port - Logitech Extreme 3D Pro joystick */
     public static final int kDriverJoystickPort = 0;
     /** Operator controller port - Xbox controller */
     public static final int kOperatorXboxPort = 1;
 
-    // ==================== SWERVE DRIVE CAN IDs ====================
-    // Front Left Module
-    public static final int kFrontLeftDriveMotorPort = 1;
-    public static final int kFrontLeftTurnMotorPort = 2;
-    public static final int kFrontLeftEncoderPort = 9;
-
-    // Front Right Module
-    public static final int kFrontRightDriveMotorPort = 3;
-    public static final int kFrontRightTurnMotorPort = 4;
-    public static final int kFrontRightEncoderPort = 10;
-
-    // Back Left Module
-    public static final int kBackLeftDriveMotorPort = 5;
-    public static final int kBackLeftTurnMotorPort = 6;
-    public static final int kBackLeftEncoderPort = 11;
-
-    // Back Right Module
-    public static final int kBackRightDriveMotorPort = 7;
-    public static final int kBackRightTurnMotorPort = 8;
-    public static final int kBackRightEncoderPort = 12;
-
-    // ==================== IMU ====================
-    public static final int kPigeonPort = 0;
+    // Swerve drive CAN IDs and IMU are configured via YAGSL JSON files in deploy/swerve/
 
     // ==================== INTAKE ====================
     // Port assignments
@@ -60,9 +47,11 @@ public class RobotMap {
 
     // Hardware devices
     // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
-    public static final BaseMotor kIntakeMotor = new TalonFXMotor(kIntakeMotorPort, false, 1.0, false);
+    public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
+        ? new TalonFXMotor(kIntakeMotorPort, false, 1.0, false) : null;
     // PhotoEye(port, inverted)
-    public static final BaseProximitySensor kIntakeSensor = new PhotoEye(kIntakeSensorPort, false);
+    public static final BaseProximitySensor kIntakeSensor = INTAKE_ENABLED
+        ? new PhotoEye(kIntakeSensorPort, false) : null;
 
     // ==================== HOPPER ====================
     // Port assignments
@@ -71,9 +60,12 @@ public class RobotMap {
     private static final int kHopperSensorPort = 1;  // DIO
 
     // Hardware devices
-    public static final BaseMotor kHopperCarouselMotor = new TalonFXMotor(kHopperCarouselMotorPort, false, 1.0, false);
-    public static final BaseMotor kHopperUptakeMotor = new TalonFXMotor(kHopperUptakeMotorPort, false, 1.0, false);
-    public static final BaseProximitySensor kHopperSensor = new PhotoEye(kHopperSensorPort, false);
+    public static final BaseMotor kHopperCarouselMotor = HOPPER_ENABLED
+        ? new TalonFXMotor(kHopperCarouselMotorPort, false, 1.0, false) : null;
+    public static final BaseMotor kHopperUptakeMotor = HOPPER_ENABLED
+        ? new TalonFXMotor(kHopperUptakeMotorPort, false, 1.0, false) : null;
+    public static final BaseProximitySensor kHopperSensor = HOPPER_ENABLED
+        ? new PhotoEye(kHopperSensorPort, false) : null;
 
     // ==================== SHOOTER ====================
     // Port assignments
@@ -83,9 +75,12 @@ public class RobotMap {
 
     // Hardware devices
     // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
-    public static final BaseMotor kShooterLeftMotor = new TalonFXMotor(kShooterLeftMotorPort, false, 1.0, false);
-    public static final BaseMotor kShooterRightMotor = new TalonFXMotor(kShooterRightMotorPort, true, 1.0, false);  // Inverted to spin opposite
-    public static final BaseMotor kShooterTurretMotor = new TalonFXMotor(kShooterTurretMotorPort, false, 1.0, true);  // Brake mode for turret
+    public static final BaseMotor kShooterLeftMotor = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterLeftMotorPort, false, 1.0, false) : null;
+    public static final BaseMotor kShooterRightMotor = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterRightMotorPort, true, 1.0, false) : null;  // Inverted to spin opposite
+    public static final BaseMotor kShooterTurretMotor = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterTurretMotorPort, false, 1.0, true) : null;  // Brake mode for turret
 
     // TODO: Add turret encoder (REV Through Bore via DIO)
     // import com.adambots.lib.sensors.ThroughBoreEncoder;
@@ -99,11 +94,15 @@ public class RobotMap {
     private static final int kClimberRightLimitPort = 4;  // DIO
 
     // Hardware devices
-    public static final BaseMotor kClimberLeftMotor = new TalonFXMotor(kClimberLeftMotorPort, false, 1.0, true);
-    public static final BaseMotor kClimberRightMotor = new TalonFXMotor(kClimberRightMotorPort, false, 1.0, true);
+    public static final BaseMotor kClimberLeftMotor = CLIMBER_ENABLED
+        ? new TalonFXMotor(kClimberLeftMotorPort, false, 1.0, true) : null;
+    public static final BaseMotor kClimberRightMotor = CLIMBER_ENABLED
+        ? new TalonFXMotor(kClimberRightMotorPort, false, 1.0, true) : null;
     // LimitSwitch(port, inverted)
-    public static final LimitSwitch kClimberLeftLimit = new LimitSwitch(kClimberLeftLimitPort, false);
-    public static final LimitSwitch kClimberRightLimit = new LimitSwitch(kClimberRightLimitPort, false);
+    public static final LimitSwitch kClimberLeftLimit = CLIMBER_ENABLED
+        ? new LimitSwitch(kClimberLeftLimitPort, false) : null;
+    public static final LimitSwitch kClimberRightLimit = CLIMBER_ENABLED
+        ? new LimitSwitch(kClimberRightLimitPort, false) : null;
 
     // ==================== LED (CANdle) ====================
     public static final int kCANdlePort = 0;  // CAN ID for CANdle LED controller

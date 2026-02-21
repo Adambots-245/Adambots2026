@@ -5,6 +5,7 @@
 package com.adambots;
 
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.actuators.ElectricalSolenoid;
 import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseProximitySensor;
 import com.adambots.lib.sensors.LimitSwitch;
@@ -87,21 +88,20 @@ public class RobotMap {
 
     // ==================== CLIMBER ====================
     // Port assignments
-    private static final int kClimberLeftMotorPort = 20;
-    private static final int kClimberRightMotorPort = 21;
-    private static final int kClimberLeftLimitPort = 3;   // DIO
-    private static final int kClimberRightLimitPort = 4;  // DIO
+    private static final int kClimberMotorPort = -1; // TODO(vx-clutch): get motor port
+    private static final int kClimberSolenoidPort = -1; // TODO(vx-clutch): get solenoid port
+    private static final int kClimberLimitSwitchPort = -1; // TODO(vx-clutch): get limitSwitch port
+
 
     // Hardware devices
-    public static final BaseMotor kClimberLeftMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberLeftMotorPort, false, 1.0, true) : null;
-    public static final BaseMotor kClimberRightMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberRightMotorPort, false, 1.0, true) : null;
+    public static final BaseMotor kClimberMotor = CLIMBER_ENABLED
+        ? new TalonFXMotor(kClimberMotorPort, false, 1.0, true) : null;
     // LimitSwitch(port, inverted)
-    public static final LimitSwitch kClimberLeftLimit = CLIMBER_ENABLED
-        ? new LimitSwitch(kClimberLeftLimitPort, false) : null;
-    public static final LimitSwitch kClimberRightLimit = CLIMBER_ENABLED
-        ? new LimitSwitch(kClimberRightLimitPort, false) : null;
+    public static final LimitSwitch kClimberLimitSwitch = CLIMBER_ENABLED
+        ? new LimitSwitch(kClimberLimitSwitchPort, false) : null;
+    // Solenoid(port)
+    public static final ElectricalSolenoid kClimberSolenoid = CLIMBER_ENABLED
+        ? new ElectricalSolenoid(kClimberSolenoidPort) : null;
 
     // ==================== LED (CANdle) ====================
     public static final int kCANdlePort = 0;  // CAN ID for CANdle LED controller

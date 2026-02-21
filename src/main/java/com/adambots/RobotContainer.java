@@ -107,8 +107,7 @@ public class RobotContainer {
         shooter = RobotMap.SHOOTER_ENABLED
             ? new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor) : null;
         climber = RobotMap.CLIMBER_ENABLED
-            ? new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
-                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
+            ? new ClimberSubsystem(RobotMap.kClimberMotor, RobotMap.kClimberSolenoid, RobotMap.kClimberLimitSwitch) : null;
         leds = RobotMap.LEDS_ENABLED
             ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
 

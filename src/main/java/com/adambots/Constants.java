@@ -376,6 +376,13 @@ public final class Constants {
         public static final double kSimGearRatio = 28.0;
     }
 
+    // ==================== Intake Constants ====================
+    public static final class ClimberConstants {
+        public static final double kMaxSpeed = 40; // TODO(vx-clutch): Figure out what this should be.
+        public static final double kLoweredPosition = 0; // TODO(vx-clutch): Get the position of the moter while the elevator is in its lowest positon.
+        public static final double kGearRatio = 1/64;
+        public static final double kTolerance = 0.25;
+    }
 
     // ==================== [MechanismName]Constants ====================
     // Add new nested classes for each mechanism

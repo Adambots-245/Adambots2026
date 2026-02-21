@@ -13,7 +13,6 @@ import com.adambots.lib.utils.Dash;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.GenericEntry;
-import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
@@ -22,7 +21,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -37,7 +35,6 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private final BaseMotor intakeMotor;
     private final BaseMotor intakeArmMotor;
-    private final DigitalInput limitSwitch;
 
     // Simulation
     private SingleJointedArmSim armSim;
@@ -56,35 +53,23 @@ public class IntakeSubsystem extends SubsystemBase {
     private GenericEntry intakeArmKAEntry;
 
     /**
-     * Returns true when a game piece is detected in the intake.
-     */
-    public Trigger hasGamePieceTrigger() {
-        // TODO: Implement sensor logic - check if sensor detects object
-        // return new Trigger(() -> intakeSensor.isDetected());
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when the intake is running.
+     * Returns true when the intake roller is running (velocity above threshold).
      */
     public Trigger isRunningTrigger() {
-        // TODO: Check if motor is running above threshold
-        // return new Trigger(() -> Math.abs(intakeMotor.getVelocity()) > 0.1);
-        return new Trigger(() -> false);
+        return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
     }
 
     private double lastP, lastI, lastD, lastKG, lastKS, lastKV, lastKA;
 
     private double targetPosition = IntakeConstants.kArmLoweredPosition;
 
-    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, DigitalInput limitSwitch) {
+    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor) {
         this.intakeMotor = intakeMotor;
         this.intakeArmMotor = intakeArmMotor;
-        this.limitSwitch = limitSwitch;
 
         configureMotors();
         setupDash();
-        configureLimitSwitch();
+        setupTunables();
         intakeArmMotor.setPosition(0);
 
         if (Robot.isSimulation()) {
@@ -118,16 +103,6 @@ public class IntakeSubsystem extends SubsystemBase {
         intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
     }
 
-    private void configureLimitSwitch() {
-        // DIO returns false when switch is closed/triggered
-        new Trigger(() -> !limitSwitch.get())
-                .onTrue(Commands.runOnce(() -> {
-                    intakeArmMotor.setPosition(IntakeConstants.kArmRaisedPosition);
-                    targetPosition = IntakeConstants.kArmRaisedPosition;
-                    intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-                }, this).ignoringDisable(true));
-    }
-
     private void setupDash() {
         Dash.useTab("Intake");
 
@@ -138,11 +113,10 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.add("Arm Position", () -> intakeArmMotor.getPosition(), 3, 0);
         Dash.add("Arm Target", () -> targetPosition, 4, 0);
         Dash.add("Raised Position", () -> IntakeConstants.kArmRaisedPosition, 5, 0);
-        Dash.add("Limit Switch", () -> limitSwitch.get(), 6, 0);
 
         // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
-        Dash.add("Sim Voltage", () -> simMotorVoltage, 7, 0);
-        Dash.add("Sim Angle Deg", () -> simArmAngleDeg, 8, 0);
+        Dash.add("Sim Voltage", () -> simMotorVoltage, 6, 0);
+        Dash.add("Sim Angle Deg", () -> simArmAngleDeg, 7, 0);
 
         // Row 1: Commands
         Dash.addCommand("Start Intake", runIntakeCommand(), 0, 1);
@@ -247,7 +221,7 @@ public class IntakeSubsystem extends SubsystemBase {
     /**
      * Get the intake roller motor RPM.
      */
-    public double getintakeRPM() {
+    public double getIntakeRPM() {
         return intakeMotor.getVelocity().in(RPM);
     }
 
@@ -461,13 +435,11 @@ public class IntakeSubsystem extends SubsystemBase {
             double kS = intakeArmKSEntry.getDouble(IntakeConstants.kArmKS);
             double kV = intakeArmKVEntry.getDouble(IntakeConstants.kArmKV);
             double kA = intakeArmKAEntry.getDouble(IntakeConstants.kArmKA);
-            System.out.println("Current kG:" + kG);
 
             if (p != lastP || i != lastI || d != lastD ||
                     kG != lastKG || kS != lastKS || kV != lastKV || kA != lastKA) {
 
                 intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
-                System.out.println("Setting PID");
                 intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
 
                 lastP = p;

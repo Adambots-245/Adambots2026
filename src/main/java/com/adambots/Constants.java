@@ -323,16 +323,7 @@ public final class Constants {
     }
 
     // ==================== Intake Constants ====================
-     public static final class IntakeConstants {
-        public static final int kIntakePort = 33; // Kraken X44
-        public static final int kIntakeArmPort = 32; // Minion
-
-        public static final Current kIntakeCurrentLimit = Amps.of(40);
-        public static final Current kIntakeArmCurrentLimit = Amps.of(40);
-
-        public static final double kIntakeSpeed = 0.5;
-        public static final double kIntakeArmSpeed = 0.5;
-
+    public static final class IntakeConstants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
@@ -353,7 +344,6 @@ public final class Constants {
         // Stage 1: Planetary gearbox on Minion motor
         // Stage 2: Belt-driven pulley from gearbox output to arm pivot
         // Total ratio = stage1 * stage2 (motor rotations per mechanism rotation)
-        // TODO: Get actual values from mech team
         public static final double kArmPlanetaryRatio = 20.0;  // e.g., 5.0 for 5:1 planetary
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
@@ -361,17 +351,12 @@ public final class Constants {
         public static final double kLowSpeed = 0.3;
         public static final double kHighSpeed = 0.5;
 
-        public static final double kMinDegrees = 0.0;
-        public static final double kMaxDegrees = 90;
-
-        public static final double kArmRaisedPosition = -7.0;  // motor rotations when arm is raised
-        public static final double kArmLoweredPosition = 0.0; // motor rotations when arm is lowered (home)
+        public static final double kArmRaisedPosition = 0.0;   // motor rotations when arm is raised (retracted, home)
+        public static final double kArmLoweredPosition = 7.0; // motor rotations when arm is lowered (deployed)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)
         public static final int kArmSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
-
-        public static final int kLimitSwitchPort = 0; // DIO port for arm limit switch
     }
 
     /**
@@ -385,7 +370,7 @@ public final class Constants {
         public static final double kArmStartAngleRad = Math.toRadians(0);   // start horizontal (lowered)
 
         // Estimated physical gear ratio for sim only.
-        // Inferred from: -7.0 motor rotations ≈ 90° arm travel → ratio ≈ 28:1
+        // Inferred from: 7.0 motor rotations ≈ 90° arm travel → ratio ≈ 28:1
         // This is separate from IntakeConstants.kArmTotalGearRatio (which controls
         // sensorToMechanismRatio and must stay 1.0 until position targets are recalibrated).
         public static final double kSimGearRatio = 28.0;

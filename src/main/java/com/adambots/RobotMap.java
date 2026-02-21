@@ -4,14 +4,11 @@
 
 package com.adambots;
 
-import com.adambots.Constants.IntakeConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseProximitySensor;
 import com.adambots.lib.sensors.LimitSwitch;
 import com.adambots.lib.sensors.PhotoEye;
-
-import edu.wpi.first.wpilibj.DigitalInput;
 
 /**
  * RobotMap contains all hardware port mappings and device instantiation for the robot.
@@ -45,8 +42,8 @@ public class RobotMap {
 
     // ==================== INTAKE ====================
     // Port assignments
-    private static final int kIntakeMotorPort = 12;
-    private static final int kIntakeMotorArmPort = 17;
+    private static final int kIntakeMotorPort = 33;
+    private static final int kIntakeMotorArmPort = 32;
 
     // Hardware devices
     // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
@@ -54,8 +51,6 @@ public class RobotMap {
         ? new TalonFXMotor(kIntakeMotorPort, false, 1.0, false) : null;
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
         ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
-    public static final DigitalInput kIntakeArmLimitSwitch = INTAKE_ENABLED
-        ? new DigitalInput(IntakeConstants.kLimitSwitchPort) : null;
 
     // ==================== HOPPER ====================
     // Port assignments

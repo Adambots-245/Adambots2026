@@ -101,7 +101,7 @@ public class RobotContainer {
         // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
         // Subsystems are only created when their enable flag is true in RobotMap
         intake = RobotMap.INTAKE_ENABLED
-            ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmLimitSwitch) : null;
+            ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm) : null;
         hopper = RobotMap.HOPPER_ENABLED
             ? new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor) : null;
         shooter = RobotMap.SHOOTER_ENABLED

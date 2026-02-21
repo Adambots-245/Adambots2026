@@ -35,10 +35,10 @@ import java.util.function.DoubleSupplier;
  * );
  * </pre>
  */
-public final class TurretTrackingCommands {
+public final class TurretCommands {
 
     // Prevent instantiation
-    private TurretTrackingCommands() {}
+    private TurretCommands() {}
 
     /**
      * Creates a command that continuously tracks a target using vision-supplied angle.

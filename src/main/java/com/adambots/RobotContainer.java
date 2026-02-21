@@ -101,7 +101,7 @@ public class RobotContainer {
         // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
         // Subsystems are only created when their enable flag is true in RobotMap
         intake = RobotMap.INTAKE_ENABLED
-            ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor) : null;
+            ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmLimitSwitch) : null;
         hopper = RobotMap.HOPPER_ENABLED
             ? new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor) : null;
         shooter = RobotMap.SHOOTER_ENABLED
@@ -252,8 +252,6 @@ public class RobotContainer {
      * Default commands run whenever no other command is using that subsystem.
      */
     private void configureDefaultCommands() {
-        Dash.add("Z", ()->Buttons.getJoystick().getZ());
-
         // Swerve drive default command - field-oriented drive using joystick
         swerve.setDefaultCommand(
             swerve.driveCommand(

@@ -1,46 +1,59 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package com.adambots.subsystems;
 
-import com.adambots.lib.actuators.BaseMotor;
-import com.adambots.lib.sensors.BaseProximitySensor;
+import static edu.wpi.first.units.Units.RPM;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.wpilibj.Timer;
+import com.adambots.Constants.IntakeConstants;
+import com.adambots.Constants.SimConstants;
+import com.adambots.Robot;
+import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.utils.Dash;
+
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
+import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
-import org.littletonrobotics.junction.Logger;
-
 /**
- * Intake subsystem for acquiring game pieces from the field.
+ * Intake subsystem using TalonFX onboard PID with gravity compensation.
  *
- * <p>This subsystem controls the intake mechanism that picks up game pieces
- * and transfers them to the hopper/indexer.
- *
- * <p>AdambotsLib Best Practices:
- * <ul>
- *   <li>Control subsystems using command factories</li>
- *   <li>Get information from subsystems using triggers</li>
- *   <li>Coordinate between subsystems by binding commands to triggers</li>
- * </ul>
+ * <p>
+ * The arm motor runs Motion Magic with Arm_Cosine gravity feedforward at 1kHz
+ * on the motor controller, providing stable holding and smooth motion.
  */
-@Logged
 public class IntakeSubsystem extends SubsystemBase {
 
-    // ==================== SECTION: HARDWARE ====================
     private final BaseMotor intakeMotor;
-    private final BaseProximitySensor intakeSensor;
+    private final BaseMotor intakeArmMotor;
+    private final DigitalInput limitSwitch;
 
-    // ==================== SECTION: STATE ====================
-    // TODO: Declare state variables here
-    // private boolean hasGamePiece = false;
+    // Simulation
+    private SingleJointedArmSim armSim;
+    private Mechanism2d mech2d;
+    private MechanismLigament2d armLigament;
+    private double simMotorVoltage;
+    private double simArmAngleDeg;
 
-    // ==================== SECTION: TRIGGERS ====================
-    // Expose state as yes/no questions via Trigger objects
+    // Tunable PID entries
+    private GenericEntry intakeArmPEntry;
+    private GenericEntry intakeArmIEntry;
+    private GenericEntry intakeArmDEntry;
+    private GenericEntry intakeArmKGEntry;
+    private GenericEntry intakeArmKSEntry;
+    private GenericEntry intakeArmKVEntry;
+    private GenericEntry intakeArmKAEntry;
 
     /**
      * Returns true when a game piece is detected in the intake.
@@ -60,74 +73,411 @@ public class IntakeSubsystem extends SubsystemBase {
         return new Trigger(() -> false);
     }
 
-    // ==================== SECTION: CONSTRUCTOR ====================
-    /**
-     * Creates a new IntakeSubsystem.
-     *
-     * @param intakeMotor The motor controller for the intake (passed from RobotContainer)
-     * @param intakeSensor The sensor for detecting game pieces (passed from RobotContainer)
-     */
-    public IntakeSubsystem(BaseMotor intakeMotor, BaseProximitySensor intakeSensor) {
+    private double lastP, lastI, lastD, lastKG, lastKS, lastKV, lastKA;
+
+    private double targetPosition = IntakeConstants.kArmLoweredPosition;
+
+    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, DigitalInput limitSwitch) {
         this.intakeMotor = intakeMotor;
-        this.intakeSensor = intakeSensor;
+        this.intakeArmMotor = intakeArmMotor;
+        this.limitSwitch = limitSwitch;
 
-        // TODO: Configure motor settings if needed
-        // intakeMotor.setCurrentLimit(40);
-        // intakeMotor.setBrakeMode(false);  // Coast for intake
+        configureMotors();
+        setupDash();
+        configureLimitSwitch();
+        intakeArmMotor.setPosition(0);
+
+        if (Robot.isSimulation()) {
+            setupSimulation();
+        }
     }
 
-    // ==================== SECTION: COMMAND FACTORIES ====================
-    // All subsystem actions should be exposed as commands
+    private void configureMotors() {
+        intakeMotor.setBrakeMode(false);
 
-    /**
-     * Returns a command that runs the intake to pick up game pieces.
-     * TODO: Set appropriate motor speed in Constants
-     */
-    public Command intakeCommand() {
-        return run(() -> {
-            // TODO: Set intake motor speed
-        }).withName("Intake");
+        // Configure arm motor: brake mode + current limits + gear ratio
+        intakeArmMotor.configure()
+                .brakeMode(true)
+                .currentLimits(IntakeConstants.kArmStatorCurrentLimit, IntakeConstants.kArmSupplyCurrentLimit, 0)
+                .gravity(BaseMotor.GravityType.ARM_COSINE)
+                .sensorToMechanismRatio(IntakeConstants.kArmTotalGearRatio)
+                .motionMagic(
+                        RotationsPerSecond.of(IntakeConstants.kArmCruiseVelocity),
+                        RotationsPerSecondPerSecond.of(IntakeConstants.kArmAcceleration),
+                        IntakeConstants.kArmJerk)
+                .apply();
+
+        // Set extended PID with feedforward gains (kV, kS, kA, kG)
+        intakeArmMotor.setPID(0,
+                IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
+                IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
+                IntakeConstants.kArmKG);
+
+        // Re-apply gravity type AFTER setPID — setPID overwrites Slot0Configs
+        // which can reset GravityType to the default (Elevator_Static)
+        intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+    }
+
+    private void configureLimitSwitch() {
+        // DIO returns false when switch is closed/triggered
+        new Trigger(() -> !limitSwitch.get())
+                .onTrue(Commands.runOnce(() -> {
+                    intakeArmMotor.setPosition(IntakeConstants.kArmRaisedPosition);
+                    targetPosition = IntakeConstants.kArmRaisedPosition;
+                    intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+                }, this).ignoringDisable(true));
+    }
+
+    private void setupDash() {
+        Dash.useTab("Intake");
+
+        // Row 0: Telemetry
+        Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
+        Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
+        Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
+        Dash.add("Arm Position", () -> intakeArmMotor.getPosition(), 3, 0);
+        Dash.add("Arm Target", () -> targetPosition, 4, 0);
+        Dash.add("Raised Position", () -> IntakeConstants.kArmRaisedPosition, 5, 0);
+        Dash.add("Limit Switch", () -> limitSwitch.get(), 6, 0);
+
+        // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
+        Dash.add("Sim Voltage", () -> simMotorVoltage, 7, 0);
+        Dash.add("Sim Angle Deg", () -> simArmAngleDeg, 8, 0);
+
+        // Row 1: Commands
+        Dash.addCommand("Start Intake", runIntakeCommand(), 0, 1);
+        Dash.addCommand("Reverse Intake", reverseIntakeCommand(), 1, 1);
+        Dash.addCommand("Stop Intake", stopIntakeCommand(), 2, 1);
+        Dash.addCommand("Lower Arm", runLowerIntakeArmCommand(), 3, 1);
+        Dash.addCommand("Raise Arm", runRaiseIntakeArmCommand(), 4, 1);
+        Dash.addCommand("Stop Arm", stopIntakeArmCommand(), 5, 1);
+        Dash.addCommand("Reset Position", resetIntakeArmPosition(), 6, 1);
+
+        Dash.useDefaultTab();
+    }
+
+    public void setupTunables() {
+        Dash.useTab("Intake");
+
+        // Row 2: Tunable PID / feedforward gains
+        intakeArmPEntry = Dash.addTunable("kP", IntakeConstants.kArmP, 0, 2);
+        intakeArmIEntry = Dash.addTunable("kI", IntakeConstants.kArmI, 1, 2);
+        intakeArmDEntry = Dash.addTunable("kD", IntakeConstants.kArmD, 2, 2);
+        intakeArmKGEntry = Dash.addTunable("kG", IntakeConstants.kArmKG, 3, 2);
+        intakeArmKSEntry = Dash.addTunable("kS", IntakeConstants.kArmKS, 4, 2);
+        intakeArmKVEntry = Dash.addTunable("kV", IntakeConstants.kArmKV, 5, 2);
+        intakeArmKAEntry = Dash.addTunable("kA", IntakeConstants.kArmKA, 6, 2);
+        Dash.addCommand("Zero Tunables", zeroTunablesCommand(), 7, 2);
+        Dash.addCommand("Reset Tunables", resetTunablesCommand(), 8, 2);
+
+        Dash.useDefaultTab();
+
+        // Force-write code constants to Shuffleboard so displayed values always
+        // match what's in use (overrides stale cache from previous sessions)
+        intakeArmPEntry.setDouble(IntakeConstants.kArmP);
+        intakeArmIEntry.setDouble(IntakeConstants.kArmI);
+        intakeArmDEntry.setDouble(IntakeConstants.kArmD);
+        intakeArmKGEntry.setDouble(IntakeConstants.kArmKG);
+        intakeArmKSEntry.setDouble(IntakeConstants.kArmKS);
+        intakeArmKVEntry.setDouble(IntakeConstants.kArmKV);
+        intakeArmKAEntry.setDouble(IntakeConstants.kArmKA);
+
+        lastP = IntakeConstants.kArmP;
+        lastI = IntakeConstants.kArmI;
+        lastD = IntakeConstants.kArmD;
+        lastKG = IntakeConstants.kArmKG;
+        lastKS = IntakeConstants.kArmKS;
+        lastKV = IntakeConstants.kArmKV;
+        lastKA = IntakeConstants.kArmKA;
+
+        // Apply to motor controller (for real hardware)
+        intakeArmMotor.setPID(0,
+                IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
+                IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
+                IntakeConstants.kArmKG);
+        intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
     }
 
     /**
-     * Returns a command that runs the intake in reverse to eject game pieces.
-     * TODO: Set appropriate motor speed in Constants
+     * Run the intake roller at the configured speed.
      */
-    public Command outtakeCommand() {
-        return run(() -> {
-            // TODO: Set outtake motor speed (negative)
-        }).withName("Outtake");
+    public void runIntake() {
+        intakeMotor.set(IntakeConstants.kLowSpeed);
     }
 
     /**
-     * Returns a command that stops the intake.
+     * Run the intake roller in reverse.
      */
-    public Command stopCommand() {
+    public void reverseIntake() {
+        intakeMotor.set(-IntakeConstants.kLowSpeed);
+    }
+
+    /**
+     * Stop the intake roller motor.
+     */
+    public void stopIntake() {
+        intakeMotor.set(0);
+    }
+
+    /**
+     * Lower the intake arm using onboard Motion Magic with gravity compensation.
+     */
+    public void lowerIntakeArm() {
+        targetPosition = IntakeConstants.kArmLoweredPosition;
+        intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+    }
+
+    /**
+     * Raise the intake arm using onboard Motion Magic with gravity compensation.
+     */
+    public void raiseIntakeArm() {
+        targetPosition = IntakeConstants.kArmRaisedPosition;
+        intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+    }
+
+    /**
+     * Hold the intake arm at its current position using closed-loop control.
+     * Uses Motion Magic to maintain gravity compensation.
+     */
+    public void stopIntakeArm() {
+        targetPosition = intakeArmMotor.getPosition();
+        intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+    }
+
+    /**
+     * Get the intake roller motor RPM.
+     */
+    public double getintakeRPM() {
+        return intakeMotor.getVelocity().in(RPM);
+    }
+
+    /**
+     * Get the intake arm motor position.
+     */
+    public double getIntakeArmPosition() {
+        return intakeArmMotor.getPosition();
+    }
+
+    // ==================== Command Factory Methods ====================
+
+    /**
+     * Command to run the intake while held.
+     */
+    public Command runIntakeCommand() {
+        return runEnd(this::runIntake, this::stopIntake)
+                .withName("Run Intake");
+    }
+
+    /**
+     * Reset arm position encoder to 0.
+     */
+    public Command resetIntakeArmPosition() {
+        return runOnce(() -> intakeArmMotor.setPosition(0))
+                .withName("Reset Intake Position");
+    }
+
+    /**
+     * Command to reverse the intake while held.
+     */
+    public Command reverseIntakeCommand() {
+        return runEnd(this::reverseIntake, this::stopIntake)
+                .withName("Reverse Intake");
+    }
+
+    /**
+     * Command to stop the intake (instant).
+     */
+    public Command stopIntakeCommand() {
+        return runOnce(this::stopIntake)
+                .withName("Stop Intake");
+    }
+
+    /**
+     * Command to lower the intake arm using onboard Motion Magic.
+     */
+    public Command runLowerIntakeArmCommand() {
+        return runOnce(this::lowerIntakeArm)
+                .withName("Lower Intake Arm");
+    }
+
+    /**
+     * Command to raise the intake arm using onboard Motion Magic.
+     */
+    public Command runRaiseIntakeArmCommand() {
+        return runOnce(this::raiseIntakeArm)
+                .withName("Raise Intake Arm");
+    }
+
+    /**
+     * Command to stop the intake arm.
+     */
+    public Command stopIntakeArmCommand() {
+        return runOnce(this::stopIntakeArm)
+                .withName("Stop Intake Arm");
+    }
+
+    /**
+     * Command to reset all tunable PID/feedforward gains back to code constants.
+     */
+    public Command resetTunablesCommand() {
         return runOnce(() -> {
-            // TODO: Stop the motor
-        }).withName("StopIntake");
+            intakeArmPEntry.setDouble(IntakeConstants.kArmP);
+            intakeArmIEntry.setDouble(IntakeConstants.kArmI);
+            intakeArmDEntry.setDouble(IntakeConstants.kArmD);
+            intakeArmKGEntry.setDouble(IntakeConstants.kArmKG);
+            intakeArmKSEntry.setDouble(IntakeConstants.kArmKS);
+            intakeArmKVEntry.setDouble(IntakeConstants.kArmKV);
+            intakeArmKAEntry.setDouble(IntakeConstants.kArmKA);
+
+            intakeArmMotor.setPID(0,
+                    IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
+                    IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
+                    IntakeConstants.kArmKG);
+            intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+
+            lastP = IntakeConstants.kArmP;
+            lastI = IntakeConstants.kArmI;
+            lastD = IntakeConstants.kArmD;
+            lastKG = IntakeConstants.kArmKG;
+            lastKS = IntakeConstants.kArmKS;
+            lastKV = IntakeConstants.kArmKV;
+            lastKA = IntakeConstants.kArmKA;
+        }).withName("Reset Tunables");
     }
 
-    // ==================== SECTION: PERIODIC ====================
     /**
-     * This method runs every 20ms.
-     * Use for: caching sensor values, updating odometry, logging/telemetry.
-     * Do NOT use for: control logic, state machines, conditional actions.
+     * Command to zero all tunable PID/feedforward gains (for tuning from scratch).
      */
+    public Command zeroTunablesCommand() {
+        return runOnce(() -> {
+            intakeArmPEntry.setDouble(0);
+            intakeArmIEntry.setDouble(0);
+            intakeArmDEntry.setDouble(0);
+            intakeArmKGEntry.setDouble(0);
+            intakeArmKSEntry.setDouble(0);
+            intakeArmKVEntry.setDouble(0);
+            intakeArmKAEntry.setDouble(0);
+
+            intakeArmMotor.setPID(0, 0, 0, 0, 0, 0, 0, 0);
+            intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+
+            lastP = 0;
+            lastI = 0;
+            lastD = 0;
+            lastKG = 0;
+            lastKS = 0;
+            lastKV = 0;
+            lastKA = 0;
+        }).withName("Zero Tunables");
+    }
+
+    private void setupSimulation() {
+        // Kraken X60 as Minion approximation (no DCMotor.getMinion() in WPILib)
+        armSim = new SingleJointedArmSim(
+                DCMotor.getKrakenX60Foc(1),
+                SimConstants.kSimGearRatio,
+                SingleJointedArmSim.estimateMOI(SimConstants.kArmLengthMeters, SimConstants.kArmMassKg),
+                SimConstants.kArmLengthMeters,
+                SimConstants.kArmMinAngleRad,
+                SimConstants.kArmMaxAngleRad,
+                true, // simulate gravity
+                SimConstants.kArmStartAngleRad);
+
+        // Mechanism2d canvas — pivot at ~1/3 from left edge
+        mech2d = new Mechanism2d(3, 3);
+        var armRoot = mech2d.getRoot("ArmPivot", 1.0, 1.0);
+        armLigament = armRoot.append(
+                new MechanismLigament2d("IntakeArm", 1.0, 0, 6, new Color8Bit(Color.kYellow)));
+        SmartDashboard.putData("Intake Arm Sim", mech2d);
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        if (armSim == null)
+            return;
+
+        // We compute the motor voltage ourselves instead of reading CTRE's sim output.
+        // Why: the motor position convention is inverted (negative = arm up), so
+        // negating
+        // CTRE's voltage for the PID direction also negates the gravity feedforward,
+        // making kG push the arm DOWN instead of holding it up. Additionally, with
+        // sensorToMechanismRatio=1.0, CTRE's Arm_Cosine uses cos(motorRotations) which
+        // cycles at the wrong rate. Computing voltage from the actual arm angle fixes
+        // both.
+
+        double currentAngleRad = armSim.getAngleRads();
+        double velocityRadPerSec = armSim.getVelocityRadPerSec();
+
+        // Convert target from motor rotations to arm angle (radians)
+        // Motor negative = arm up, so negate. Divide by gear ratio to get mechanism
+        // rotations.
+        double targetAngleRad = -targetPosition / SimConstants.kSimGearRatio * 2 * Math.PI;
+
+        // Error in mechanism rotations (matches CTRE's gain units when scaled by gear
+        // ratio)
+        double errorMechRot = Units.radiansToRotations(targetAngleRad - currentAngleRad);
+        double velocityMechRPS = Units.radiansToRotations(velocityRadPerSec);
+
+        // Compute voltage using tunable gains
+        // Scale position/velocity terms by gear ratio so CTRE gain values produce
+        // equivalent torque (CTRE PID operates in motor rotations = mech * gearRatio)
+        double voltage = lastP * errorMechRot * SimConstants.kSimGearRatio
+                + lastKG * Math.cos(currentAngleRad)
+                + lastKS * Math.signum(errorMechRot)
+                - lastD * velocityMechRPS * SimConstants.kSimGearRatio;
+
+        // Clamp to battery voltage
+        double batteryVoltage = RobotController.getBatteryVoltage();
+        simMotorVoltage = Math.max(-batteryVoltage, Math.min(batteryVoltage, voltage));
+
+        // Update physics
+        armSim.setInputVoltage(simMotorVoltage);
+        armSim.update(0.020);
+
+        // Feed position/velocity back to CTRE for telemetry (getPosition(),
+        // getVelocity())
+        // Negate: sim positive angle = arm up, motor negative position = arm up
+        double mechRotations = Units.radiansToRotations(armSim.getAngleRads());
+        double mechRPS = Units.radiansToRotations(armSim.getVelocityRadPerSec());
+        intakeArmMotor.setSimSupplyVoltage(batteryVoltage);
+        intakeArmMotor.setSimPosition(-mechRotations * SimConstants.kSimGearRatio);
+        intakeArmMotor.setSimVelocity(-mechRPS * SimConstants.kSimGearRatio);
+
+        // Update Mechanism2d visualization
+        simArmAngleDeg = Math.toDegrees(armSim.getAngleRads());
+        armLigament.setAngle(simArmAngleDeg);
+    }
+
     @Override
     public void periodic() {
-        double startTime = Timer.getFPGATimestamp();
+        // No PID loop here - the motor controller handles everything at 1kHz.
+        // We only check for tunable gain updates from Shuffleboard.
 
-        // TODO: Cache sensor values
-        // hasGamePiece = intakeSensor.isDetected();
+        if (intakeArmPEntry != null) {
+            double p = intakeArmPEntry.getDouble(IntakeConstants.kArmP);
+            double i = intakeArmIEntry.getDouble(IntakeConstants.kArmI);
+            double d = intakeArmDEntry.getDouble(IntakeConstants.kArmD);
+            double kG = intakeArmKGEntry.getDouble(IntakeConstants.kArmKG);
+            double kS = intakeArmKSEntry.getDouble(IntakeConstants.kArmKS);
+            double kV = intakeArmKVEntry.getDouble(IntakeConstants.kArmKV);
+            double kA = intakeArmKAEntry.getDouble(IntakeConstants.kArmKA);
+            System.out.println("Current kG:" + kG);
 
-        // TODO: Update telemetry
-        // SmartDashboard.putBoolean("Intake/HasGamePiece", hasGamePiece);
-        // SmartDashboard.putNumber("Intake/MotorVelocity", intakeMotor.getVelocity());
+            if (p != lastP || i != lastI || d != lastD ||
+                    kG != lastKG || kS != lastKS || kV != lastKV || kA != lastKA) {
 
-        Logger.recordOutput("Timing/IntakeSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
+                intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
+                System.out.println("Setting PID");
+                intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+
+                lastP = p;
+                lastI = i;
+                lastD = d;
+                lastKG = kG;
+                lastKS = kS;
+                lastKV = kV;
+                lastKA = kA;
+            }
+        }
     }
-
-    // ==================== SECTION: PRIVATE HELPERS ====================
-    // Internal helper methods
 }

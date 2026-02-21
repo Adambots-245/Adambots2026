@@ -37,9 +37,9 @@ public final class IntakeCommands {
     public static Command intakeAndIndexCommand(IntakeSubsystem intake, HopperSubsystem hopper) {
         return Commands.sequence(
             // Run intake until game piece detected
-            intake.intakeCommand().until(intake.hasGamePieceTrigger()),
+            intake.runIntakeCommand().until(intake.hasGamePieceTrigger()),
             // Stop intake
-            intake.stopCommand(),
+            intake.stopIntakeCommand(),
             // Index into hopper
             hopper.feedCommand()
         ).withName("IntakeAndIndex");
@@ -56,12 +56,12 @@ public final class IntakeCommands {
         return Commands.sequence(
             // Reverse briefly
             Commands.parallel(
-                intake.outtakeCommand(),
+                intake.reverseIntakeCommand(),
                 hopper.reverseCarouselCommand()
             ).withTimeout(0.3),
             // Stop
             Commands.parallel(
-                intake.stopCommand(),
+                intake.stopIntakeCommand(),
                 hopper.stopCommand()
             )
         ).withName("ClearJam");

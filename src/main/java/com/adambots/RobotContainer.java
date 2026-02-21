@@ -50,9 +50,9 @@ public class RobotContainer {
     private final TurretSubsystem turret;
 
     public RobotContainer() {
-        shooter = new ShooterSubsystem(RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor, RobotMap.turretMotor);
+        shooter = new ShooterSubsystem(RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor);
         hopper = new HopperSubsystem();
-        turret = new TurretSubsystem(); 
+        turret = new TurretSubsystem(RobotMap.turretMotor); 
     }
 
     public Command getAutonomousCommand() {

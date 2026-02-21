@@ -24,7 +24,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
     private final BaseMotor leftFlywheel;
     private final BaseMotor rightFlywheel;
-    private final BaseMotor turretMotor;
+    
 
     private double targetRPS = 0;
     private boolean useInterpolationMode = true;
@@ -54,10 +54,9 @@ public class ShooterSubsystem extends SubsystemBase {
     private double lastFlywheelP, lastFlywheelI, lastFlywheelD, lastFlywheelFF;
     private double lastTurretP, lastTurretI, lastTurretD;
 
-    public ShooterSubsystem(BaseMotor leftFlywheel, BaseMotor rightFlywheel, BaseMotor turretMotor) {
+    public ShooterSubsystem(BaseMotor leftFlywheel, BaseMotor rightFlywheel) {
         this.leftFlywheel = leftFlywheel;
         this.rightFlywheel = rightFlywheel;
-        this.turretMotor = turretMotor;
         configureMotors();
         initializeInterpolationTable();
     }
@@ -271,18 +270,7 @@ public class ShooterSubsystem extends SubsystemBase {
             }
         }
 
-        if (turretPEntry != null) {
-            double p = turretPEntry.getDouble(ShooterTestConstants.kTurretP);
-            double i = turretIEntry.getDouble(ShooterTestConstants.kTurretI);
-            double d = turretDEntry.getDouble(ShooterTestConstants.kTurretD);
-
-            if (p != lastTurretP || i != lastTurretI || d != lastTurretD) {
-                turretMotor.setPID(0, p, i, d, ShooterTestConstants.kTurretFF);
-                lastTurretP = p;
-                lastTurretI = i;
-                lastTurretD = d;
-            }
-        }
+        
 
         // Rebuild interpolation table from tunable entries
         if (tableDistanceEntries[0] != null) {

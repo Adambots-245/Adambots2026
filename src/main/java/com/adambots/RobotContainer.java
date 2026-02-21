@@ -293,13 +293,20 @@ public class RobotContainer {
         // Buttons.JoystickButton1.whileTrue(swerve.lockWheelsCommand());
 
         // === Operator Controls ===
-        // TODO: Add operator bindings for subsystems
-        // Buttons.XboxAButton.whileTrue(IntakeCommands.intakeWhileHeldCommand(intake, hopper));
-        // Buttons.XboxBButton.whileTrue(IntakeCommands.ejectCommand(intake, hopper));
-        // Buttons.XboxXButton.onTrue(hopper.feedCommand());
-        // Buttons.XboxYButton.onTrue(hopper.reverseUptakeCommand());
-        // Buttons.XboxLeftBumper.whileTrue(ShootCommands.spinUpCommand(shooter));
-        // Buttons.XboxRightBumper.onTrue(ShootCommands.shootCommand(shooter, hopper));
+        if (intake != null) {
+            // A button: deploy arm + start roller
+            Buttons.XboxAButton.onTrue(
+                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
+            );
+            // Alt: start roller and lower arm in parallel (rollers at speed before arm is down)
+            // Buttons.XboxAButton.onTrue(
+            //     Commands.parallel(intake.runIntakeCommand(), intake.runLowerIntakeArmCommand())
+            // );
+            // B button: stop roller + retract arm
+            Buttons.XboxBButton.onTrue(
+                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
+            );
+        }
 
         // Climber controls (typically on operator controller)
         // Buttons.XboxDPadN.whileTrue(climber.extendCommand());

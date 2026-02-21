@@ -352,7 +352,7 @@ public final class Constants {
         public static final double kHighSpeed = 0.5;
 
         public static final double kArmRaisedPosition = 0.0;   // motor rotations when arm is raised (retracted, home)
-        public static final double kArmLoweredPosition = 7.0; // motor rotations when arm is lowered (deployed)
+        public static final double kArmLoweredPosition = 0.25; // motor rotations when arm is lowered (deployed)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)

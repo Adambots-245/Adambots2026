@@ -1,7 +1,7 @@
 {
     "fileName": "AdambotsLib.json",
     "name": "AdambotsLib",
-    "version": "2026.3.4",
+    "version": "2026.3.5",
     "uuid": "245a0b0a-d4f5-4c3e-9f1a-2458bcd245ab",
     "frcYear": "2026",
     "mavenUrls": [
@@ -12,7 +12,7 @@
         {
             "groupId": "com.adambots.lib",
             "artifactId": "AdambotsLib-java",
-            "version": "2026.3.4"
+            "version": "2026.3.5"
         }
     ],
     "jniDependencies": [],

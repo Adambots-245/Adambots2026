@@ -11,6 +11,8 @@ import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
+import com.adambots.lib.utils.Buttons.InputCurve;
+import com.adambots.lib.utils.Dash;
 import com.adambots.lib.vision.PhotonVision;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
@@ -27,7 +29,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
+
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -250,15 +252,14 @@ public class RobotContainer {
      * Default commands run whenever no other command is using that subsystem.
      */
     private void configureDefaultCommands() {
-        // Get the joystick from Buttons
-        CommandJoystick joystick = Buttons.getJoystick();
+        Dash.add("Z", ()->Buttons.getJoystick().getZ());
 
         // Swerve drive default command - field-oriented drive using joystick
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                () -> -Buttons.applyDeadzone(joystick.getY(), Constants.DriveConstants.kDeadzone),
-                () -> -Buttons.applyDeadzone(joystick.getX(), Constants.DriveConstants.kDeadzone),
-                () -> -Buttons.applyDeadzone(joystick.getTwist(), Constants.DriveConstants.kRotationDeadzone)
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
             )
         );
 

@@ -11,6 +11,8 @@ import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
+import com.adambots.lib.utils.Buttons.InputCurve;
+import com.adambots.lib.utils.Dash;
 import com.adambots.lib.vision.PhotonVision;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
@@ -54,20 +56,20 @@ public class RobotContainer {
     /** Swerve drive subsystem - configured via YAGSL JSON files in deploy/swerve/ */
     private final SwerveSubsystem swerve;
 
-    /** Intake subsystem for acquiring game pieces */
-    private final IntakeSubsystem intake;
+    // /** Intake subsystem for acquiring game pieces */
+    // private final IntakeSubsystem intake;
 
-    /** Hopper subsystem for storing and staging game pieces */
-    private final HopperSubsystem hopper;
+    // /** Hopper subsystem for storing and staging game pieces */
+    // private final HopperSubsystem hopper;
 
-    /** Shooter subsystem for launching game pieces */
-    private final ShooterSubsystem shooter;
+    // /** Shooter subsystem for launching game pieces */
+    // private final ShooterSubsystem shooter;
 
-    /** Climber subsystem for end-game climbing */
-    private final ClimberSubsystem climber;
+    // /** Climber subsystem for end-game climbing */
+    // private final ClimberSubsystem climber;
 
-    /** LED subsystem using CANdle for robot status indication */
-    private final CANdleSubsystem leds;
+    // /** LED subsystem using CANdle for robot status indication */
+    // private final CANdleSubsystem leds;
 
     /** PhotonVision system for AprilTag detection and pose estimation */
     private VisionSystem vision;
@@ -97,12 +99,12 @@ public class RobotContainer {
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
 
         // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
-        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor);
-        hopper = new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor);
-        shooter = new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor);
-        climber = new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
-                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
-        leds = new CANdleSubsystem(RobotMap.kCANdlePort);
+        // intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeSensor);
+        // hopper = new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor);
+        // shooter = new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor);
+        // climber = new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
+                                        //   RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit);
+        // leds = new CANdleSubsystem(RobotMap.kCANdlePort);
 
         // 3. Setup vision
         configureVision();
@@ -225,7 +227,7 @@ public class RobotContainer {
      */
     private void configureLEDs() {
         // Set default LED command - show alliance color when enabled
-        leds.setDefaultCommand(leds.allianceColorCommand());
+        // leds.setDefaultCommand(leds.allianceColorCommand());
 
         // TODO: Add LED state bindings
         // Example: Show green when game piece detected
@@ -245,12 +247,14 @@ public class RobotContainer {
         // Get the joystick from Buttons
         CommandJoystick joystick = Buttons.getJoystick();
 
+        Dash.add("Z", ()->Buttons.getJoystick().getZ());
+
         // Swerve drive default command - field-oriented drive using joystick
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                () -> -Buttons.applyDeadzone(joystick.getY(), Constants.DriveConstants.kDeadzone),
-                () -> -Buttons.applyDeadzone(joystick.getX(), Constants.DriveConstants.kDeadzone),
-                () -> -Buttons.applyDeadzone(joystick.getTwist(), Constants.DriveConstants.kRotationDeadzone)
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
             )
         );
 
@@ -334,7 +338,7 @@ public class RobotContainer {
     private void configurePathPlannerCommands() {
         // ===== Shooter Commands =====
         // Spin up flywheel (use as event marker while driving to shooting position)
-        NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
+        // NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
 
     }
 

@@ -6,19 +6,17 @@ package com.adambots;
 
 import java.io.File;
 
-import com.adambots.commands.IntakeCommands;
-import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
 import com.adambots.lib.utils.Dash;
-import com.adambots.lib.vision.PhotonVision;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
+import com.adambots.subsystems.VisionSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
@@ -70,6 +68,9 @@ public class RobotContainer {
 
     /** LED subsystem using CANdle for robot status indication (null if disabled in RobotMap) */
     private final CANdleSubsystem leds;
+
+    /** Vision subsystem — owns PhotonVision cameras, provides distance/angle to hub */
+    private VisionSubsystem visionSubsystem;
 
     /** PhotonVision system for AprilTag detection and pose estimation */
     private VisionSystem vision;
@@ -159,49 +160,13 @@ public class RobotContainer {
      * TODO: Update camera names and positions for your robot
      */
     private void configureVision() {
-        // TODO: Configure vision cameras using VisionConfigBuilder
-        // import static edu.wpi.first.units.Units.*;
-        // import com.adambots.lib.vision.*;
-        // import com.adambots.lib.vision.config.*;
-        // import com.adambots.lib.utils.Utils;
-        //
-        // Step 1: Build the configuration
-        // VisionSystemConfig visionConfig = VisionConfigBuilder.create()
-        //     .addCamera("left_odom")
-        //         .position(Meters.of(0.3), Meters.of(0.3), Meters.of(0.2))
-        //         .rotation(Degrees.of(0), Degrees.of(-15), Degrees.of(0))
-        //         .purpose(CameraPurpose.ODOMETRY)
-        //         .singleTagStdDevs(Meters.of(0.5), Meters.of(0.5), Radians.of(1.0))
-        //         .multiTagStdDevs(Meters.of(0.2), Meters.of(0.2), Radians.of(0.5))
-        //         .maxTagDistance(Meters.of(4.0))
-        //         .done()
-        //     .addCamera("right_odom")
-        //         .position(Meters.of(0.3), Meters.of(-0.3), Meters.of(0.2))
-        //         .rotation(Degrees.of(0), Degrees.of(-15), Degrees.of(0))
-        //         .purpose(CameraPurpose.ODOMETRY)
-        //         .singleTagStdDevs(Meters.of(0.5), Meters.of(0.5), Radians.of(1.0))
-        //         .multiTagStdDevs(Meters.of(0.2), Meters.of(0.2), Radians.of(0.5))
-        //         .maxTagDistance(Meters.of(4.0))
-        //         .done()
-        //     .addCamera("turret")
-        //         .position(Meters.of(0.1), Meters.of(0), Meters.of(0.15))
-        //         .rotation(Degrees.of(0), Degrees.of(0), Degrees.of(0))
-        //         .purpose(CameraPurpose.ALIGNMENT)
-        //         .maxTagDistance(Meters.of(6.0))
-        //         .allowedTags(Constants.VisionConstants.getHubTags(Utils.isOnRedAlliance()))
-        //         .done()
-        //     .ambiguityThreshold(0.2)
-        //     .build();
-        //
-        // Step 2: Create PhotonVision independently
-        // vision = new PhotonVision(
-        //     visionConfig,
-        //     swerve::getPose,      // Supplier<Pose2d> for current robot pose
-        //     swerve.getField()     // Field2d for visualization
-        // );
-        //
-        // Step 3: Connect vision to swerve
-        // swerve.setupVision(vision);
+        if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED) return;
+
+        visionSubsystem = new VisionSubsystem(
+            swerve::getPose, swerve.getField(),
+            RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
+        vision = visionSubsystem.getPhotonVision();
+        swerve.setupVision(vision);
     }
 
     // ==================== SECTION: LED SETUP ====================

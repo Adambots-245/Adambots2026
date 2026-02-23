@@ -143,7 +143,13 @@ public class VisionSubsystem extends SubsystemBase {
                 .rotation(Degrees.of(VisionConstants.kShooterCameraRoll),
                           Degrees.of(VisionConstants.kShooterCameraPitch),
                           Degrees.of(VisionConstants.kShooterCameraYaw))
-                .purpose(CameraPurpose.ALIGNMENT)
+                .purpose(CameraPurpose.BOTH)
+                .singleTagStdDevs(Meters.of(VisionConstants.kSingleTagStdDevs[0]),
+                                  Meters.of(VisionConstants.kSingleTagStdDevs[1]),
+                                  Radians.of(VisionConstants.kSingleTagStdDevs[2]))
+                .multiTagStdDevs(Meters.of(VisionConstants.kMultiTagStdDevs[0]),
+                                 Meters.of(VisionConstants.kMultiTagStdDevs[1]),
+                                 Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
                 .done();
         }

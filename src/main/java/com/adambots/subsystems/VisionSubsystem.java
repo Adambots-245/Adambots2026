@@ -422,6 +422,12 @@ public class VisionSubsystem extends SubsystemBase {
             Utils.isOnRedAlliance() ? VisionConstants.kRedTowerTags : VisionConstants.kBlueTowerTags));
     }
 
+    /** Trigger that fires when any alliance outpost tag is visible. */
+    public Trigger outpostVisibleTrigger() {
+        return new Trigger(() -> areTagsVisible(
+            Utils.isOnRedAlliance() ? VisionConstants.kRedOutpostTags : VisionConstants.kBlueOutpostTags));
+    }
+
     /** Trigger that fires when any alliance trench tag is visible. */
     public Trigger trenchVisibleTrigger() {
         return new Trigger(() -> areTagsVisible(

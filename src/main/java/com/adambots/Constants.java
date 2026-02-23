@@ -268,11 +268,17 @@ public final class Constants {
         /** Blue alliance HUB tags - primary targets for scoring */
         public static final int[] kBlueHubTags = {18, 19, 20, 21, 24, 25, 26, 27};
 
-        /** Red alliance TOWER WALL tags - good for pose estimation */
-        public static final int[] kRedTowerTags = {13, 14, 15, 16};
+        /** Red alliance TOWER BACKBOARD tags (for climb alignment and pose estimation) */
+        public static final int[] kRedTowerTags = {15, 16};
 
-        /** Blue alliance TOWER WALL tags - good for pose estimation */
-        public static final int[] kBlueTowerTags = {29, 30, 31, 32};
+        /** Blue alliance TOWER BACKBOARD tags (for climb alignment and pose estimation) */
+        public static final int[] kBlueTowerTags = {31, 32};
+
+        /** Red alliance OUTPOST tags (previously lumped with tower) */
+        public static final int[] kRedOutpostTags = {13, 14};
+
+        /** Blue alliance OUTPOST tags (previously lumped with tower) */
+        public static final int[] kBlueOutpostTags = {29, 30};
 
         /** Red alliance TRENCH tags */
         public static final int[] kRedTrenchTags = {1, 6, 7, 12};
@@ -327,6 +333,25 @@ public final class Constants {
         }
 
         /**
+         * Gets the OUTPOST tags for the current alliance.
+         * @param alliance The current alliance from DriverStation
+         * @return Array of OUTPOST tag IDs for the alliance
+         */
+        public static int[] getOutpostTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
+            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
+                ? kRedOutpostTags : kBlueOutpostTags;
+        }
+
+        /**
+         * Gets the OUTPOST tags for the current alliance.
+         * @param isRedAlliance true if on red alliance, false if on blue
+         * @return Array of OUTPOST tag IDs for the alliance
+         */
+        public static int[] getOutpostTags(boolean isRedAlliance) {
+            return isRedAlliance ? kRedOutpostTags : kBlueOutpostTags;
+        }
+
+        /**
          * Gets the TRENCH tags for the current alliance.
          * @param alliance The current alliance from DriverStation
          * @return Array of TRENCH tag IDs for the alliance
@@ -353,6 +378,37 @@ public final class Constants {
 
         /** PhotonVision web dashboard port */
         public static final int kPhotonVisionPort = 5800;
+
+        // ==================== Climb Alignment Constants ====================
+
+        /**
+         * Lateral offset from tag-pair centroid to tower opening centerline (meters).
+         * The two tower backboard tags are NOT centered on the opening — their centroid
+         * is shifted ~8.4" toward one upright. This offset corrects for that.
+         * Positive = toward field +Y for red, –Y for blue. Tune on-field if needed.
+         */
+        public static final double kTowerTagLateralOffsetMeters = 0.213;
+
+        /**
+         * Distance from the alliance wall to the robot center when positioned for climb (meters).
+         * TODO: Measure on field — this depends on elevator extension and U-frame geometry.
+         */
+        public static final double kClimbWallDistanceMeters = 0.0; // TBD — measure on field
+
+        /**
+         * Robot heading when aligned for climb (radians).
+         * Robot backs into the tower, so heading faces away from the wall.
+         * TODO: Set based on alliance wall orientation (0 or π).
+         */
+        public static final double kClimbHeadingRad = 0.0; // TBD — set per alliance wall
+
+        /**
+         * Precomputed climb poses (robot center) derived from field drawings + offsets.
+         * TODO: Compute from tower coordinates, kTowerTagLateralOffsetMeters, and kClimbWallDistanceMeters.
+         * For now these are placeholders — fill in once measurements are taken.
+         */
+        // public static final Pose2d kRedClimbPose = new Pose2d(X, Y, Rotation2d.fromDegrees(heading));
+        // public static final Pose2d kBlueClimbPose = new Pose2d(X, Y, Rotation2d.fromDegrees(heading));
     }
 
     // ==================== Intake Constants ====================

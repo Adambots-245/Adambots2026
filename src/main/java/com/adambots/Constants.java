@@ -167,63 +167,64 @@ public final class Constants {
         // ==================== Camera Names ====================
         // These must match the camera names configured in PhotonVision
 
-        /** Left odometry camera name (Arducam OV9281 on front-left swerve module) */
-        public static final String kLeftOdomCameraName = "left_odom";
+        /** Back-left ArduCam OV9281 (on back-left swerve module, facing backward) */
+        public static final String kBackLeftCameraName = "back_left";
 
-        /** Right odometry camera name (Arducam OV9281 on front-right swerve module) */
-        public static final String kRightOdomCameraName = "right_odom";
+        /** Back-right ArduCam OV9281 (on back-right swerve module, facing backward) */
+        public static final String kBackRightCameraName = "back_right";
 
-        /** Turret camera name (Microsoft LifeCam HD-3000 on turret) */
-        public static final String kTurretCameraName = "turret";
-
-        /** Human player station camera name */
-        public static final String kHPStationCameraName = "hp_station";
+        /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
+        public static final String kShooterCameraName = "shooter_cam";
 
         // ==================== Camera Positions ====================
-        // TODO: Update these values with actual measurements from CAD
-        // All measurements are from robot center (between swerve modules at floor level)
+        // All measurements are in METERS from the robot center to the camera lens.
+        // Robot center = the point on the floor exactly between the four swerve modules.
+        //
+        // How to measure each axis:
+        //   X: Measure from robot center toward the front (+) or back (-) of the robot
+        //      to the camera lens. Use a tape measure along the floor, then project up.
+        //      Example: camera is 11in behind center → X = -0.28m
+        //
+        //   Y: Measure from robot center toward the left (+) or right (-) side.
+        //      Stand behind the robot looking forward: left is positive.
+        //      Example: camera is 11in to the left → Y = +0.28m
+        //
+        //   Z: Measure from the floor straight up to the camera lens.
+        //      Example: camera sits 8.5in above the ground → Z = 0.22m
+        //
+        //   Pitch: Tilt angle of the camera up/down in degrees.
+        //      0 = level, negative = tilted down, positive = tilted up.
+        //      Use a phone inclinometer app on the camera to measure.
+        //
+        //   Yaw: Direction the camera faces in degrees.
+        //      0 = forward, 90 = left, 180 = backward, -90 = right.
+        //
+        // Back swerve modules are at (-0.28m, ±0.28m) from center per swerve config.
+        // TODO: Fine-tune all positions with actual measurements from the robot
 
-        // Left Odometry Camera (front-left swerve module)
-        /** X position of left odom camera in meters (forward from robot center) */
-        public static final double kLeftOdomCameraX = 0.3;  // TODO: Measure from CAD
-        /** Y position of left odom camera in meters (left from robot center) */
-        public static final double kLeftOdomCameraY = 0.3;  // TODO: Measure from CAD
-        /** Z position of left odom camera in meters (up from floor) */
-        public static final double kLeftOdomCameraZ = 0.2;  // TODO: Measure from CAD
-        /** Roll of left odom camera in degrees */
-        public static final double kLeftOdomCameraRoll = 0.0;
-        /** Pitch of left odom camera in degrees (negative = pitched down) */
-        public static final double kLeftOdomCameraPitch = -15.0;
-        /** Yaw of left odom camera in degrees */
-        public static final double kLeftOdomCameraYaw = 0.0;
+        // Back-Left ArduCam (on top of back-left swerve module, facing backward)
+        public static final double kBackLeftCameraX = -0.28;   // back of robot
+        public static final double kBackLeftCameraY = 0.28;    // left side
+        public static final double kBackLeftCameraZ = 0.22;    // on top of module (~8.5in up)
+        public static final double kBackLeftCameraRoll = 0.0;
+        public static final double kBackLeftCameraPitch = 15.0;  // slightly up to see AprilTags
+        public static final double kBackLeftCameraYaw = 180.0;   // facing backward
 
-        // Right Odometry Camera (front-right swerve module)
-        /** X position of right odom camera in meters (forward from robot center) */
-        public static final double kRightOdomCameraX = 0.3;  // TODO: Measure from CAD
-        /** Y position of right odom camera in meters (right from robot center, negative) */
-        public static final double kRightOdomCameraY = -0.3;  // TODO: Measure from CAD
-        /** Z position of right odom camera in meters (up from floor) */
-        public static final double kRightOdomCameraZ = 0.2;  // TODO: Measure from CAD
-        /** Roll of right odom camera in degrees */
-        public static final double kRightOdomCameraRoll = 0.0;
-        /** Pitch of right odom camera in degrees (negative = pitched down) */
-        public static final double kRightOdomCameraPitch = -15.0;
-        /** Yaw of right odom camera in degrees */
-        public static final double kRightOdomCameraYaw = 0.0;
+        // Back-Right ArduCam (on top of back-right swerve module, facing backward)
+        public static final double kBackRightCameraX = -0.28;  // back of robot
+        public static final double kBackRightCameraY = -0.28;  // right side
+        public static final double kBackRightCameraZ = 0.22;   // on top of module (~8.5in up)
+        public static final double kBackRightCameraRoll = 0.0;
+        public static final double kBackRightCameraPitch = 15.0;  // slightly up to see AprilTags
+        public static final double kBackRightCameraYaw = 180.0;   // facing backward
 
-        // Turret Camera (mounted on turret, centered on rotation axis)
-        /** X position of turret camera in meters (forward from turret center) */
-        public static final double kTurretCameraX = 0.1;  // TODO: Measure from CAD
-        /** Y position of turret camera in meters (should be ~0 if centered) */
-        public static final double kTurretCameraY = 0.0;
-        /** Z position of turret camera in meters (up from turret base) */
-        public static final double kTurretCameraZ = 0.15;  // TODO: Measure from CAD
-        /** Roll of turret camera in degrees */
-        public static final double kTurretCameraRoll = 0.0;
-        /** Pitch of turret camera in degrees */
-        public static final double kTurretCameraPitch = 0.0;
-        /** Yaw of turret camera in degrees (relative to turret forward) */
-        public static final double kTurretCameraYaw = 0.0;
+        // Shooter LifeCam (on top of shooter at back of robot, facing forward)
+        public static final double kShooterCameraX = -0.20;   // behind center (shooter is at back)
+        public static final double kShooterCameraY = 0.0;      // centered
+        public static final double kShooterCameraZ = 0.50;     // on top of shooter (~20in up)
+        public static final double kShooterCameraRoll = 0.0;
+        public static final double kShooterCameraPitch = 0.0;  // level
+        public static final double kShooterCameraYaw = 0.0;    // facing forward
 
         // ==================== Pose Estimation Parameters ====================
 
@@ -248,6 +249,12 @@ public final class Constants {
          */
         public static final double[] kMultiTagStdDevs = {0.2, 0.2, 0.5};
 
+        /** Maximum distance to recognize AprilTags for odometry cameras (meters) */
+        public static final double kOdomMaxTagDistance = 4.0;
+
+        /** Maximum distance to recognize AprilTags for alignment camera (meters) */
+        public static final double kAlignMaxTagDistance = 6.0;
+
         // ==================== AprilTag Groups ====================
         // Game-specific tag groups for filtering and detection
         // Use with vision.hasID() or allowedTags() in VisionConfigBuilder
@@ -256,22 +263,34 @@ public final class Constants {
         // TODO: Verify tag IDs match 2026 REBUILT field layout
 
         /** Red alliance HUB tags - primary targets for scoring */
-        public static final int[] kRedHubTags = {};  // TODO: Add tag IDs
+        public static final int[] kRedHubTags = {2, 3, 4, 5, 8, 9, 10, 11};
 
         /** Blue alliance HUB tags - primary targets for scoring */
-        public static final int[] kBlueHubTags = {};  // TODO: Add tag IDs
+        public static final int[] kBlueHubTags = {18, 19, 20, 21, 24, 25, 26, 27};
 
-        /** Red alliance TOWER WALL tags - good for pose estimation */
-        public static final int[] kRedTowerTags = {};  // TODO: Add tag IDs
+        /** Red alliance TOWER BACKBOARD tags (for climb alignment and pose estimation) */
+        public static final int[] kRedTowerTags = {15, 16};
 
-        /** Blue alliance TOWER WALL tags - good for pose estimation */
-        public static final int[] kBlueTowerTags = {};  // TODO: Add tag IDs
+        /** Blue alliance TOWER BACKBOARD tags (for climb alignment and pose estimation) */
+        public static final int[] kBlueTowerTags = {31, 32};
+
+        /** Red alliance OUTPOST tags (previously lumped with tower) */
+        public static final int[] kRedOutpostTags = {13, 14};
+
+        /** Blue alliance OUTPOST tags (previously lumped with tower) */
+        public static final int[] kBlueOutpostTags = {29, 30};
 
         /** Red alliance TRENCH tags */
-        public static final int[] kRedTrenchTags = {};  // TODO: Add tag IDs
+        public static final int[] kRedTrenchTags = {1, 6, 7, 12};
 
         /** Blue alliance TRENCH tags */
-        public static final int[] kBlueTrenchTags = {};  // TODO: Add tag IDs
+        public static final int[] kBlueTrenchTags = {17, 22, 23, 28};
+
+        /** Max distance to consider a target valid (meters) */
+        public static final double kMaxDistanceMeters = 8.0;
+
+        /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback) */
+        public static final int kVisionMode = 2;
 
         /**
          * Gets the HUB tags for the current alliance.
@@ -313,6 +332,45 @@ public final class Constants {
             return isRedAlliance ? kRedTowerTags : kBlueTowerTags;
         }
 
+        /**
+         * Gets the OUTPOST tags for the current alliance.
+         * @param alliance The current alliance from DriverStation
+         * @return Array of OUTPOST tag IDs for the alliance
+         */
+        public static int[] getOutpostTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
+            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
+                ? kRedOutpostTags : kBlueOutpostTags;
+        }
+
+        /**
+         * Gets the OUTPOST tags for the current alliance.
+         * @param isRedAlliance true if on red alliance, false if on blue
+         * @return Array of OUTPOST tag IDs for the alliance
+         */
+        public static int[] getOutpostTags(boolean isRedAlliance) {
+            return isRedAlliance ? kRedOutpostTags : kBlueOutpostTags;
+        }
+
+        /**
+         * Gets the TRENCH tags for the current alliance.
+         * @param alliance The current alliance from DriverStation
+         * @return Array of TRENCH tag IDs for the alliance
+         */
+        public static int[] getTrenchTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
+            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
+                ? kRedTrenchTags : kBlueTrenchTags;
+        }
+
+        /**
+         * Gets the TRENCH tags for the current alliance.
+         * Use with Utils.isOnRedAlliance() for cleaner code.
+         * @param isRedAlliance true if on red alliance, false if on blue
+         * @return Array of TRENCH tag IDs for the alliance
+         */
+        public static int[] getTrenchTags(boolean isRedAlliance) {
+            return isRedAlliance ? kRedTrenchTags : kBlueTrenchTags;
+        }
+
         // ==================== Network Configuration ====================
 
         /** PhotonVision coprocessor IP address (OrangePi) */
@@ -320,6 +378,37 @@ public final class Constants {
 
         /** PhotonVision web dashboard port */
         public static final int kPhotonVisionPort = 5800;
+
+        // ==================== Climb Alignment Constants ====================
+
+        /**
+         * Lateral offset from tag-pair centroid to tower opening centerline (meters).
+         * The two tower backboard tags are NOT centered on the opening — their centroid
+         * is shifted ~8.4" toward one upright. This offset corrects for that.
+         * Positive = toward field +Y for red, –Y for blue. Tune on-field if needed.
+         */
+        public static final double kTowerTagLateralOffsetMeters = 0.213;
+
+        /**
+         * Distance from the alliance wall to the robot center when positioned for climb (meters).
+         * TODO: Measure on field — this depends on elevator extension and U-frame geometry.
+         */
+        public static final double kClimbWallDistanceMeters = 0.0; // TBD — measure on field
+
+        /**
+         * Robot heading when aligned for climb (radians).
+         * Robot backs into the tower, so heading faces away from the wall.
+         * TODO: Set based on alliance wall orientation (0 or π).
+         */
+        public static final double kClimbHeadingRad = 0.0; // TBD — set per alliance wall
+
+        /**
+         * Precomputed climb poses (robot center) derived from field drawings + offsets.
+         * TODO: Compute from tower coordinates, kTowerTagLateralOffsetMeters, and kClimbWallDistanceMeters.
+         * For now these are placeholders — fill in once measurements are taken.
+         */
+        // public static final Pose2d kRedClimbPose = new Pose2d(X, Y, Rotation2d.fromDegrees(heading));
+        // public static final Pose2d kBlueClimbPose = new Pose2d(X, Y, Rotation2d.fromDegrees(heading));
     }
 
     // ==================== Intake Constants ====================

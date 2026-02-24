@@ -7,6 +7,7 @@ package com.adambots;
 import java.io.File;
 
 import com.adambots.lib.subsystems.CANdleSubsystem;
+import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
@@ -96,8 +97,17 @@ public class RobotContainer {
      * </ol>
      */
     public RobotContainer() {
-        // 1. Initialize swerve subsystem from YAGSL config
-        swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+        // 1. Initialize swerve subsystem from YAGSL config with PathPlanner PID tuning
+        SwerveConfig swerveConfig = new SwerveConfig()
+            .withTranslationPID(
+                Constants.DriveConstants.kAutoTranslationP,
+                Constants.DriveConstants.kAutoTranslationI,
+                Constants.DriveConstants.kAutoTranslationD)
+            .withRotationPID(
+                Constants.DriveConstants.kAutoRotationP,
+                Constants.DriveConstants.kAutoRotationI,
+                Constants.DriveConstants.kAutoRotationD);
+        swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
         // Subsystems are only created when their enable flag is true in RobotMap

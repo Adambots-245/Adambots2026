@@ -4,16 +4,6 @@
 
 package com.adambots;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.DegreesPerSecond;
-import static edu.wpi.first.units.Units.Inches;
-import static edu.wpi.first.units.Units.MetersPerSecond;
-
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Current;
-import edu.wpi.first.units.measure.Distance;
-import edu.wpi.first.units.measure.LinearVelocity;
-
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
  * constants. This class should not be used for any other purpose. All constants should be declared
@@ -26,60 +16,23 @@ public final class Constants {
 
     // ==================== DriveConstants ====================
     /**
-     * Constants for the swerve drive system including speed limits, deadzones, and dimensions.
+     * Constants for the swerve drive system.
+     * Speed limits, gearing, and dimensions are configured in YAGSL JSON and PathPlanner settings.json.
      */
     public static final class DriveConstants {
-        /** Maximum translational speed of the robot */
-        public static final LinearVelocity kMaxSpeed = MetersPerSecond.of(4.0);
-        /** Maximum rotational speed of the robot */
-        public static final AngularVelocity kMaxAngularSpeed = DegreesPerSecond.of(540);
         /** Joystick deadzone for translational movement */
         public static final double kDeadzone = 0.05;
-        /** Joystick deadzone for rotational movement */
-        public static final double kRotationDeadzone = 0.1;
-        /** Distance between left and right wheels - TODO: Update with actual measurements */
-        public static final Distance kTrackWidth = Inches.of(24);
-        /** Distance between front and back wheels - TODO: Update with actual measurements */
-        public static final Distance kWheelBase = Inches.of(24);
-    }
 
-    // ==================== ModuleConstants ====================
-    /**
-     * Constants for individual swerve modules.
-     * MK5n with Kraken X60 (drive) and X44 (turn) motors.
-     */
-    public static final class ModuleConstants {
-        /** Drive motor gear ratio for MK5n */
-        public static final double kDriveGearRatio = 1.0 / 5.9;
-        /** Turn motor gear ratio */
-        public static final double kTurnGearRatio = 287.0 / 11.0;  // ~26.09:1
-        /** Wheel diameter */
-        public static final Distance kWheelDiameter = Inches.of(4);
-        /** Drive motor current limit */
-        public static final Current kDriveCurrentLimit = Amps.of(40);
-        /** Turn motor current limit */
-        public static final Current kTurnCurrentLimit = Amps.of(20);
-    }
+        // PathPlanner path-following PID (corrects position/heading error during auto)
+        // These are NOT the same as YAGSL motor-level PIDs in pidfproperties.json.
+        // Start at 5.0/0/0 and tune on the field — see SwerveConfig javadoc for tips.
+        public static final double kAutoTranslationP = 5.0;
+        public static final double kAutoTranslationI = 0.0;
+        public static final double kAutoTranslationD = 0.0;
 
-    // ==================== AutoConstants ====================
-    /**
-     * Constants for autonomous mode and PathPlanner.
-     */
-    public static final class AutoConstants {
-        /** Maximum autonomous velocity */
-        public static final LinearVelocity kMaxAutoSpeed = MetersPerSecond.of(4.0);
-        /** Maximum autonomous acceleration */
-        public static final double kMaxAutoAcceleration = 3.0;  // m/s²
-
-        // Translation PID
-        public static final double kPTranslation = 5.0;
-        public static final double kITranslation = 0.0;
-        public static final double kDTranslation = 0.0;
-
-        // Rotation PID
-        public static final double kPRotation = 5.0;
-        public static final double kIRotation = 0.0;
-        public static final double kDRotation = 0.0;
+        public static final double kAutoRotationP = 5.0;
+        public static final double kAutoRotationI = 0.0;
+        public static final double kAutoRotationD = 0.0;
     }
 
     // ==================== ShooterConstants ====================
@@ -291,124 +244,6 @@ public final class Constants {
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback) */
         public static final int kVisionMode = 2;
-
-        /**
-         * Gets the HUB tags for the current alliance.
-         * @param alliance The current alliance from DriverStation
-         * @return Array of HUB tag IDs for the alliance
-         */
-        public static int[] getHubTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
-            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
-                ? kRedHubTags : kBlueHubTags;
-        }
-
-        /**
-         * Gets the HUB tags for the current alliance.
-         * Use with Utils.isOnRedAlliance() for cleaner code.
-         * @param isRedAlliance true if on red alliance, false if on blue
-         * @return Array of HUB tag IDs for the alliance
-         */
-        public static int[] getHubTags(boolean isRedAlliance) {
-            return isRedAlliance ? kRedHubTags : kBlueHubTags;
-        }
-
-        /**
-         * Gets the TOWER WALL tags for the current alliance.
-         * @param alliance The current alliance from DriverStation
-         * @return Array of TOWER tag IDs for the alliance
-         */
-        public static int[] getTowerTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
-            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
-                ? kRedTowerTags : kBlueTowerTags;
-        }
-
-        /**
-         * Gets the TOWER WALL tags for the current alliance.
-         * Use with Utils.isOnRedAlliance() for cleaner code.
-         * @param isRedAlliance true if on red alliance, false if on blue
-         * @return Array of TOWER tag IDs for the alliance
-         */
-        public static int[] getTowerTags(boolean isRedAlliance) {
-            return isRedAlliance ? kRedTowerTags : kBlueTowerTags;
-        }
-
-        /**
-         * Gets the OUTPOST tags for the current alliance.
-         * @param alliance The current alliance from DriverStation
-         * @return Array of OUTPOST tag IDs for the alliance
-         */
-        public static int[] getOutpostTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
-            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
-                ? kRedOutpostTags : kBlueOutpostTags;
-        }
-
-        /**
-         * Gets the OUTPOST tags for the current alliance.
-         * @param isRedAlliance true if on red alliance, false if on blue
-         * @return Array of OUTPOST tag IDs for the alliance
-         */
-        public static int[] getOutpostTags(boolean isRedAlliance) {
-            return isRedAlliance ? kRedOutpostTags : kBlueOutpostTags;
-        }
-
-        /**
-         * Gets the TRENCH tags for the current alliance.
-         * @param alliance The current alliance from DriverStation
-         * @return Array of TRENCH tag IDs for the alliance
-         */
-        public static int[] getTrenchTags(edu.wpi.first.wpilibj.DriverStation.Alliance alliance) {
-            return alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red
-                ? kRedTrenchTags : kBlueTrenchTags;
-        }
-
-        /**
-         * Gets the TRENCH tags for the current alliance.
-         * Use with Utils.isOnRedAlliance() for cleaner code.
-         * @param isRedAlliance true if on red alliance, false if on blue
-         * @return Array of TRENCH tag IDs for the alliance
-         */
-        public static int[] getTrenchTags(boolean isRedAlliance) {
-            return isRedAlliance ? kRedTrenchTags : kBlueTrenchTags;
-        }
-
-        // ==================== Network Configuration ====================
-
-        /** PhotonVision coprocessor IP address (OrangePi) */
-        public static final String kPhotonVisionIP = "10.2.45.11";
-
-        /** PhotonVision web dashboard port */
-        public static final int kPhotonVisionPort = 5800;
-
-        // ==================== Climb Alignment Constants ====================
-
-        /**
-         * Lateral offset from tag-pair centroid to tower opening centerline (meters).
-         * The two tower backboard tags are NOT centered on the opening — their centroid
-         * is shifted ~8.4" toward one upright. This offset corrects for that.
-         * Positive = toward field +Y for red, –Y for blue. Tune on-field if needed.
-         */
-        public static final double kTowerTagLateralOffsetMeters = 0.213;
-
-        /**
-         * Distance from the alliance wall to the robot center when positioned for climb (meters).
-         * TODO: Measure on field — this depends on elevator extension and U-frame geometry.
-         */
-        public static final double kClimbWallDistanceMeters = 0.0; // TBD — measure on field
-
-        /**
-         * Robot heading when aligned for climb (radians).
-         * Robot backs into the tower, so heading faces away from the wall.
-         * TODO: Set based on alliance wall orientation (0 or π).
-         */
-        public static final double kClimbHeadingRad = 0.0; // TBD — set per alliance wall
-
-        /**
-         * Precomputed climb poses (robot center) derived from field drawings + offsets.
-         * TODO: Compute from tower coordinates, kTowerTagLateralOffsetMeters, and kClimbWallDistanceMeters.
-         * For now these are placeholders — fill in once measurements are taken.
-         */
-        // public static final Pose2d kRedClimbPose = new Pose2d(X, Y, Rotation2d.fromDegrees(heading));
-        // public static final Pose2d kBlueClimbPose = new Pose2d(X, Y, Rotation2d.fromDegrees(heading));
     }
 
     // ==================== Intake Constants ====================
@@ -464,13 +299,4 @@ public final class Constants {
         // sensorToMechanismRatio and must stay 1.0 until position targets are recalibrated).
         public static final double kSimGearRatio = 28.0;
     }
-
-
-    // ==================== [MechanismName]Constants ====================
-    // Add new nested classes for each mechanism
-    // Example:
-    // public static final class IntakeConstants {
-    //     public static final double kIntakeSpeed = 0.8;
-    //     public static final double kOuttakeSpeed = -0.5;
-    // }
 }

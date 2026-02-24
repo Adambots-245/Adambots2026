@@ -283,6 +283,30 @@ public final class Constants {
         public static final int kArmSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
     }
 
+    // ==================== TuningConstants ====================
+    /**
+     * Constants for swerve auto-tuning routines (PID relay feedback and MOI estimation).
+     */
+    public static final class TuningConstants {
+        /** Relay amplitude for rotation PID tuning (fraction of max angular velocity) */
+        public static final double kTuningMaxAngularOutput = 0.3;
+
+        /** Relay amplitude for translation PID tuning (fraction of max linear velocity) */
+        public static final double kTuningMaxLinearOutput = 0.3;
+
+        /** Target angular velocity for MOI step-response test (rad/s) */
+        public static final double kMOITestAngularVelocity = 2.0;
+
+        /** Duration of the MOI spin-up test in seconds */
+        public static final double kMOITestDurationSeconds = 3.0;
+
+        /** Settling time before measuring MOI spin-down (seconds) */
+        public static final double kMOISpinUpSettleTime = 1.0;
+
+        /** Sampling interval for MOI acceleration measurement (seconds) */
+        public static final double kMOISampleIntervalSeconds = 0.02;
+    }
+
     /**
      * Simulation constants — approximate values for code testing, not hardware tuning.
      */

@@ -6,6 +6,7 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -346,6 +347,11 @@ public class RobotContainer {
         // TODO: Add custom autonomous commands using AutoCommands factory
         // autoChooser.addOption("Score and Taxi", AutoCommands.scoreAndTaxiCommand(swerve, shooter, hopper, 2.0));
         // autoChooser.addOption("Score and Move", AutoCommands.scoreAndMoveCommand(swerve, shooter, hopper, new Pose2d()));
+
+        // Swerve tuning commands (select from dashboard, run in auto mode)
+        autoChooser.addOption("Tune Rotation PID", TuningCommands.tuneRotationPIDCommand(swerve));
+        autoChooser.addOption("Tune Translation PID", TuningCommands.tuneTranslationPIDCommand(swerve));
+        autoChooser.addOption("Estimate MOI", TuningCommands.estimateMOICommand(swerve));
 
         // Put the chooser on the dashboard
         SmartDashboard.putData("Auto Chooser", autoChooser);

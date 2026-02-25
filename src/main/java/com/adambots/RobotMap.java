@@ -5,8 +5,11 @@
 package com.adambots;
 
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.actuators.MinionMotor;
 import com.adambots.lib.actuators.TalonFXMotor;
+import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.sensors.BaseProximitySensor;
+import com.adambots.lib.sensors.CANRangeSensor;
 import com.adambots.lib.sensors.LimitSwitch;
 import com.adambots.lib.sensors.PhotoEye;
 
@@ -27,8 +30,10 @@ public class RobotMap {
     // Set to false for subsystems not yet physically built.
     // When disabled, no CAN/DIO devices are created → no CAN errors.
     public static final boolean INTAKE_ENABLED = true;
-    public static final boolean HOPPER_ENABLED = false;
-    public static final boolean SHOOTER_ENABLED = false;
+    public static final boolean HOPPER_ENABLED = true;
+    public static final boolean SHOOTER_ENABLED = true;
+    public static final boolean TURRET_ENABLED = true;
+    public static final boolean UPTAKE_ENABLED = true;
     public static final boolean CLIMBER_ENABLED = false;
     public static final boolean LEDS_ENABLED = false;
     public static final boolean BACK_CAMERAS_ENABLED = true;
@@ -48,44 +53,43 @@ public class RobotMap {
     private static final int kIntakeMotorArmPort = 32;
 
     // Hardware devices
-    // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
+    // TalonFXMotor(canId, isOnCANivore, supplyCurrentLimit, isKraken)
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
         ? new TalonFXMotor(kIntakeMotorPort, false, 1.0, false) : null;
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
         ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
 
-    // ==================== HOPPER ====================
-    // Port assignments
-    private static final int kHopperCarouselMotorPort = 15;
-    private static final int kHopperUptakeMotorPort = 16;
-    private static final int kHopperSensorPort = 1;  // DIO
-
-    // Hardware devices
-    public static final BaseMotor kHopperCarouselMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kHopperCarouselMotorPort, false, 1.0, false) : null;
-    public static final BaseMotor kHopperUptakeMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kHopperUptakeMotorPort, false, 1.0, false) : null;
-    public static final BaseProximitySensor kHopperSensor = HOPPER_ENABLED
-        ? new PhotoEye(kHopperSensorPort, false) : null;
-
     // ==================== SHOOTER ====================
     // Port assignments
-    private static final int kShooterLeftMotorPort = 17;   // Left flywheel motor (leader)
-    private static final int kShooterRightMotorPort = 18;  // Right flywheel motor (follower)
-    private static final int kShooterTurretMotorPort = 19; // Turret rotation motor
+    public static final int kShooterLeftPort = 24;    // Kraken X60 (leader)
+    public static final int kShooterRightPort = 25;   // Kraken X60 (follower)
 
     // Hardware devices
-    // TalonFXMotor(canId, inverted, gearRatio, brakeMode)
-    public static final BaseMotor kShooterLeftMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterLeftMotorPort, false, 1.0, false) : null;
-    public static final BaseMotor kShooterRightMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterRightMotorPort, true, 1.0, false) : null;  // Inverted to spin opposite
-    public static final BaseMotor kShooterTurretMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterTurretMotorPort, false, 1.0, true) : null;  // Brake mode for turret
+    public static final BaseMotor shooterLeftMotor = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterLeftPort, false, 60.0, true) : null;
+    public static final BaseMotor shooterRightMotor = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterRightPort, false, 60.0, true) : null;
 
-    // TODO: Add turret encoder (REV Through Bore via DIO)
-    // import com.adambots.lib.sensors.ThroughBoreEncoder;
-    // public static final ThroughBoreEncoder kTurretEncoder = new ThroughBoreEncoder(ShooterConstants.kTurretEncoderPort);
+    // ==================== TURRET ====================
+    private static final int kTurretPort = 35;        // Minion (WCP GreyT Turret)
+
+    public static final BaseMotor turretMotor = TURRET_ENABLED
+        ? new MinionMotor(kTurretPort) : null;
+
+    // ==================== UPTAKE ====================
+    private static final int kUptakePort = 34;        // Kraken X44
+
+    public static final BaseMotor uptakeMotor = UPTAKE_ENABLED
+        ? new TalonFXMotor(kUptakePort, false, 40.0, true) : null;
+
+    // ==================== HOPPER ====================
+    private static final int kHopperPort = 26;
+    private static final int kHopperSensorPort = 27;  // CANRange sensor
+
+    public static final BaseMotor hopperMotor = HOPPER_ENABLED
+        ? new TalonFXMotor(kHopperPort, false, 60.0, true) : null;
+    public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
+        ? new CANRangeSensor(kHopperSensorPort, false) : null;
 
     // ==================== CLIMBER ====================
     // Port assignments

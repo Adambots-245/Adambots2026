@@ -37,65 +37,90 @@ public final class Constants {
 
     // ==================== ShooterConstants ====================
     /**
-     * Constants for the shooter subsystem including flywheel speeds, turret limits, and tracking.
+     * Constants for the flywheel shooter subsystem.
+     * Tested PID values from Subsystem/Shooter branch test board.
      */
     public static final class ShooterConstants {
-        // TODO: Flywheel velocity settings
-        public static final double kDefaultVelocity = 50.0;  // RPS
-        // public static final double kIdleSpeed = 0.1;         // Motor power for idle
-        // public static final double kVelocityTolerance = 2.0; // RPS tolerance for "at speed"
+        // ==================== Flywheel Motor Specs ====================
+        public static final double kMotorFreeSpeedRPS = 100.0; // Kraken X60: 6000 RPM = 100 RPS
+        public static final double kNominalVoltage = 12.0;
 
-        // Flywheel Velocity PID Gains
-        public static final double kFlywheelKP = 0.1;
-        public static final double kFlywheelKI = 0.0;
-        public static final double kFlywheelKD = 0.0;
+        // Set to -1.0 to reverse flywheel direction (workaround for setInverted issue)
+        public static final double kFlywheelDirection = -1.0;
 
-        // Flywheel Feed-Forward
-        // Feed-forward predicts the voltage needed to maintain a target velocity, so PID only
-        // corrects for small errors. Without FF, PID has to "discover" the right voltage from
-        // scratch, causing slow spin-up and oscillation. With FF, the motor reaches target speed
-        // quickly and PID just fine-tunes it.
-        //
-        // Formula: kV = 12V / motorFreeSpeedRPS
-        // At free speed, the motor needs full voltage (12V), so this ratio gives volts-per-RPS.
-        //
-        // Common motor free speeds (from datasheets):
-        //   Kraken X60: 6000 RPM = 100 RPS
-        //   Kraken X44: 7530 RPM = 125.5 RPS
-        //   Minion:     7700 RPM = 128.3 RPS
-        //
-        // TODO: Set to your flywheel motor's free speed in RPS
-        public static final double kFlywheelMaxFreeSpeedRPS = 100.0;  // Kraken X60 free speed
-        public static final double kFlywheelFF = 12.0 / kFlywheelMaxFreeSpeedRPS;  // Volts per RPS
+        // ==================== Flywheel PID (tested on test board) ====================
+        public static final double kFlywheelP = 0.1;
+        public static final double kFlywheelI = 0;
+        public static final double kFlywheelD = 0;
+        public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
 
-        public static final double kFlywheelTolerance = 2.0;  // RPS tolerance for "at speed"
+        public static final double kFlywheelToleranceRPS = 2.0;
 
-        // Turret settings
-        public static final double kTurretGearRatio = 100.0; // Motor rotations per turret rotation
-        public static final double kTurretManualSpeed = 0.5; // Max manual control speed
-        public static final double kTurretAngleTolerance = 2.0; // Degrees tolerance for "on target"
+        // ==================== Current Limits ====================
+        public static final double kFlywheelStallCurrentLimit = 40.0;
+        public static final double kFlywheelFreeCurrentLimit = 60.0;
 
-        // Turret Position PID Gains
-        public static final double kTurretKP = 0.05;
-        public static final double kTurretKI = 0.0;
-        public static final double kTurretKD = 0.0;
+        // ==================== Interpolation Table ====================
+        // distance (meters) -> RPS, tuned on the field
+        public static final double[][] kDefaultInterpolationTable = {
+            {2.0, 45.0},
+            {2.5, 46.5},
+            {3.0, 48.0},
+            {4.0, 54.0},
+            {5.0, 60.0}
+        };
+    }
 
-        // TODO: Turret encoder DIO port (REV Through Bore Encoder)
-        // public static final int kTurretEncoderPort = 0;  // DIO port 0-9
+    // ==================== TurretConstants ====================
+    /**
+     * Constants for the turret position-controlled subsystem.
+     * Tested PID values from Subsystem/Shooter branch test board.
+     */
+    public static final class TurretConstants {
+        // ==================== Turret PID (tested on test board) ====================
+        public static final double kTurretP = 0.75;
+        public static final double kTurretI = 0;
+        public static final double kTurretD = 0;
+        public static final double kTurretFF = 0.2;
 
-        // TODO: Turret encoder offset (degrees) - align encoder zero with turret forward
-        // public static final double kTurretEncoderOffset = 0.0;
+        // ==================== Turret Mechanical ====================
+        // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
+        public static final double kTurretGearRatio = 200.0 / 18.0;
 
-        // ==================== Hub Tracking / Scan Settings ====================
-        /** Turret motor power during scan rotation (0 to 1) */
-        // public static final double kScanSpeed = 0.3;
+        // 180° total range centered at 0° (±90°)
+        public static final double kTurretMinDegrees = -90.0;
+        public static final double kTurretMaxDegrees = 90.0;
 
-        /** Degrees the turret must rotate for a full scan */
-        // public static final double kFullRotationDegrees = 360.0;
+        // Soft limit rotations derived from degrees/360 * gearRatio
+        public static final double kTurretForwardLimit = (kTurretMaxDegrees / 360.0) * kTurretGearRatio;
+        public static final double kTurretReverseLimit = (kTurretMinDegrees / 360.0) * kTurretGearRatio;
 
-        /** Number of periodic cycles target must be lost before transitioning to SCANNING.
-         *  At 50Hz (20ms periodic), 5 cycles = 100ms of target loss before scanning. */
-        // public static final int kTargetLostCycles = 5;
+        public static final double kTurretManualSpeed = 0.3;
+
+        // ==================== Current Limits ====================
+        public static final double kTurretStallCurrentLimit = 20.0;
+        public static final double kTurretFreeCurrentLimit = 40.0;
+    }
+
+    // ==================== TurretTrackingConstants ====================
+    public static final class TurretTrackingConstants {
+        /** Motor duty cycle for turret scan sweep */
+        public static final double kScanSpeed = 0.15;
+        /** Degrees tolerance to consider turret "on target" for tracking */
+        public static final double kTrackingToleranceDeg = 2.0;
+        /** Seconds to wait after losing target before starting scan */
+        public static final double kLostTargetTimeoutSec = 0.5;
+    }
+
+    // ==================== UptakeConstants ====================
+    public static final class UptakeConstants {
+        public static final double kUptakeSpeed = 0.5;
+    }
+
+    // ==================== HopperConstants ====================
+    public static final class HopperConstants {
+        public static final double kHopperSpeed = 0.5;
+        public static final double kDetectionRange = 2.0; // cm
     }
 
     // ==================== VisionConstants ====================

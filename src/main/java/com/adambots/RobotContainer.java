@@ -6,6 +6,8 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.commands.ShootCommands;
+import com.adambots.commands.TurretCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -17,87 +19,42 @@ import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
+import com.adambots.subsystems.TurretSubsystem;
+import com.adambots.subsystems.UptakeSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj.Filesystem;
-import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 
-
 /**
- * This class is where the bulk of the robot should be declared. Since Command-based is a
- * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
- * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
- * subsystems, commands, and trigger mappings) should be declared here.
- *
- * <p>AdambotsLib Best Practices:
- * <ul>
- *   <li>Control subsystems using command factories</li>
- *   <li>Get information from subsystems using triggers</li>
- *   <li>Coordinate between subsystems by binding commands to triggers</li>
- * </ul>
- *
- * <p>This class uses Inversion of Control (IoC) - hardware devices are created in RobotMap
- * and passed to subsystems here. This allows for easier testing and hardware abstraction.
+ * RobotContainer — subsystems, commands, triggers, and button bindings.
+ * Uses Inversion of Control (IoC) — hardware devices are created in RobotMap.
  */
 @Logged
 public class RobotContainer {
 
-    // ==================== SECTION: SUBSYSTEMS ====================
-    // Subsystems receive hardware devices from RobotMap (IoC pattern)
-
-    /** Swerve drive subsystem - configured via YAGSL JSON files in deploy/swerve/ */
+    // ==================== SUBSYSTEMS ====================
     private final SwerveSubsystem swerve;
-
-    /** Intake subsystem for acquiring game pieces (null if disabled in RobotMap) */
     private final IntakeSubsystem intake;
-
-    /** Hopper subsystem for storing and staging game pieces (null if disabled in RobotMap) */
-    private final HopperSubsystem hopper;
-
-    /** Shooter subsystem for launching game pieces (null if disabled in RobotMap) */
     private final ShooterSubsystem shooter;
-
-    /** Climber subsystem for end-game climbing (null if disabled in RobotMap) */
+    private final TurretSubsystem turret;
+    private final HopperSubsystem hopper;
+    private final UptakeSubsystem uptake;
     private final ClimberSubsystem climber;
-
-    /** LED subsystem using CANdle for robot status indication (null if disabled in RobotMap) */
     private final CANdleSubsystem leds;
-
-    /** Vision subsystem — owns PhotonVision cameras, provides distance/angle to hub */
     private VisionSubsystem visionSubsystem;
-
-    /** PhotonVision system for AprilTag detection and pose estimation */
     private VisionSystem vision;
 
-    // ==================== SECTION: AUTONOMOUS CHOOSER ====================
-    /** Autonomous routine selector displayed on the dashboard */
     private final SendableChooser<Command> autoChooser = new SendableChooser<>();
 
-    // ==================== SECTION: CONSTRUCTOR ====================
-    /**
-     * The container for the robot. Contains subsystems, OI devices, and commands.
-     *
-     * <p>Initialization order:
-     * <ol>
-     *   <li>Initialize subsystems with hardware from RobotMap (IoC)</li>
-     *   <li>Setup vision</li>
-     *   <li>Setup LEDs</li>
-     *   <li>Setup default commands</li>
-     *   <li>Configure button bindings</li>
-     *   <li>Register PathPlanner named commands (MUST be before auto chooser)</li>
-     *   <li>Setup autonomous chooser</li>
-     *   <li>Setup dashboard</li>
-     * </ol>
-     */
+    // ==================== CONSTRUCTOR ====================
     public RobotContainer() {
-        // 1. Initialize swerve subsystem from YAGSL config with PathPlanner PID tuning
+        // 1. Swerve
         SwerveConfig swerveConfig = new SwerveConfig()
             .withTranslationPID(
                 Constants.DriveConstants.kAutoTranslationP,
@@ -109,66 +66,46 @@ public class RobotContainer {
                 Constants.DriveConstants.kAutoRotationD);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
-        // 2. Initialize subsystems with hardware from RobotMap (IoC pattern)
-        // Subsystems are only created when their enable flag is true in RobotMap
+        // 2. Subsystems (IoC from RobotMap)
         intake = RobotMap.INTAKE_ENABLED
             ? new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm) : null;
-        hopper = RobotMap.HOPPER_ENABLED
-            ? new HopperSubsystem(RobotMap.kHopperCarouselMotor, RobotMap.kHopperUptakeMotor, RobotMap.kHopperSensor) : null;
         shooter = RobotMap.SHOOTER_ENABLED
-            ? new ShooterSubsystem(RobotMap.kShooterLeftMotor, RobotMap.kShooterRightMotor, RobotMap.kShooterTurretMotor) : null;
+            ? new ShooterSubsystem(RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor) : null;
+        turret = RobotMap.TURRET_ENABLED
+            ? new TurretSubsystem(RobotMap.turretMotor) : null;
+        hopper = RobotMap.HOPPER_ENABLED
+            ? new HopperSubsystem(RobotMap.hopperMotor, RobotMap.hopperSensor) : null;
+        uptake = RobotMap.UPTAKE_ENABLED
+            ? new UptakeSubsystem(RobotMap.uptakeMotor) : null;
         climber = RobotMap.CLIMBER_ENABLED
             ? new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
-                                          RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
+                                   RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
         leds = RobotMap.LEDS_ENABLED
             ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
 
-        // 3. Setup vision
+        // 3. Vision
         configureVision();
 
-        // 4. Setup LEDs
+        // 4. LEDs
         configureLEDs();
 
-        // 5. Setup default commands
+        // 5. Default commands
         configureDefaultCommands();
 
-        // 6. Configure button bindings
+        // 6. Button bindings
         configureButtonBindings();
 
-        // 7. Register PathPlanner named commands (MUST be before auto chooser)
+        // 7. PathPlanner named commands
         configurePathPlannerCommands();
 
-        // 8. Setup autonomous chooser
+        // 8. Auto chooser
         configureAutoChooser();
 
-        // 9. Setup dashboard
+        // 9. Dashboard
         configureDashboard();
     }
 
-    // ==================== SECTION: VISION SETUP ====================
-    /**
-     * Configure PhotonVision cameras (decoupled from swerve).
-     *
-     * <p>New 3-step initialization pattern:
-     * <ol>
-     *   <li>Build VisionSystemConfig using VisionConfigBuilder</li>
-     *   <li>Create PhotonVision instance with config, pose supplier, and Field2d</li>
-     *   <li>Connect vision to swerve via swerve.setupVision()</li>
-     * </ol>
-     *
-     * <p>Uses VisionConfigBuilder from AdambotsLib to configure cameras:
-     * <ul>
-     *   <li>addCamera(name) - Camera name in PhotonVision</li>
-     *   <li>position(x, y, z) - Position relative to robot center using Distance units</li>
-     *   <li>rotation(roll, pitch, yaw) - Camera angle using Angle units</li>
-     *   <li>purpose(CameraPurpose) - ODOMETRY, ALIGNMENT, or BOTH</li>
-     *   <li>singleTagStdDevs / multiTagStdDevs - Pose estimation trust levels</li>
-     *   <li>maxTagDistance(Distance) - Maximum distance to recognize AprilTags</li>
-     *   <li>allowedTags(int[]) - Filter which tags this camera processes</li>
-     * </ul>
-     *
-     * TODO: Update camera names and positions for your robot
-     */
+    // ==================== VISION ====================
     private void configureVision() {
         if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED) return;
 
@@ -179,55 +116,15 @@ public class RobotContainer {
         swerve.setupVision(vision);
     }
 
-    // ==================== SECTION: LED SETUP ====================
-    /**
-     * Configure CANdle LED subsystem.
-     *
-     * <p>Available commands from CANdleSubsystem:
-     * <ul>
-     *   <li>setColorCommand(Color) - Set solid color</li>
-     *   <li>turnOffCommand() - Turn off LEDs</li>
-     *   <li>allianceColorCommand() - Set to alliance color</li>
-     *   <li>blinkCommand(Color, count) - Blink a color</li>
-     *   <li>pulseCommand(Color, speed) - Pulse a color</li>
-     *   <li>strobeCommand(Color, speed) - Strobe effect</li>
-     *   <li>celebrateCommand() - Celebration animation</li>
-     *   <li>warningCommand() - Yellow warning</li>
-     *   <li>errorCommand() - Red error</li>
-     *   <li>readyCommand() - Green ready</li>
-     *   <li>busyCommand() - Blue busy</li>
-     *   <li>disabledCommand() - Disabled state</li>
-     * </ul>
-     *
-     * <p>Available triggers:
-     * <ul>
-     *   <li>isShowingColorTrigger(Color)</li>
-     *   <li>isOffTrigger()</li>
-     *   <li>isAnimatingTrigger()</li>
-     * </ul>
-     */
+    // ==================== LEDS ====================
     private void configureLEDs() {
         if (leds == null) return;
-
-        // Set default LED command - show alliance color when enabled
         leds.setDefaultCommand(leds.allianceColorCommand());
-
-        // TODO: Add LED state bindings
-        // Example: Show green when game piece detected
-        // intake.hasGamePieceTrigger().onTrue(leds.setColorCommand(Color.kGreen));
-        // intake.hasGamePieceTrigger().onFalse(leds.allianceColorCommand());
-
-        // Example: Show ready when shooter is at speed
-        // shooter.isAtSpeedTrigger().onTrue(leds.readyCommand());
     }
 
-    // ==================== SECTION: DEFAULT COMMANDS ====================
-    /**
-     * Set the default command for each subsystem.
-     * Default commands run whenever no other command is using that subsystem.
-     */
+    // ==================== DEFAULT COMMANDS ====================
     private void configureDefaultCommands() {
-        // Swerve drive default command - field-oriented drive using joystick
+        // Swerve drive
         swerve.setDefaultCommand(
             swerve.driveCommand(
                 Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
@@ -236,143 +133,138 @@ public class RobotContainer {
             )
         );
 
-        // TODO: Set default commands for other subsystems if needed
-        // shooter.setDefaultCommand(shooter.idleCommand());
-    }
-
-    // ==================== SECTION: BUTTON BINDINGS ====================
-    /**
-     * Configure driver and operator button bindings.
-     *
-     * <p>Driver (Joystick - Extreme 3D Pro):
-     * <ul>
-     *   <li>Buttons.JoystickButton1 - Trigger button</li>
-     *   <li>Buttons.JoystickButton2 - Thumb button</li>
-     *   <li>Buttons.JoystickButton3-12 - Base buttons</li>
-     * </ul>
-     *
-     * <p>Operator (Xbox Controller):
-     * <ul>
-     *   <li>Buttons.XboxAButton, XboxBButton, XboxXButton, XboxYButton - Face buttons</li>
-     *   <li>Buttons.XboxLeftBumper, XboxRightBumper - Bumpers</li>
-     *   <li>Buttons.XboxLeftTriggerButton, XboxRightTriggerButton - Triggers (as buttons)</li>
-     *   <li>Buttons.XboxBackButton, XboxStartButton - Menu buttons</li>
-     * </ul>
-     */
-    private void configureButtonBindings() {
-        // === Driver Controls ===
-        // Reset gyro heading with joystick button 2
-        Buttons.JoystickButton2.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
-
-        // TODO: Add driver bindings
-        // Buttons.JoystickButton1.whileTrue(swerve.lockWheelsCommand());
-
-        // === Operator Controls ===
-        if (intake != null) {
-            // A button: deploy arm + start roller
-            Buttons.XboxAButton.onTrue(
-                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
-            );
-            // Alt: start roller and lower arm in parallel (rollers at speed before arm is down)
-            // Buttons.XboxAButton.onTrue(
-            //     Commands.parallel(intake.runIntakeCommand(), intake.runLowerIntakeArmCommand())
-            // );
-            // B button: stop roller + retract arm
-            Buttons.XboxBButton.onTrue(
-                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
+        // Turret auto-track: tracks hub when visible, scans when lost
+        if (turret != null && visionSubsystem != null) {
+            turret.setDefaultCommand(
+                TurretCommands.autoTrackCommand(
+                    turret,
+                    visionSubsystem::getHubAngle,
+                    visionSubsystem::isHubVisible)
             );
         }
-
-        // Climber controls (typically on operator controller)
-        // Buttons.XboxDPadN.whileTrue(climber.extendCommand());
-        // Buttons.XboxDPadS.whileTrue(climber.retractCommand());
-
-        // === Cross-Subsystem Coordination ===
-        // Bind commands to subsystem triggers for automatic coordination
-        // Example: Turn LEDs green when game piece is detected
-        // intake.hasGamePieceTrigger().onTrue(leds.setColorCommand(Color.kGreen));
-        // intake.hasGamePieceTrigger().onFalse(leds.allianceColorCommand());
-
-        // Example: Auto-index when intake detects game piece
-        // intake.hasGamePieceTrigger().onTrue(hopper.indexOneCommand());
     }
 
-    // ==================== SECTION: PATHPLANNER COMMANDS ====================
-    /**
-     * Register named commands for PathPlanner event markers and autos.
-     *
-     * <p>IMPORTANT: This method MUST be called BEFORE configureAutoChooser()
-     * because PathPlanner needs all named commands registered before loading
-     * any paths or autos that reference them.
-     *
-     * <p>These commands can be used in two ways:
-     * <ul>
-     *   <li><b>Event Markers</b>: Commands run during path following at specific waypoints
-     *       (e.g., spin up shooter while driving to shooting position)</li>
-     *   <li><b>Auto Chaining</b>: Commands run sequentially between path segments
-     *       (e.g., shoot after arriving at position)</li>
-     * </ul>
-     *
-     * <p>Best practices:
-     * <ul>
-     *   <li>Use event markers for actions that can happen while moving (spin up, deploy intake)</li>
-     *   <li>Use auto chaining for actions requiring the robot to be stationary (shooting)</li>
-     *   <li>Keep command names short and descriptive for PathPlanner GUI</li>
-     * </ul>
-     */
+    // ==================== BUTTON BINDINGS ====================
+    private void configureButtonBindings() {
+        boolean hasShooterSystem = (shooter != null && hopper != null && uptake != null);
+
+        // === Driver (Extreme 3D Pro) ===
+        Buttons.JoystickButton2.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+
+        if (hasShooterSystem) {
+            // Trigger (1): Shoot (full sequence)
+            Buttons.JoystickButton1.whileTrue(
+                ShootCommands.shootCommand(shooter, hopper, uptake));
+
+            // Thumb (2): already mapped to gyro reset above
+            // Button 3: Toggle intake
+            if (intake != null) {
+                Buttons.JoystickButton3.onTrue(
+                    intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
+                Buttons.JoystickButton4.onTrue(
+                    intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+            }
+        }
+
+        // === Operator (Xbox Controller) ===
+        if (hasShooterSystem) {
+            // Right Trigger: Shoot (full sequence)
+            Buttons.XboxRightTriggerButton.whileTrue(
+                ShootCommands.shootCommand(shooter, hopper, uptake));
+
+            // Left Trigger: Spin up flywheel (hold)
+            Buttons.XboxLeftTriggerButton.whileTrue(
+                shooter.spinUpCommand());
+
+            // Right Bumper: Feed hopper + uptake (manual)
+            Buttons.XboxRightBumper.whileTrue(
+                Commands.parallel(hopper.feedCommand(), uptake.runUptakeCommand()));
+
+            // Left Bumper: Reverse hopper + uptake
+            Buttons.XboxLeftBumper.whileTrue(
+                ShootCommands.ejectCommand(shooter, hopper, uptake));
+
+            // B: Stop all shooter systems
+            Buttons.XboxBButton.onTrue(
+                ShootCommands.stopAllCommand(shooter, hopper, uptake));
+        }
+
+        if (turret != null) {
+            // A: Scan for hub (turret sweep)
+            Buttons.XboxAButton.whileTrue(
+                TurretCommands.scanForHubCommand(turret));
+
+            // Y: Aim turret to 0° (center)
+            Buttons.XboxYButton.onTrue(
+                turret.aimTurretCommand(0));
+
+            // D-pad Up/Down: Manual turret adjust
+            Buttons.XboxDPadN.whileTrue(
+                turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
+            Buttons.XboxDPadS.whileTrue(
+                turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
+        }
+    }
+
+    // ==================== PATHPLANNER ====================
     private void configurePathPlannerCommands() {
-        // ===== Shooter Commands =====
-        // Spin up flywheel (use as event marker while driving to shooting position)
         if (shooter != null) {
             NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
         }
-
+        if (shooter != null && hopper != null && uptake != null) {
+            NamedCommands.registerCommand("shoot",
+                ShootCommands.shootCommand(shooter, hopper, uptake));
+        }
     }
 
-    // ==================== SECTION: AUTONOMOUS SETUP ====================
-    /**
-     * Configure the autonomous command chooser with available auto routines.
-     * Add PathPlanner autos and custom autonomous commands here.
-     */
+    // ==================== AUTO CHOOSER ====================
     private void configureAutoChooser() {
-        // Default: do nothing
         autoChooser.setDefaultOption("None", Commands.none());
-
-        // TODO: Add PathPlanner auto routines
-        // autoChooser.addOption("Test Auto", swerve.getAutonomousCommand("Test"));
-        // autoChooser.addOption("2 Piece Auto", swerve.getAutonomousCommand("2Piece"));
-        // autoChooser.addOption("3 Piece Center", swerve.getAutonomousCommand("3PieceCenter"));
-
-        // TODO: Add custom autonomous commands using AutoCommands factory
-        // autoChooser.addOption("Score and Taxi", AutoCommands.scoreAndTaxiCommand(swerve, shooter, hopper, 2.0));
-        // autoChooser.addOption("Score and Move", AutoCommands.scoreAndMoveCommand(swerve, shooter, hopper, new Pose2d()));
-
-        // Put the chooser on the dashboard
         SmartDashboard.putData("Auto Chooser", autoChooser);
     }
 
-    // ==================== SECTION: DASHBOARD ====================
-    /**
-     * Add telemetry and dashboard widgets.
-     * This is called once during initialization.
-     */
+    // ==================== DASHBOARD ====================
     private void configureDashboard() {
-        // Swerve telemetry is handled by SwerveSubsystem
+        if (shooter == null && turret == null) return;
 
-        // TODO: Add subsystem status indicators
-        // SmartDashboard.putData("Swerve", swerve);
-        // SmartDashboard.putData("Intake", intake);
-        // SmartDashboard.putData("Hopper", hopper);
-        // SmartDashboard.putData("Shooter", shooter);
-        // SmartDashboard.putData("Climber", climber);
-        // SmartDashboard.putData("LEDs", leds);
+        Dash.useTab("Shooter Tuning");
+        int[] pos = {0, 0};
+        int cols = 6;
+
+        // Flywheel PID tunables
+        if (shooter != null) {
+            shooter.setupFlywheelTunables(pos, cols);
+        }
+
+        // Turret PID tunables
+        if (turret != null) {
+            if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
+            turret.setupTurretTunables(pos, cols);
+        }
+
+        // Live telemetry row
+        if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
+        int telemetryRow = pos[1];
+
+        if (visionSubsystem != null) {
+            Dash.add("Vision Distance (m)", visionSubsystem::getHubDistance, 0, telemetryRow);
+        }
+        if (shooter != null) {
+            Dash.add("Target RPS", shooter::getTargetRPS, 1, telemetryRow);
+            Dash.add("Left RPS", shooter::getLeftRPS, 2, telemetryRow);
+            Dash.add("Right RPS", shooter::getRightRPS, 3, telemetryRow);
+            Dash.add("At Speed", shooter::isAtSpeed, 4, telemetryRow);
+        }
+        if (turret != null) {
+            Dash.add("Turret Angle (deg)", turret::getTurretAngleDegrees, 5, telemetryRow);
+        }
+        if (visionSubsystem != null) {
+            Dash.add("Hub Visible", visionSubsystem::isHubVisible, 6, telemetryRow);
+        }
+
+        Dash.useDefaultTab();
     }
 
-    /**
-     * Use this to pass the autonomous command to the main {@link Robot} class.
-     *
-     * @return the command to run in autonomous
-     */
     public Command getAutonomousCommand() {
         return autoChooser.getSelected();
     }

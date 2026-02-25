@@ -1,121 +1,108 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package com.adambots.commands;
+
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
+import com.adambots.subsystems.TurretSubsystem;
+import com.adambots.subsystems.UptakeSubsystem;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 
 /**
- * Command factory for coordinating shooter and hopper subsystems.
- *
- * <p>This class provides static factory methods that create commands
- * requiring coordination between the shooter and hopper.
- *
- * <p>Usage in RobotContainer:
- * <pre>
- * Buttons.XboxRightBumper.onTrue(ShootCommands.shootCommand(m_shooter, m_hopper));
- * </pre>
+ * Command factory coordinating shooter, hopper, uptake, and turret subsystems.
  */
 public final class ShootCommands {
 
-    // Prevent instantiation
     private ShootCommands() {}
 
     /**
-     * Creates a command that shoots a game piece.
-     * Spins up the shooter, waits until at speed, then feeds from hopper.
-     *
-     * @param shooter The shooter subsystem
-     * @param hopper The hopper subsystem
-     * @return Command that shoots one game piece
+     * Spin up → wait for speed → feed hopper + uptake → stop all.
      */
-    public static Command shootCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
+    public static Command shootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            UptakeSubsystem uptake) {
         return Commands.sequence(
-            // Spin up shooter and wait until at speed
             shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            // Feed game piece from hopper
-            hopper.feedCommand().withTimeout(0.5),
-            // Stop both
             Commands.parallel(
-                shooter.stopAllCommand(),
-                hopper.stopCommand()
-            )
+                hopper.feedCommand(),
+                uptake.runUptakeCommand()
+            ).withTimeout(1.0),
+            stopAllCommand(shooter, hopper, uptake)
         ).withName("Shoot");
     }
 
     /**
-     * Creates a command that spins up the shooter and holds it at speed.
-     * Use this to pre-spin before shooting.
-     *
-     * @param shooter The shooter subsystem
-     * @return Command that spins up and maintains speed (runs until interrupted)
+     * Spin for vision distance → wait for speed → feed hopper + uptake → stop all.
      */
-    public static Command spinUpCommand(ShooterSubsystem shooter) {
-        return shooter.spinUpCommand().withName("SpinUp");
-    }
-
-    /**
-     * Creates a command that shoots while the shooter is already spinning.
-     * Assumes shooter is at speed - just feeds from hopper.
-     *
-     * @param shooter The shooter subsystem (for requirements)
-     * @param hopper The hopper subsystem
-     * @return Command that feeds one game piece
-     */
-    public static Command feedAndShootCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
+    public static Command shootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            UptakeSubsystem uptake,
+            DoubleSupplier distanceSupplier) {
         return Commands.sequence(
-            // Wait for shooter to be at speed (should already be)
-            Commands.waitUntil(shooter.isAtSpeedTrigger()).withTimeout(0.5),
-            // Feed game piece
-            hopper.feedCommand().withTimeout(0.5),
-            hopper.stopCommand()
-        ).withName("FeedAndShoot");
+            shooter.spinForDistanceCommand(distanceSupplier).until(shooter.isAtSpeedTrigger()),
+            Commands.parallel(
+                hopper.feedCommand(),
+                uptake.runUptakeCommand()
+            ).withTimeout(1.0),
+            stopAllCommand(shooter, hopper, uptake)
+        ).withName("Shoot At Distance");
     }
 
     /**
-     * Creates a command that continuously shoots all game pieces.
-     * Keeps shooter spinning and feeds until hopper is empty.
-     *
-     * @param shooter The shooter subsystem
-     * @param hopper The hopper subsystem
-     * @return Command that shoots until empty
+     * Full auto: track turret + spin for distance + feed when ready.
      */
-    public static Command shootAllCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
+    public static Command autoShootCommand(
+            ShooterSubsystem shooter,
+            TurretSubsystem turret,
+            HopperSubsystem hopper,
+            UptakeSubsystem uptake,
+            DoubleSupplier visionAngle,
+            DoubleSupplier visionDist,
+            BooleanSupplier hasTarget) {
         return Commands.sequence(
-            // Spin up
-            shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            // Continuous feed until empty
+            // Track and spin up simultaneously
             Commands.parallel(
-                shooter.spinUpCommand(),
-                hopper.continuousFeedCommand()
-            ).until(hopper.isEmptyTrigger()),
-            // Stop everything
+                TurretCommands.trackHubCommand(turret, visionAngle, hasTarget),
+                shooter.spinForDistanceCommand(visionDist)
+            ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger())),
+            // Feed when ready
             Commands.parallel(
-                shooter.stopAllCommand(),
-                hopper.stopCommand()
-            )
-        ).withName("ShootAll");
+                hopper.feedCommand(),
+                uptake.runUptakeCommand()
+            ).withTimeout(1.0),
+            stopAllCommand(shooter, hopper, uptake)
+        ).withName("Auto Shoot");
     }
 
     /**
-     * Creates a command that ejects game pieces backward (reverse shoot).
-     * Useful for clearing jams or ejecting wrong-color game pieces.
-     *
-     * @param shooter The shooter subsystem
-     * @param hopper The hopper subsystem
-     * @return Command that reverses both subsystems
+     * Reverse all to clear jams.
      */
-    public static Command ejectCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
-        // TODO: Implement reverse shooting
-        // return Commands.parallel(
-        //     shooter.reverseCommand(),
-        //     hopper.reverseUptakeCommand()
-        // ).withName("Eject");
-        return Commands.none().withName("Eject");
+    public static Command ejectCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            UptakeSubsystem uptake) {
+        return Commands.parallel(
+            hopper.reverseHopperCommand(),
+            uptake.reverseUptakeCommand()
+        ).withName("Eject");
+    }
+
+    /**
+     * Stop all shooter-related subsystems.
+     */
+    public static Command stopAllCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            UptakeSubsystem uptake) {
+        return Commands.parallel(
+            shooter.stopFlywheelCommand(),
+            hopper.stopHopperCommand(),
+            uptake.stopUptakeCommand()
+        ).withName("Stop All");
     }
 }

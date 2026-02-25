@@ -3,17 +3,20 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.*;
 
 import com.adambots.Constants.ShooterTestConstants;
+import com.adambots.Constants;
 import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 import com.adambots.lib.utils.Dash;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
  * Shooter subsystem with PID velocity-controlled flywheel and position-controlled turret.
@@ -48,6 +51,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
     // Last-applied PID values to avoid flooding CAN bus
     private double lastFlywheelP, lastFlywheelI, lastFlywheelD, lastFlywheelFF;
+
+    public final Trigger isAtSpeedTrigger = new Trigger(this::isAtSpeed).debounce(Constants.ShooterTestConstants.kIsReadyDelay, DebounceType.kFalling);;
 
     public ShooterSubsystem(BaseMotor leftFlywheel, BaseMotor rightFlywheel) {
         this.leftFlywheel = leftFlywheel;
@@ -168,6 +173,9 @@ public class ShooterSubsystem extends SubsystemBase {
         setFlywheelRPS(rps);
     }
 
+    public void reverseFlywheel() {
+        leftFlywheel.set(ControlMode.VELOCITY, -ShooterTestConstants.kFlywheelReverseSpeed); //delete this constant
+    }
 
     // ==================== RPS Calculation Modes ====================
 
@@ -302,5 +310,10 @@ public class ShooterSubsystem extends SubsystemBase {
     public Command toggleModeCommand() {
         return Commands.runOnce(() -> useInterpolationMode = !useInterpolationMode)
             .withName("Toggle Mode");
+    }
+
+    public Command reverseCommand() {
+        return runEnd(this::reverseFlywheel, this::stopFlywheel)
+            .withName("Reverse Flywheel");
     }
 }

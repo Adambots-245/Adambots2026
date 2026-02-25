@@ -4,9 +4,12 @@ import static edu.wpi.first.units.Units.Centimeter;
 import static edu.wpi.first.units.Units.Centimeters;
 import static edu.wpi.first.units.Units.RPM;
 
+import com.adambots.Constants;
 import com.adambots.Constants.HopperConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
+
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -20,12 +23,17 @@ public class HopperSubsystem extends SubsystemBase {
     private final BaseMotor hopperMotor;
     private final BaseDistanceSensor hopperPieceSensor;
 
+    public final Trigger hasPiece = new Trigger(() -> hasPiece()).debounce(Constants.HopperConstants.kHopperHasPieceDelay, DebounceType.kBoth);;; 
+    
+
     public HopperSubsystem(BaseMotor hopperMotor, BaseDistanceSensor hopperPieceSensor) {
         this.hopperMotor = hopperMotor;
         this.hopperPieceSensor = hopperPieceSensor;
         hopperMotor.setInverted(true); // Set to true if motor is reversed
         hopperMotor.setBrakeMode(true);
+        
     }
+
 
     public boolean hasPiece(){
       if(hopperPieceSensor.getDistance().in(Centimeters) <= HopperConstants.kDetectionRange){
@@ -89,7 +97,7 @@ public class HopperSubsystem extends SubsystemBase {
             .withName("Stop Hopper");
     }
 
-    public final Trigger hasPiece = new Trigger(() -> hasPiece()); 
+
 
    @Override
     public void periodic() {

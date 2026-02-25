@@ -24,12 +24,12 @@ public final class Constants {
 
         // Set to -1.0 to reverse flywheel direction (workaround for setInverted issue)
         public static final double kFlywheelDirection = -1.0;
-
+        public static final double kFlywheelReverseSpeed = -0.5;
         // ==================== Flywheel PID Defaults ====================
         public static final double kFlywheelP = 0.1;
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
-
+        public static final double kIsReadyDelay = .05;
         // Feedforward: kF = nominalVoltage / motorFreeSpeedRPS
         // = 12.0 / 100.0 = 0.12 V/RPS
         // Verified against ReCalc flywheel calculator (0.37 V*s/m surface velocity
@@ -108,6 +108,7 @@ public final class Constants {
     public static final class HopperConstants{
         public static final double kHopperSpeed = 0.5;
         public static final double kDetectionRange = 2.0; //cm
+        public static final double kHopperHasPieceDelay = 0.5;
     }
 
     // ==================== Add Your Constants Here ====================

@@ -35,72 +35,22 @@ public final class ShootCommands {
      * @return Command that shoots one game piece
      */
     public static Command shootCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
-        return Commands.sequence(
-            // Spin up shooter and wait until at speed
-            shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            // Feed game piece from hopper
-            hopper.feedCommand().withTimeout(0.5),
-            // Stop both
-            Commands.parallel(
-                shooter.stopAllCommand(),
-                hopper.stopCommand()
-            )
+        return Commands.either(
+            Commands.sequence(
+                shooter.spinUpCommand(shooter.getRPSFromTable(vision.getMeters()))
+                    .until(shooter.isAtSpeedTrigger),
+                hopper.runHopperCommand()
+                    .until(hopper.hasPiece.negate()),
+                Commands.parallel(
+                    shooter.stopFlywheelCommand(),
+                    hopper.stopHopperCommand()
+                )
+            ),
+            Commands.none(),
+            hopper.hasPiece
         ).withName("Shoot");
     }
 
-    /**
-     * Creates a command that spins up the shooter and holds it at speed.
-     * Use this to pre-spin before shooting.
-     *
-     * @param shooter The shooter subsystem
-     * @return Command that spins up and maintains speed (runs until interrupted)
-     */
-    public static Command spinUpCommand(ShooterSubsystem shooter) {
-        return shooter.spinUpCommand().withName("SpinUp");
-    }
-
-    /**
-     * Creates a command that shoots while the shooter is already spinning.
-     * Assumes shooter is at speed - just feeds from hopper.
-     *
-     * @param shooter The shooter subsystem (for requirements)
-     * @param hopper The hopper subsystem
-     * @return Command that feeds one game piece
-     */
-    public static Command feedAndShootCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
-        return Commands.sequence(
-            // Wait for shooter to be at speed (should already be)
-            Commands.waitUntil(shooter.isAtSpeedTrigger()).withTimeout(0.5),
-            // Feed game piece
-            hopper.feedCommand().withTimeout(0.5),
-            hopper.stopCommand()
-        ).withName("FeedAndShoot");
-    }
-
-    /**
-     * Creates a command that continuously shoots all game pieces.
-     * Keeps shooter spinning and feeds until hopper is empty.
-     *
-     * @param shooter The shooter subsystem
-     * @param hopper The hopper subsystem
-     * @return Command that shoots until empty
-     */
-    public static Command shootAllCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
-        return Commands.sequence(
-            // Spin up
-            shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            // Continuous feed until empty
-            Commands.parallel(
-                shooter.spinUpCommand(),
-                hopper.continuousFeedCommand()
-            ).until(hopper.isEmptyTrigger()),
-            // Stop everything
-            Commands.parallel(
-                shooter.stopAllCommand(),
-                hopper.stopCommand()
-            )
-        ).withName("ShootAll");
-    }
 
     /**
      * Creates a command that ejects game pieces backward (reverse shoot).
@@ -111,11 +61,9 @@ public final class ShootCommands {
      * @return Command that reverses both subsystems
      */
     public static Command ejectCommand(ShooterSubsystem shooter, HopperSubsystem hopper) {
-        // TODO: Implement reverse shooting
-        // return Commands.parallel(
-        //     shooter.reverseCommand(),
-        //     hopper.reverseUptakeCommand()
-        // ).withName("Eject");
-        return Commands.none().withName("Eject");
+        return Commands.parallel(
+            shooter.reverseCommand(),
+            hopper.reverseHopperCommand()
+        ).withName("Eject");
     }
 }

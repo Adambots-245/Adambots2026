@@ -31,6 +31,7 @@ public class HopperSubsystem extends SubsystemBase {
     }
 
     public boolean hasPiece() {
+        if (hopperPieceSensor == null) return false;
         return hopperPieceSensor.getDistance().in(Centimeters) <= HopperConstants.kDetectionRange;
     }
 

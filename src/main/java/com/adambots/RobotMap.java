@@ -85,8 +85,10 @@ public class RobotMap {
         ? new TalonFXMotor(kHopperPort, false, 60.0, true) : null;
     public static final BaseMotor uptakeMotor = HOPPER_ENABLED
         ? new TalonFXMotor(kUptakePort, false, 40.0, true) : null;
-    public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
-        ? new CANRangeSensor(kHopperSensorPort, false) : null;
+    // TODO: Re-enable when CANRange is wired in
+    // public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
+    //     ? new CANRangeSensor(kHopperSensorPort, false) : null;
+    public static final BaseDistanceSensor hopperSensor = null;
 
     // ==================== CLIMBER ====================
     // Port assignments

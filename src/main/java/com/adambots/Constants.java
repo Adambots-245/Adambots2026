@@ -87,15 +87,16 @@ public final class Constants {
         // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
-        // 180° total range centered at 0° (±90°)
-        public static final double kTurretMinDegrees = -90.0;
+        // Reference range — not enforced in code (hardware limits protect the mechanism)
         public static final double kTurretMaxDegrees = 90.0;
 
-        // Soft limit rotations derived from degrees/360 * gearRatio
-        public static final double kTurretForwardLimit = (kTurretMaxDegrees / 360.0) * kTurretGearRatio;
-        public static final double kTurretReverseLimit = (kTurretMinDegrees / 360.0) * kTurretGearRatio;
-
         public static final double kTurretManualSpeed = 0.3;
+
+        // ==================== Calibration ====================
+        /** Duty cycle for slow drive toward reverse limit during calibration */
+        public static final double kCalibrationSpeed = 0.10;
+        /** Safety timeout for calibration command (seconds) */
+        public static final double kCalibrationTimeoutSec = 5.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 20.0;
@@ -104,12 +105,8 @@ public final class Constants {
 
     // ==================== TurretTrackingConstants ====================
     public static final class TurretTrackingConstants {
-        /** Motor duty cycle for turret scan sweep */
-        public static final double kScanSpeed = 0.15;
         /** Degrees tolerance to consider turret "on target" for tracking */
         public static final double kTrackingToleranceDeg = 2.0;
-        /** Seconds to wait after losing target before starting scan */
-        public static final double kLostTargetTimeoutSec = 0.5;
     }
 
     // ==================== HopperConstants ====================

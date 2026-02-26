@@ -127,12 +127,13 @@ public class RobotContainer {
             )
         );
 
-        // Turret auto-track: tracks hub when visible, scans when lost
+        // Turret auto-track: camera → pose fallback → oscillating scan
         // if (turret != null && visionSubsystem != null) {
         //     turret.setDefaultCommand(
         //         turret.autoTrackCommand(
-        //             visionSubsystem::getHubAngle,
-        //             visionSubsystem::isHubVisible)
+        //             visionSubsystem::getHubCamAngle,
+        //             visionSubsystem::isHubCamVisible,
+        //             visionSubsystem::getTurretTargetAngle)
         //     );
         // }
     }
@@ -187,7 +188,7 @@ public class RobotContainer {
         }
 
         if (turret != null) {
-            // A: Scan for hub (turret sweep)
+            // A: Smart scan for hub (position-controlled oscillating sweep)
             Buttons.XboxAButton.whileTrue(
                 turret.scanForHubCommand());
 

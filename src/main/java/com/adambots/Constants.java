@@ -112,14 +112,10 @@ public final class Constants {
         public static final double kLostTargetTimeoutSec = 0.5;
     }
 
-    // ==================== UptakeConstants ====================
-    public static final class UptakeConstants {
-        public static final double kUptakeSpeed = 0.5;
-    }
-
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
         public static final double kHopperSpeed = 0.5;
+        public static final double kUptakeSpeed = 0.5;
         public static final double kDetectionRange = 2.0; // cm
     }
 

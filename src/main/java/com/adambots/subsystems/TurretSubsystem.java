@@ -6,6 +6,9 @@ import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 import com.adambots.lib.utils.Dash;
 
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -158,5 +161,38 @@ public class TurretSubsystem extends SubsystemBase {
     public Command stopTurretCommand() {
         return Commands.runOnce(this::stopTurret, this)
             .withName("Stop Turret");
+    }
+
+    // ==================== Vision Tracking Commands ====================
+
+    /**
+     * Continuously aims turret at the vision-supplied angle.
+     * When target is lost, holds the last known position (PID holds).
+     */
+    public Command trackHubCommand(DoubleSupplier angleSupplier, BooleanSupplier hasTargetSupplier) {
+        return run(() -> {
+            if (hasTargetSupplier.getAsBoolean()) {
+                setTurretAngle(angleSupplier.getAsDouble());
+            }
+        }).withName("Track Hub");
+    }
+
+    /** Slowly sweeps turret at scan speed to search for the hub. */
+    public Command scanForHubCommand() {
+        return scanCommand(TurretTrackingConstants.kScanSpeed)
+            .withName("Scan For Hub");
+    }
+
+    /**
+     * Auto-track: tracks when hub is visible, scans when lost.
+     * Designed as a default command — runs continuously, gets interrupted
+     * by explicit turret commands, resumes when they end.
+     */
+    public Command autoTrackCommand(DoubleSupplier angleSupplier, BooleanSupplier hasTargetSupplier) {
+        return Commands.either(
+            trackHubCommand(angleSupplier, hasTargetSupplier),
+            scanForHubCommand(),
+            hasTargetSupplier
+        ).repeatedly().withName("Auto Track Hub");
     }
 }

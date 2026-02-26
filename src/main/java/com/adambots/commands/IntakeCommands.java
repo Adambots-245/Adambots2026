@@ -53,12 +53,12 @@ public final class IntakeCommands {
             // Reverse briefly
             Commands.parallel(
                 intake.reverseIntakeCommand(),
-                hopper.reverseHopperCommand()
+                hopper.reverseCommand()
             ).withTimeout(0.3),
             // Stop
             Commands.parallel(
                 intake.stopIntakeCommand(),
-                hopper.stopHopperCommand()
+                hopper.stopCommand()
             )
         ).withName("ClearJam");
     }

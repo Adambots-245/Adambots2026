@@ -11,34 +11,42 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
- * Hopper subsystem with single motor and CANRange distance sensor for piece detection.
+ * Hopper subsystem with hopper + uptake motors and CANRange distance sensor for piece detection.
+ * Hopper and uptake always run together, so they share a single subsystem to prevent scheduling conflicts.
  */
 public class HopperSubsystem extends SubsystemBase {
 
     private final BaseMotor hopperMotor;
+    private final BaseMotor uptakeMotor;
     private final BaseDistanceSensor hopperPieceSensor;
 
-    public HopperSubsystem(BaseMotor hopperMotor, BaseDistanceSensor hopperPieceSensor) {
+    public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor, BaseDistanceSensor hopperPieceSensor) {
         this.hopperMotor = hopperMotor;
+        this.uptakeMotor = uptakeMotor;
         this.hopperPieceSensor = hopperPieceSensor;
         hopperMotor.setInverted(true);
         hopperMotor.setBrakeMode(true);
+        uptakeMotor.setInverted(true);
+        uptakeMotor.setBrakeMode(true);
     }
 
     public boolean hasPiece() {
         return hopperPieceSensor.getDistance().in(Centimeters) <= HopperConstants.kDetectionRange;
     }
 
-    public void runHopper() {
+    private void feed() {
         hopperMotor.set(HopperConstants.kHopperSpeed);
+        uptakeMotor.set(HopperConstants.kUptakeSpeed);
     }
 
-    public void reverseHopper() {
+    private void reverse() {
         hopperMotor.set(-HopperConstants.kHopperSpeed);
+        uptakeMotor.set(-HopperConstants.kUptakeSpeed);
     }
 
-    public void stopHopper() {
+    private void stop() {
         hopperMotor.set(0);
+        uptakeMotor.set(0);
     }
 
     // ==================== Triggers ====================
@@ -51,23 +59,18 @@ public class HopperSubsystem extends SubsystemBase {
 
     // ==================== Command Factories ====================
 
-    public Command runHopperCommand() {
-        return runEnd(this::runHopper, this::stopHopper)
-            .withName("Run Hopper");
-    }
-
-    /** Alias for runHopperCommand() — for readability in ShootCommands. */
     public Command feedCommand() {
-        return runHopperCommand();
+        return runEnd(this::feed, this::stop)
+            .withName("Feed");
     }
 
-    public Command reverseHopperCommand() {
-        return runEnd(this::reverseHopper, this::stopHopper)
+    public Command reverseCommand() {
+        return runEnd(this::reverse, this::stop)
             .withName("Reverse Hopper");
     }
 
-    public Command stopHopperCommand() {
-        return runOnce(this::stopHopper)
+    public Command stopCommand() {
+        return runOnce(this::stop)
             .withName("Stop Hopper");
     }
 

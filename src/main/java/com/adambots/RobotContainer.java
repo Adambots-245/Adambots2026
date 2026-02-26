@@ -7,7 +7,6 @@ package com.adambots;
 import java.io.File;
 
 import com.adambots.commands.ShootCommands;
-import com.adambots.commands.TurretCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -20,7 +19,6 @@ import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
-import com.adambots.subsystems.UptakeSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 import com.pathplanner.lib.auto.NamedCommands;
 
@@ -44,7 +42,6 @@ public class RobotContainer {
     private final ShooterSubsystem shooter;
     private final TurretSubsystem turret;
     private final HopperSubsystem hopper;
-    private final UptakeSubsystem uptake;
     private final ClimberSubsystem climber;
     private final CANdleSubsystem leds;
     private VisionSubsystem visionSubsystem;
@@ -74,9 +71,7 @@ public class RobotContainer {
         turret = RobotMap.TURRET_ENABLED
             ? new TurretSubsystem(RobotMap.turretMotor) : null;
         hopper = RobotMap.HOPPER_ENABLED
-            ? new HopperSubsystem(RobotMap.hopperMotor, RobotMap.hopperSensor) : null;
-        uptake = RobotMap.UPTAKE_ENABLED
-            ? new UptakeSubsystem(RobotMap.uptakeMotor) : null;
+            ? new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor) : null;
         climber = RobotMap.CLIMBER_ENABLED
             ? new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
                                    RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
@@ -136,8 +131,7 @@ public class RobotContainer {
         // Turret auto-track: tracks hub when visible, scans when lost
         if (turret != null && visionSubsystem != null) {
             turret.setDefaultCommand(
-                TurretCommands.autoTrackCommand(
-                    turret,
+                turret.autoTrackCommand(
                     visionSubsystem::getHubAngle,
                     visionSubsystem::isHubVisible)
             );
@@ -146,7 +140,7 @@ public class RobotContainer {
 
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
-        boolean hasShooterSystem = (shooter != null && hopper != null && uptake != null);
+        boolean hasShooterSystem = (shooter != null && hopper != null);
 
         // === Driver (Extreme 3D Pro) ===
         Buttons.JoystickButton2.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
@@ -154,14 +148,18 @@ public class RobotContainer {
         if (hasShooterSystem) {
             // Trigger (1): Shoot (full sequence)
             Buttons.JoystickButton1.whileTrue(
-                ShootCommands.shootCommand(shooter, hopper, uptake));
+                ShootCommands.shootCommand(shooter, hopper));
 
             // Thumb (2): already mapped to gyro reset above
             // Button 3: Toggle intake
             if (intake != null) {
                 Buttons.JoystickButton3.onTrue(
+                    // runLowerIntakeArmCommand is runOnce (sets Motion Magic target), so andThen
+                    // fires immediately — roller spinning while arm deploys is intentional/harmless.
                     intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
                 Buttons.JoystickButton4.onTrue(
+                    // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
+                    // arm raising while roller winds down is intentional/harmless.
                     intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
             }
         }
@@ -170,7 +168,7 @@ public class RobotContainer {
         if (hasShooterSystem) {
             // Right Trigger: Shoot (full sequence)
             Buttons.XboxRightTriggerButton.whileTrue(
-                ShootCommands.shootCommand(shooter, hopper, uptake));
+                ShootCommands.shootCommand(shooter, hopper));
 
             // Left Trigger: Spin up flywheel (hold)
             Buttons.XboxLeftTriggerButton.whileTrue(
@@ -178,42 +176,46 @@ public class RobotContainer {
 
             // Right Bumper: Feed hopper + uptake (manual)
             Buttons.XboxRightBumper.whileTrue(
-                Commands.parallel(hopper.feedCommand(), uptake.runUptakeCommand()));
+                hopper.feedCommand());
 
-            // Left Bumper: Reverse hopper + uptake
+            // Left Bumper: Eject (reverse hopper + uptake, stop flywheel)
             Buttons.XboxLeftBumper.whileTrue(
-                ShootCommands.ejectCommand(shooter, hopper, uptake));
+                ShootCommands.ejectCommand(shooter, hopper));
 
             // B: Stop all shooter systems
             Buttons.XboxBButton.onTrue(
-                ShootCommands.stopAllCommand(shooter, hopper, uptake));
+                ShootCommands.stopAllCommand(shooter, hopper));
         }
 
         if (turret != null) {
             // A: Scan for hub (turret sweep)
             Buttons.XboxAButton.whileTrue(
-                TurretCommands.scanForHubCommand(turret));
+                turret.scanForHubCommand());
 
-            // Y: Aim turret to 0° (center)
-            Buttons.XboxYButton.onTrue(
-                turret.aimTurretCommand(0));
+            // Y: Hold turret at 0° while held — autoTrack resumes on release
+            Buttons.XboxYButton.whileTrue(
+                turret.aimTurretCommand(() -> 0.0));
 
-            // D-pad Up/Down: Manual turret adjust
-            Buttons.XboxDPadN.whileTrue(
+            // D-pad Left/Right: Manual turret adjust
+            Buttons.XboxDPadW.whileTrue(
                 turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
-            Buttons.XboxDPadS.whileTrue(
+            Buttons.XboxDPadE.whileTrue(
                 turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
         }
     }
 
     // ==================== PATHPLANNER ====================
     private void configurePathPlannerCommands() {
+        if (intake != null) {
+            NamedCommands.registerCommand("intake",
+                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
+        }
         if (shooter != null) {
             NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
         }
-        if (shooter != null && hopper != null && uptake != null) {
+        if (shooter != null && hopper != null) {
             NamedCommands.registerCommand("shoot",
-                ShootCommands.shootCommand(shooter, hopper, uptake));
+                ShootCommands.shootCommand(shooter, hopper));
         }
     }
 

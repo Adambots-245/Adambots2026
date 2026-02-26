@@ -6,13 +6,12 @@ import java.util.function.DoubleSupplier;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
-import com.adambots.subsystems.UptakeSubsystem;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 
 /**
- * Command factory coordinating shooter, hopper, uptake, and turret subsystems.
+ * Command factory coordinating shooter, hopper, and turret subsystems.
  */
 public final class ShootCommands {
 
@@ -23,15 +22,11 @@ public final class ShootCommands {
      */
     public static Command shootCommand(
             ShooterSubsystem shooter,
-            HopperSubsystem hopper,
-            UptakeSubsystem uptake) {
+            HopperSubsystem hopper) {
         return Commands.sequence(
             shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            Commands.parallel(
-                hopper.feedCommand(),
-                uptake.runUptakeCommand()
-            ).withTimeout(1.0),
-            stopAllCommand(shooter, hopper, uptake)
+            hopper.feedCommand().withTimeout(1.0),
+            stopAllCommand(shooter, hopper)
         ).withName("Shoot");
     }
 
@@ -41,15 +36,11 @@ public final class ShootCommands {
     public static Command shootAtDistanceCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
-            UptakeSubsystem uptake,
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier).until(shooter.isAtSpeedTrigger()),
-            Commands.parallel(
-                hopper.feedCommand(),
-                uptake.runUptakeCommand()
-            ).withTimeout(1.0),
-            stopAllCommand(shooter, hopper, uptake)
+            hopper.feedCommand().withTimeout(1.0),
+            stopAllCommand(shooter, hopper)
         ).withName("Shoot At Distance");
     }
 
@@ -60,35 +51,30 @@ public final class ShootCommands {
             ShooterSubsystem shooter,
             TurretSubsystem turret,
             HopperSubsystem hopper,
-            UptakeSubsystem uptake,
             DoubleSupplier visionAngle,
             DoubleSupplier visionDist,
             BooleanSupplier hasTarget) {
         return Commands.sequence(
             // Track and spin up simultaneously
             Commands.parallel(
-                TurretCommands.trackHubCommand(turret, visionAngle, hasTarget),
+                turret.trackHubCommand(visionAngle, hasTarget),
                 shooter.spinForDistanceCommand(visionDist)
             ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger())),
             // Feed when ready
-            Commands.parallel(
-                hopper.feedCommand(),
-                uptake.runUptakeCommand()
-            ).withTimeout(1.0),
-            stopAllCommand(shooter, hopper, uptake)
+            hopper.feedCommand().withTimeout(1.0),
+            stopAllCommand(shooter, hopper)
         ).withName("Auto Shoot");
     }
 
     /**
-     * Reverse all to clear jams.
+     * Reverse hopper/uptake and stop flywheel to clear jams.
      */
     public static Command ejectCommand(
             ShooterSubsystem shooter,
-            HopperSubsystem hopper,
-            UptakeSubsystem uptake) {
+            HopperSubsystem hopper) {
         return Commands.parallel(
-            hopper.reverseHopperCommand(),
-            uptake.reverseUptakeCommand()
+            hopper.reverseCommand(),
+            shooter.stopFlywheelCommand()
         ).withName("Eject");
     }
 
@@ -97,12 +83,10 @@ public final class ShootCommands {
      */
     public static Command stopAllCommand(
             ShooterSubsystem shooter,
-            HopperSubsystem hopper,
-            UptakeSubsystem uptake) {
+            HopperSubsystem hopper) {
         return Commands.parallel(
             shooter.stopFlywheelCommand(),
-            hopper.stopHopperCommand(),
-            uptake.stopUptakeCommand()
+            hopper.stopCommand()
         ).withName("Stop All");
     }
 }

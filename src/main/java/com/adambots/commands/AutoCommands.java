@@ -7,7 +7,6 @@ package com.adambots.commands;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
-import com.adambots.subsystems.UptakeSubsystem;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -27,10 +26,9 @@ public final class AutoCommands {
             SwerveSubsystem swerve,
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
-            UptakeSubsystem uptake,
             Pose2d targetPose) {
         return Commands.sequence(
-            ShootCommands.shootCommand(shooter, hopper, uptake),
+            ShootCommands.shootCommand(shooter, hopper),
             swerve.driveToPoseCommand(targetPose)
         ).withName("ScoreAndMove");
     }

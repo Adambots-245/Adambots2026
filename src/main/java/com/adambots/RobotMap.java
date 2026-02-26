@@ -33,7 +33,7 @@ public class RobotMap {
     public static final boolean HOPPER_ENABLED = true;
     public static final boolean SHOOTER_ENABLED = true;
     public static final boolean TURRET_ENABLED = true;
-    public static final boolean UPTAKE_ENABLED = true;
+    // Uptake motor is owned by HopperSubsystem — no separate enable flag needed
     public static final boolean CLIMBER_ENABLED = false;
     public static final boolean LEDS_ENABLED = false;
     public static final boolean BACK_CAMERAS_ENABLED = true;
@@ -76,18 +76,15 @@ public class RobotMap {
     public static final BaseMotor turretMotor = TURRET_ENABLED
         ? new MinionMotor(kTurretPort) : null;
 
-    // ==================== UPTAKE ====================
-    private static final int kUptakePort = 34;        // Kraken X44
-
-    public static final BaseMotor uptakeMotor = UPTAKE_ENABLED
-        ? new TalonFXMotor(kUptakePort, false, 40.0, true) : null;
-
-    // ==================== HOPPER ====================
+    // ==================== HOPPER (includes uptake motor) ====================
     private static final int kHopperPort = 26;
+    private static final int kUptakePort = 34;        // Kraken X44
     private static final int kHopperSensorPort = 27;  // CANRange sensor
 
     public static final BaseMotor hopperMotor = HOPPER_ENABLED
         ? new TalonFXMotor(kHopperPort, false, 60.0, true) : null;
+    public static final BaseMotor uptakeMotor = HOPPER_ENABLED
+        ? new TalonFXMotor(kUptakePort, false, 40.0, true) : null;
     public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
         ? new CANRangeSensor(kHopperSensorPort, false) : null;
 

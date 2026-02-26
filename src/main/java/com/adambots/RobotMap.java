@@ -13,6 +13,9 @@ import com.adambots.lib.sensors.CANRangeSensor;
 import com.adambots.lib.sensors.LimitSwitch;
 import com.adambots.lib.sensors.PhotoEye;
 
+import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import edu.wpi.first.wpilibj.Solenoid;
+
 /**
  * RobotMap contains all hardware port mappings and device instantiation for the robot.
  *
@@ -93,21 +96,14 @@ public class RobotMap {
 
     // ==================== CLIMBER ====================
     // Port assignments
-    private static final int kClimberLeftMotorPort = 20;
-    private static final int kClimberRightMotorPort = 21;
-    private static final int kClimberLeftLimitPort = 3;   // DIO
-    private static final int kClimberRightLimitPort = 4;  // DIO
+    private static final int kClimberElevatorMotorPort = 20;
+    private static final int kClimberRatchetSolenoidChannel = 0; // REV PH channel (placeholder)
 
     // Hardware devices
-    public static final BaseMotor kClimberLeftMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberLeftMotorPort, true, 1.0, true) : null;
-    public static final BaseMotor kClimberRightMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberRightMotorPort, true, 1.0, true) : null;
-    // LimitSwitch(port, inverted)
-    public static final LimitSwitch kClimberLeftLimit = CLIMBER_ENABLED
-        ? new LimitSwitch(kClimberLeftLimitPort, false) : null;
-    public static final LimitSwitch kClimberRightLimit = CLIMBER_ENABLED
-        ? new LimitSwitch(kClimberRightLimitPort, false) : null;
+    public static final BaseMotor kClimberElevatorMotor = CLIMBER_ENABLED
+        ? new TalonFXMotor(kClimberElevatorMotorPort, true, 1.0, true) : null;
+    public static final Solenoid kClimberRatchetSolenoid = CLIMBER_ENABLED
+        ? new Solenoid(PneumaticsModuleType.REVPH, kClimberRatchetSolenoidChannel) : null;
 
     // ==================== LED (CANdle) ====================
     public static final int kCANdlePort = 0;  // CAN ID for CANdle LED controller

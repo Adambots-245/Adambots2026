@@ -72,8 +72,7 @@ public class RobotContainer {
         hopper = RobotMap.HOPPER_ENABLED
             ? new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor) : null;
         climber = RobotMap.CLIMBER_ENABLED
-            ? new ClimberSubsystem(RobotMap.kClimberLeftMotor, RobotMap.kClimberRightMotor,
-                                   RobotMap.kClimberLeftLimit, RobotMap.kClimberRightLimit) : null;
+            ? new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid) : null;
         leds = RobotMap.LEDS_ENABLED
             ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
 

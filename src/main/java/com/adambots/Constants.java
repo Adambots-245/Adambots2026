@@ -264,6 +264,14 @@ public final class Constants {
         public static final int kVisionMode = 2;
     }
 
+    // ==================== ClimberConstants ====================
+    public static final class ClimberConstants {
+        public static final double kClimbSpeed = 0.8;
+        public static final double kExtendSpeed = 0.5;
+        public static final double kStallCurrentLimit = 60.0;
+        public static final double kFreeCurrentLimit = 80.0;
+    }
+
     // ==================== Intake Constants ====================
     public static final class IntakeConstants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)

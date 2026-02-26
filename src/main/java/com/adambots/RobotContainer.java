@@ -49,9 +49,8 @@ public class RobotContainer {
 
     private final SendableChooser<Command> autoChooser = new SendableChooser<>();
 
-    // ==================== CONSTRUCTOR ====================
     public RobotContainer() {
-        // 1. Swerve
+        // 1. Swerve config for PathPlanner
         SwerveConfig swerveConfig = new SwerveConfig()
             .withTranslationPID(
                 Constants.DriveConstants.kAutoTranslationP,
@@ -186,6 +185,14 @@ public class RobotContainer {
             turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
         Buttons.XboxDPadE.whileTrue(
             turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
+
+        // === Climber ===
+        // D-pad Up: Extend elevator (hold to raise hook)
+        Buttons.XboxDPadN.whileTrue(climber.extendCommand());
+        // D-pad Down: Climb (hold to retract / pull robot up)
+        Buttons.XboxDPadS.whileTrue(climber.climbCommand());
+        // X: Lock climber (stop motor + engage ratchet)
+        Buttons.XboxXButton.onTrue(climber.lockCommand());
     }
 
     // ==================== PATHPLANNER ====================

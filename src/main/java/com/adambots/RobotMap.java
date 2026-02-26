@@ -55,9 +55,10 @@ public class RobotMap {
     // Hardware devices
     // TalonFXMotor(canId, isOnCANivore, supplyCurrentLimit, isKraken)
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
-        ? new TalonFXMotor(kIntakeMotorPort, false, 1.0, false) : null;
+        ? new TalonFXMotor(kIntakeMotorPort, true, 1.0, false) : null;
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
-        ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
+        ? new MinionMotor(kIntakeMotorArmPort, "canivore") : null;
+    // ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
 
     // ==================== SHOOTER ====================
     // Port assignments
@@ -66,15 +67,15 @@ public class RobotMap {
 
     // Hardware devices
     public static final BaseMotor shooterLeftMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterLeftPort, false, 60.0, true) : null;
+        ? new TalonFXMotor(kShooterLeftPort, true, 60.0, true) : null;
     public static final BaseMotor shooterRightMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterRightPort, false, 60.0, true) : null;
+        ? new TalonFXMotor(kShooterRightPort, true, 60.0, true) : null;
 
     // ==================== TURRET ====================
     private static final int kTurretPort = 35;        // Minion (WCP GreyT Turret)
 
     public static final BaseMotor turretMotor = TURRET_ENABLED
-        ? new MinionMotor(kTurretPort) : null;
+        ? new MinionMotor(kTurretPort, "canivore") : null;
 
     // ==================== HOPPER (includes uptake motor) ====================
     private static final int kHopperPort = 26;
@@ -82,9 +83,9 @@ public class RobotMap {
     private static final int kHopperSensorPort = 27;  // CANRange sensor
 
     public static final BaseMotor hopperMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kHopperPort, false, 60.0, true) : null;
+        ? new TalonFXMotor(kHopperPort, true, 60.0, true) : null;
     public static final BaseMotor uptakeMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kUptakePort, false, 40.0, true) : null;
+        ? new TalonFXMotor(kUptakePort, true, 40.0, true) : null;
     // TODO: Re-enable when CANRange is wired in
     // public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
     //     ? new CANRangeSensor(kHopperSensorPort, false) : null;
@@ -99,9 +100,9 @@ public class RobotMap {
 
     // Hardware devices
     public static final BaseMotor kClimberLeftMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberLeftMotorPort, false, 1.0, true) : null;
+        ? new TalonFXMotor(kClimberLeftMotorPort, true, 1.0, true) : null;
     public static final BaseMotor kClimberRightMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberRightMotorPort, false, 1.0, true) : null;
+        ? new TalonFXMotor(kClimberRightMotorPort, true, 1.0, true) : null;
     // LimitSwitch(port, inverted)
     public static final LimitSwitch kClimberLeftLimit = CLIMBER_ENABLED
         ? new LimitSwitch(kClimberLeftLimitPort, false) : null;

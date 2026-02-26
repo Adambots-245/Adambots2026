@@ -33,7 +33,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
  * RobotContainer — subsystems, commands, triggers, and button bindings.
  * Uses Inversion of Control (IoC) — hardware devices are created in RobotMap.
  */
-@Logged
 public class RobotContainer {
 
     // ==================== SUBSYSTEMS ====================
@@ -129,13 +128,13 @@ public class RobotContainer {
         );
 
         // Turret auto-track: tracks hub when visible, scans when lost
-        if (turret != null && visionSubsystem != null) {
-            turret.setDefaultCommand(
-                turret.autoTrackCommand(
-                    visionSubsystem::getHubAngle,
-                    visionSubsystem::isHubVisible)
-            );
-        }
+        // if (turret != null && visionSubsystem != null) {
+        //     turret.setDefaultCommand(
+        //         turret.autoTrackCommand(
+        //             visionSubsystem::getHubAngle,
+        //             visionSubsystem::isHubVisible)
+        //     );
+        // }
     }
 
     // ==================== BUTTON BINDINGS ====================

@@ -7,6 +7,7 @@ import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -14,6 +15,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * Hopper subsystem with hopper + uptake motors and CANRange distance sensor for piece detection.
  * Hopper and uptake always run together, so they share a single subsystem to prevent scheduling conflicts.
  */
+@Logged
 public class HopperSubsystem extends SubsystemBase {
 
     private final BaseMotor hopperMotor;
@@ -31,7 +33,6 @@ public class HopperSubsystem extends SubsystemBase {
     }
 
     public boolean hasPiece() {
-        if (hopperPieceSensor == null) return false;
         return hopperPieceSensor.getDistance().in(Centimeters) <= HopperConstants.kDetectionRange;
     }
 
@@ -52,7 +53,7 @@ public class HopperSubsystem extends SubsystemBase {
 
     // ==================== Triggers ====================
 
-    public final Trigger hasPiece = new Trigger(this::hasPiece);
+    public final Trigger hasPieceTrigger = new Trigger(this::hasPiece);
 
     public Trigger isEmptyTrigger() {
         return new Trigger(() -> !hasPiece());

@@ -5,16 +5,14 @@
 package com.adambots;
 
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.actuators.BaseSolenoid;
+import com.adambots.lib.actuators.DummyMotor;
+import com.adambots.lib.actuators.DummySolenoid;
+import com.adambots.lib.actuators.ElectricalSolenoid;
 import com.adambots.lib.actuators.MinionMotor;
 import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
-import com.adambots.lib.sensors.BaseProximitySensor;
-import com.adambots.lib.sensors.CANRangeSensor;
-import com.adambots.lib.sensors.LimitSwitch;
-import com.adambots.lib.sensors.PhotoEye;
-
-import edu.wpi.first.wpilibj.PneumaticsModuleType;
-import edu.wpi.first.wpilibj.Solenoid;
+import com.adambots.lib.sensors.DummyDistanceSensor;
 
 /**
  * RobotMap contains all hardware port mappings and device instantiation for the robot.
@@ -36,7 +34,6 @@ public class RobotMap {
     public static final boolean HOPPER_ENABLED = true;
     public static final boolean SHOOTER_ENABLED = true;
     public static final boolean TURRET_ENABLED = true;
-    // Uptake motor is owned by HopperSubsystem — no separate enable flag needed
     public static final boolean CLIMBER_ENABLED = false;
     public static final boolean LEDS_ENABLED = false;
     public static final boolean BACK_CAMERAS_ENABLED = true;
@@ -51,64 +48,61 @@ public class RobotMap {
     // Swerve drive CAN IDs and IMU are configured via YAGSL JSON files in deploy/swerve/
 
     // ==================== INTAKE ====================
-    // Port assignments
+    // Port assignments - on CANivore
     private static final int kIntakeMotorPort = 33;
     private static final int kIntakeMotorArmPort = 32;
 
     // Hardware devices
     // TalonFXMotor(canId, isOnCANivore, supplyCurrentLimit, isKraken)
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
-        ? new TalonFXMotor(kIntakeMotorPort, true, 1.0, false) : null;
+        ? new TalonFXMotor(kIntakeMotorPort, true, 1.0, true) : new DummyMotor();
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
-        ? new MinionMotor(kIntakeMotorArmPort, "*") : null;
-    // ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
+        ? new MinionMotor(kIntakeMotorArmPort, true) : new DummyMotor();
 
     // ==================== SHOOTER ====================
-    // Port assignments
+    // Port assignments - on CANivore
     public static final int kShooterLeftPort = 24;    // Kraken X60 (leader)
     public static final int kShooterRightPort = 25;   // Kraken X60 (follower)
 
     // Hardware devices
     public static final BaseMotor shooterLeftMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterLeftPort, true, 60.0, true) : null;
+        ? new TalonFXMotor(kShooterLeftPort, true, 60.0, true) : new DummyMotor();
     public static final BaseMotor shooterRightMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterRightPort, true, 60.0, true) : null;
+        ? new TalonFXMotor(kShooterRightPort, true, 60.0, true) : new DummyMotor();
 
     // ==================== TURRET ====================
+    // Port assignments - on CANivore
     private static final int kTurretPort = 35;        // Minion (WCP GreyT Turret)
 
     public static final BaseMotor turretMotor = TURRET_ENABLED
-        ? new MinionMotor(kTurretPort, "*") : null;
+        ? new MinionMotor(kTurretPort, true) : new DummyMotor();
 
     // ==================== HOPPER (includes uptake motor) ====================
+    // Port assignments - on CANivore
     private static final int kHopperPort = 26;
     private static final int kUptakePort = 34;        // Kraken X44
     private static final int kHopperSensorPort = 27;  // CANRange sensor
 
     public static final BaseMotor hopperMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kHopperPort, true, 60.0, true) : null;
+        ? new TalonFXMotor(kHopperPort, true, 60.0, true) : new DummyMotor();
     public static final BaseMotor uptakeMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kUptakePort, true, 40.0, true) : null;
+        ? new TalonFXMotor(kUptakePort, true, 40.0, true) : new DummyMotor();
     // TODO: Re-enable when CANRange is wired in
     // public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
-    //     ? new CANRangeSensor(kHopperSensorPort, true) : null;
-    public static final BaseDistanceSensor hopperSensor = null;
+    //     ? new CANRangeSensor(kHopperSensorPort, true) : new DummyDistanceSensor();
+    public static final BaseDistanceSensor hopperSensor = new DummyDistanceSensor();
 
     // ==================== CLIMBER ====================
-    // Port assignments
-    private static final int kClimberElevatorMotorPort = 20;
-    private static final int kClimberRatchetSolenoidChannel = 0; // REV PH channel (placeholder)
+    // Port assignments - On CANivore
+    private static final int kClimberElevatorMotorPort = 16;
+    private static final int kClimberRatchetSolenoidChannel = 4; // Electrical solenoid channel
 
     // Hardware devices
     public static final BaseMotor kClimberElevatorMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberElevatorMotorPort, true, 1.0, true) : null;
-    public static final Solenoid kClimberRatchetSolenoid = CLIMBER_ENABLED
-        ? new Solenoid(PneumaticsModuleType.REVPH, kClimberRatchetSolenoidChannel) : null;
+        ? new TalonFXMotor(kClimberElevatorMotorPort, true, 1.0, true) : new DummyMotor();
+    public static final BaseSolenoid kClimberRatchetSolenoid = CLIMBER_ENABLED
+        ? new ElectricalSolenoid(kClimberRatchetSolenoidChannel) : new DummySolenoid();
 
     // ==================== LED (CANdle) ====================
-    public static final int kCANdlePort = 0;  // CAN ID for CANdle LED controller
-
-    // ==================== VISION ====================
-    // Camera names are configured in VisionConstants, not here
-    // PhotonVision cameras are accessed by name, not port
+    public static final int kCANdlePort = 31;  // CAN ID for CANdle LED controller
 }

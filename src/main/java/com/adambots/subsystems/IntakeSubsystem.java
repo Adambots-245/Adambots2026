@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -31,6 +32,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * The arm motor runs Motion Magic with Arm_Cosine gravity feedforward at 1kHz
  * on the motor controller, providing stable holding and smooth motion.
  */
+@Logged
 public class IntakeSubsystem extends SubsystemBase {
 
     private final BaseMotor intakeMotor;

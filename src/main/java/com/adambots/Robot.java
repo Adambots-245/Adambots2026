@@ -36,7 +36,7 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 public class Robot extends LoggedRobot {
     private Command autonomousCommand;
 
-    @NotLogged
+    @Logged
     private RobotContainer container;
 
     // For tracking command execution times

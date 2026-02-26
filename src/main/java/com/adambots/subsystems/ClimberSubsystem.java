@@ -6,9 +6,9 @@ package com.adambots.subsystems;
 
 import com.adambots.Constants.ClimberConstants;
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.actuators.BaseSolenoid;
 
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -26,10 +26,10 @@ public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: HARDWARE ====================
     private final BaseMotor elevatorMotor;
-    private final Solenoid ratchetSolenoid;
+    private final BaseSolenoid ratchetSolenoid;
 
     // ==================== SECTION: CONSTRUCTOR ====================
-    public ClimberSubsystem(BaseMotor elevatorMotor, Solenoid ratchetSolenoid) {
+    public ClimberSubsystem(BaseMotor elevatorMotor, BaseSolenoid ratchetSolenoid) {
         this.elevatorMotor = elevatorMotor;
         this.ratchetSolenoid = ratchetSolenoid;
 

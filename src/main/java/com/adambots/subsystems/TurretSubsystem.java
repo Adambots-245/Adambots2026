@@ -13,6 +13,7 @@ import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -22,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * The reverse limit auto-zeros the encoder — pre-place turret against it before each match.
  * Forward limit records the discovered max range dynamically.
  */
+@Logged
 public class TurretSubsystem extends SubsystemBase {
 
     private final BaseMotor turretMotor;

@@ -4,8 +4,11 @@
 
 package com.adambots;
 
+import static edu.wpi.first.units.Units.Centimeters;
+
 import java.io.File;
 
+import com.adambots.commands.SelfTestCommand;
 import com.adambots.commands.ShootCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
@@ -239,6 +242,23 @@ public class RobotContainer {
             Dash.add("Hub Visible", visionSubsystem::isHubVisible, 6, telemetryRow);
         }
 
+        Dash.useDefaultTab();
+
+        // Self-Test tab — one-shot device check for pit crew
+        // Layout: button row 0, device boxes start row 1, health info below
+        Dash.useTab("Self-Test");
+        SelfTestCommand selfTest = new SelfTestCommand(
+            Dash.getCurrentTab(), 1,
+            RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
+            RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor,
+            RobotMap.turretMotor,
+            RobotMap.hopperMotor, RobotMap.uptakeMotor,
+            RobotMap.kClimberElevatorMotor,
+            RobotMap.kClimberRatchetSolenoid);
+        Dash.addCommand("Run Self-Test", selfTest, 0, 0);
+        // Live sensor — wave hand over CANRange to verify it's working
+        Dash.add("Hopper Sensor (cm)",
+            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), 0, 2);
         Dash.useDefaultTab();
     }
 

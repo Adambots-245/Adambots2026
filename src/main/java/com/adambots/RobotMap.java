@@ -57,7 +57,7 @@ public class RobotMap {
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
         ? new TalonFXMotor(kIntakeMotorPort, true, 1.0, false) : null;
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
-        ? new MinionMotor(kIntakeMotorArmPort, "canivore") : null;
+        ? new MinionMotor(kIntakeMotorArmPort, "*") : null;
     // ? new TalonFXMotor(kIntakeMotorArmPort, false, 1.0, false) : null;
 
     // ==================== SHOOTER ====================
@@ -75,7 +75,7 @@ public class RobotMap {
     private static final int kTurretPort = 35;        // Minion (WCP GreyT Turret)
 
     public static final BaseMotor turretMotor = TURRET_ENABLED
-        ? new MinionMotor(kTurretPort, "canivore") : null;
+        ? new MinionMotor(kTurretPort, "*") : null;
 
     // ==================== HOPPER (includes uptake motor) ====================
     private static final int kHopperPort = 26;
@@ -88,7 +88,7 @@ public class RobotMap {
         ? new TalonFXMotor(kUptakePort, true, 40.0, true) : null;
     // TODO: Re-enable when CANRange is wired in
     // public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
-    //     ? new CANRangeSensor(kHopperSensorPort, false) : null;
+    //     ? new CANRangeSensor(kHopperSensorPort, true) : null;
     public static final BaseDistanceSensor hopperSensor = null;
 
     // ==================== CLIMBER ====================

@@ -2,11 +2,13 @@ package com.adambots.subsystems;
 
 import static edu.wpi.first.units.Units.Centimeters;
 
+import com.adambots.Constants;
 import com.adambots.Constants.HopperConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.utils.Dash;
 
+import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -23,6 +25,15 @@ public class HopperSubsystem extends SubsystemBase {
     private final BaseMotor uptakeMotor;
     private final BaseDistanceSensor hopperPieceSensor;
 
+    // Tunable fields (hot-reloaded from Shuffleboard when TUNING_ENABLED)
+    private double hopperSpeed = HopperConstants.kHopperSpeed;
+    private double uptakeSpeed = HopperConstants.kUptakeSpeed;
+    private double detectionRange = HopperConstants.kDetectionRange;
+
+    private GenericEntry hopperSpeedEntry;
+    private GenericEntry uptakeSpeedEntry;
+    private GenericEntry detectionRangeEntry;
+
     public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor, BaseDistanceSensor hopperPieceSensor) {
         this.hopperMotor = hopperMotor;
         this.uptakeMotor = uptakeMotor;
@@ -33,20 +44,21 @@ public class HopperSubsystem extends SubsystemBase {
         uptakeMotor.setBrakeMode(true);
 
         setupDash();
+        if (Constants.TUNING_ENABLED) setupTunables();
     }
 
     public boolean hasPiece() {
-        return hopperPieceSensor.getDistance().in(Centimeters) <= HopperConstants.kDetectionRange;
+        return hopperPieceSensor.getDistance().in(Centimeters) <= detectionRange;
     }
 
     private void feed() {
-        hopperMotor.set(HopperConstants.kHopperSpeed);
-        uptakeMotor.set(HopperConstants.kUptakeSpeed);
+        hopperMotor.set(hopperSpeed);
+        uptakeMotor.set(uptakeSpeed);
     }
 
     private void reverse() {
-        hopperMotor.set(-HopperConstants.kHopperSpeed);
-        uptakeMotor.set(-HopperConstants.kUptakeSpeed);
+        hopperMotor.set(-hopperSpeed);
+        uptakeMotor.set(-uptakeSpeed);
     }
 
     private void stop() {
@@ -88,7 +100,22 @@ public class HopperSubsystem extends SubsystemBase {
         Dash.addCommand("Stop", stopCommand(), col++, row++);
     }
 
+    private void setupTunables() {
+        Dash.useTab("Hopper");
+
+        hopperSpeedEntry = Dash.addTunable("Hopper Speed", HopperConstants.kHopperSpeed, 0, 2);
+        uptakeSpeedEntry = Dash.addTunable("Uptake Speed", HopperConstants.kUptakeSpeed, 1, 2);
+        detectionRangeEntry = Dash.addTunable("Detection Range (cm)", HopperConstants.kDetectionRange, 2, 2);
+
+        Dash.useDefaultTab();
+    }
+
     @Override
     public void periodic() {
+        if (hopperSpeedEntry != null) {
+            hopperSpeed = hopperSpeedEntry.getDouble(HopperConstants.kHopperSpeed);
+            uptakeSpeed = uptakeSpeedEntry.getDouble(HopperConstants.kUptakeSpeed);
+            detectionRange = detectionRangeEntry.getDouble(HopperConstants.kDetectionRange);
+        }
     }
 }

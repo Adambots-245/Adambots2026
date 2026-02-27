@@ -3,7 +3,6 @@ package com.adambots.commands;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
-import com.adambots.Constants.ShooterConstants;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
@@ -76,7 +75,7 @@ public final class ShootCommands {
             ShooterSubsystem shooter, HopperSubsystem hopper, IntakeSubsystem intake) {
         return Commands.parallel(
             intake.runIntakeCommand(),
-            shooter.spinUpCommand(ShooterConstants.kLobShotRPS),
+            shooter.spinUpCommand(shooter.lobShotRPS()),
             hopper.feedCommand()
         ).withName("Lob Shot");
     }

@@ -55,6 +55,15 @@ public class IntakeSubsystem extends SubsystemBase {
     private GenericEntry intakeArmKVEntry;
     private GenericEntry intakeArmKAEntry;
 
+    // Tunable motion/position entries (row 3)
+    private GenericEntry cruiseVelocityEntry;
+    private GenericEntry accelerationEntry;
+    private GenericEntry loweredPositionEntry;
+
+    private double lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
+    private double lastAcceleration = IntakeConstants.kArmAcceleration;
+    private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+
     /**
      * Returns true when the intake roller is running (velocity above threshold).
      */
@@ -155,6 +164,11 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.addCommand("Zero Tunables", zeroTunablesCommand(), 7, 2);
         Dash.addCommand("Reset Tunables", resetTunablesCommand(), 8, 2);
 
+        // Row 3: Motion Magic / position tunables
+        cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
+        accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
+        loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
+
         Dash.useDefaultTab();
 
         // Force-write code constants to Shuffleboard so displayed values always
@@ -174,6 +188,13 @@ public class IntakeSubsystem extends SubsystemBase {
         lastKS = IntakeConstants.kArmKS;
         lastKV = IntakeConstants.kArmKV;
         lastKA = IntakeConstants.kArmKA;
+
+        cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
+        accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
+        loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
+        lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
+        lastAcceleration = IntakeConstants.kArmAcceleration;
+        armLoweredPosition = IntakeConstants.kArmLoweredPosition;
 
         // Apply to motor controller (for real hardware)
         intakeArmMotor.setPID(0,
@@ -208,7 +229,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Lower the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void lowerIntakeArm() {
-        targetPosition = IntakeConstants.kArmLoweredPosition;
+        targetPosition = armLoweredPosition;
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -327,6 +348,15 @@ public class IntakeSubsystem extends SubsystemBase {
             lastKS = IntakeConstants.kArmKS;
             lastKV = IntakeConstants.kArmKV;
             lastKA = IntakeConstants.kArmKA;
+
+            if (cruiseVelocityEntry != null) {
+                cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
+                accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
+                loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
+                lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
+                lastAcceleration = IntakeConstants.kArmAcceleration;
+                armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+            }
         }).withName("Reset Tunables");
     }
 
@@ -469,6 +499,25 @@ public class IntakeSubsystem extends SubsystemBase {
                 lastKV = kV;
                 lastKA = kA;
             }
+        }
+
+        // Hot-reload Motion Magic cruise velocity and acceleration
+        if (cruiseVelocityEntry != null) {
+            double cruiseVel = cruiseVelocityEntry.getDouble(IntakeConstants.kArmCruiseVelocity);
+            double accel = accelerationEntry.getDouble(IntakeConstants.kArmAcceleration);
+
+            if (cruiseVel != lastCruiseVelocity || accel != lastAcceleration) {
+                intakeArmMotor.configure()
+                    .motionMagic(
+                        RotationsPerSecond.of(cruiseVel),
+                        RotationsPerSecondPerSecond.of(accel),
+                        IntakeConstants.kArmJerk)
+                    .apply();
+                lastCruiseVelocity = cruiseVel;
+                lastAcceleration = accel;
+            }
+
+            armLoweredPosition = loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition);
         }
     }
 }

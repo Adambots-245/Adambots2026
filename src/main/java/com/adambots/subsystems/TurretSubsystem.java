@@ -33,7 +33,11 @@ public class TurretSubsystem extends SubsystemBase {
     private GenericEntry turretPEntry;
     private GenericEntry turretIEntry;
     private GenericEntry turretDEntry;
+    private GenericEntry turretFFEntry;
+    private GenericEntry trackingToleranceEntry;
     private double lastTurretP, lastTurretI, lastTurretD;
+    private double lastTurretFF = TurretConstants.kTurretFF;
+    private double trackingToleranceDeg = TurretTrackingConstants.kTrackingToleranceDeg;
 
     // Track last setpoint for isAtTarget()
     private double lastSetpointDegrees = 0;
@@ -88,6 +92,10 @@ public class TurretSubsystem extends SubsystemBase {
         advance(pos, cols);
         turretDEntry = Dash.addTunable("Turret kD", TurretConstants.kTurretD, pos[0], pos[1]);
         advance(pos, cols);
+        turretFFEntry = Dash.addTunable("Turret kF", TurretConstants.kTurretFF, pos[0], pos[1]);
+        advance(pos, cols);
+        trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
+        advance(pos, cols);
     }
 
     private static void advance(int[] pos, int cols) {
@@ -131,7 +139,7 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Triggers ====================
 
     public Trigger isAtTargetTrigger() {
-        return new Trigger(() -> isAtTarget(TurretTrackingConstants.kTrackingToleranceDeg));
+        return new Trigger(() -> isAtTarget(trackingToleranceDeg));
     }
 
     // ==================== Periodic ====================
@@ -154,11 +162,19 @@ public class TurretSubsystem extends SubsystemBase {
             double i = turretIEntry.getDouble(TurretConstants.kTurretI);
             double d = turretDEntry.getDouble(TurretConstants.kTurretD);
 
-            if (p != lastTurretP || i != lastTurretI || d != lastTurretD) {
-                turretMotor.setPID(0, p, i, d, TurretConstants.kTurretFF);
+            double f = turretFFEntry != null
+                ? turretFFEntry.getDouble(TurretConstants.kTurretFF) : TurretConstants.kTurretFF;
+
+            if (p != lastTurretP || i != lastTurretI || d != lastTurretD || f != lastTurretFF) {
+                turretMotor.setPID(0, p, i, d, f);
                 lastTurretP = p;
                 lastTurretI = i;
                 lastTurretD = d;
+                lastTurretFF = f;
+            }
+
+            if (trackingToleranceEntry != null) {
+                trackingToleranceDeg = trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg);
             }
         }
     }
@@ -245,7 +261,7 @@ public class TurretSubsystem extends SubsystemBase {
             .andThen(run(() -> {
                 double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
                 setTurretAngle(target);
-                if (isAtTarget(TurretTrackingConstants.kTrackingToleranceDeg)) {
+                if (isAtTarget(trackingToleranceDeg)) {
                     scanningForward = !scanningForward;
                 }
             }))
@@ -292,7 +308,7 @@ public class TurretSubsystem extends SubsystemBase {
                         // Tier 3: No info — oscillating sweep
                         double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
                         setTurretAngle(target);
-                        if (isAtTarget(TurretTrackingConstants.kTrackingToleranceDeg)) {
+                        if (isAtTarget(trackingToleranceDeg)) {
                             scanningForward = !scanningForward;
                         }
                     }

@@ -46,6 +46,10 @@ public class ShooterSubsystem extends SubsystemBase {
     private final GenericEntry[] tableDistanceEntries = new GenericEntry[5];
     private final GenericEntry[] tableRPSEntries = new GenericEntry[5];
 
+    // Lob shot tunable
+    private GenericEntry lobShotRPSEntry;
+    private double lobShotRPSCached = ShooterConstants.kLobShotRPS;
+
     // Last-applied PID values to avoid flooding CAN bus
     private double lastFlywheelP, lastFlywheelI, lastFlywheelD, lastFlywheelFF;
 
@@ -115,6 +119,11 @@ public class ShooterSubsystem extends SubsystemBase {
                 "Table RPS " + (i + 1), ShooterConstants.kDefaultInterpolationTable[i][1], pos[0], pos[1]);
             advance(pos, cols);
         }
+
+        // Lob shot RPS
+        newRow(pos);
+        lobShotRPSEntry = Dash.addTunable("Lob Shot RPS", ShooterConstants.kLobShotRPS, pos[0], pos[1]);
+        advance(pos, cols);
     }
 
     private static void advance(int[] pos, int cols) {
@@ -169,6 +178,10 @@ public class ShooterSubsystem extends SubsystemBase {
         return targetRPS;
     }
 
+    public double lobShotRPS() {
+        return lobShotRPSCached;
+    }
+
     public boolean isAtSpeed() {
         return targetRPS > 0 && Math.abs(Math.abs(getLeftRPS()) - targetRPS) < flywheelToleranceCached;
     }
@@ -199,6 +212,10 @@ public class ShooterSubsystem extends SubsystemBase {
             }
 
             flywheelToleranceCached = flywheelToleranceEntry.getDouble(ShooterConstants.kFlywheelToleranceRPS);
+
+            if (lobShotRPSEntry != null) {
+                lobShotRPSCached = lobShotRPSEntry.getDouble(ShooterConstants.kLobShotRPS);
+            }
         }
 
         // Rebuild interpolation table from tunable entries

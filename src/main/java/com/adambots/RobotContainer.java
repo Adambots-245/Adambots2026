@@ -254,6 +254,44 @@ public class RobotContainer {
             }
 
             Dash.useDefaultTab();
+
+            // Commands tab — mirrors button bindings for controllerless testing
+            Dash.useTab("Commands");
+            int col = 0, row = 0;
+
+            // Driver commands
+            Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), col++, row);
+            Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyro()), col++, row);
+            Dash.addCommand("Lower + Intake",
+                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()), col++, row);
+            Dash.addCommand("Stop + Raise",
+                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()), col++, row);
+            Dash.addCommand("Toggle AutoTrack", turret.toggleAutoTrackCommand(), col++, row);
+            Dash.addCommand("Lob Shot",
+                intake.runLowerIntakeArmCommand()
+                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)), col++, row);
+
+            // Operator commands
+            col = 0; row++;
+            Dash.addCommand("Spin Up", shooter.spinUpCommand(), col++, row);
+            Dash.addCommand("Feed Hopper", hopper.feedCommand(), col++, row);
+            Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), col++, row);
+            Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
+            Dash.addCommand("Scan for Hub", turret.scanForHubCommand(), col++, row);
+            Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
+
+            // Climber commands
+            col = 0; row++;
+            Dash.addCommand("Extend Climber", climber.extendCommand(), col++, row);
+            Dash.addCommand("Climb", climber.climbCommand(), col++, row);
+            Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
+
+            // Utility
+            Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
+            Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
+            Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
+
+            Dash.useDefaultTab();
         }
 
         // Self-Test tab — one-shot device check for pit crew

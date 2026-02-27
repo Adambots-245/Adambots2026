@@ -251,6 +251,8 @@ public class RobotContainer {
             Dash.add("Turret Angle (deg)", turret::getTurretAngleDegrees, 5, telemetryRow);
             if (visionSubsystem != null) {
                 Dash.add("Hub Visible", visionSubsystem::isHubVisible, 6, telemetryRow);
+                Dash.add("Alliance", visionSubsystem::getAllianceColor, 7, telemetryRow);
+                Dash.add("Hub Center X", () -> visionSubsystem.getHubCenter().getX(), 8, telemetryRow);
             }
 
             Dash.useDefaultTab();

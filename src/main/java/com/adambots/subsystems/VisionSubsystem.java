@@ -215,6 +215,14 @@ public class VisionSubsystem extends SubsystemBase {
         }
         Dash.addCommand("Log Vision", logVisionCommand(), col++, row);
 
+        // Row 4: Diagnostic telemetry for debugging alliance/hub issues in pit
+        col = 0; row = 4;
+        Dash.add("Alliance (detected)", this::getAllianceColor, col++, row);
+        Dash.add("Hub Center X", () -> getHubCenter().getX(), col++, row);
+        Dash.add("Hub Center Y", () -> getHubCenter().getY(), col++, row);
+        Dash.add("Pose X", () -> poseSupplier.get().getX(), col++, row);
+        Dash.add("Pose Y", () -> poseSupplier.get().getY(), col++, row);
+
         Dash.useDefaultTab();
     }
 

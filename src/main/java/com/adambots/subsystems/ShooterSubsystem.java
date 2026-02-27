@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.*;
 
 import java.util.function.DoubleSupplier;
 
+import com.adambots.Constants;
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
@@ -29,6 +30,7 @@ public class ShooterSubsystem extends SubsystemBase {
     private final BaseMotor rightFlywheel;
 
     private double targetRPS = 0;
+    private double flywheelToleranceCached = ShooterConstants.kFlywheelToleranceRPS;
 
     // Interpolation table for distance -> RPS lookup
     private final InterpolatingDoubleTreeMap interpolationTable = new InterpolatingDoubleTreeMap();
@@ -88,6 +90,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param cols max columns per row before wrapping
      */
     public void setupFlywheelTunables(int[] pos, int cols) {
+        if (!Constants.TUNING_ENABLED) return;
         flywheelPEntry = Dash.addTunable("Flywheel kP", ShooterConstants.kFlywheelP, pos[0], pos[1]);
         advance(pos, cols);
         flywheelIEntry = Dash.addTunable("Flywheel kI", ShooterConstants.kFlywheelI, pos[0], pos[1]);
@@ -167,10 +170,7 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public boolean isAtSpeed() {
-        double tolerance = (flywheelToleranceEntry != null)
-            ? flywheelToleranceEntry.getDouble(ShooterConstants.kFlywheelToleranceRPS)
-            : ShooterConstants.kFlywheelToleranceRPS;
-        return targetRPS > 0 && Math.abs(Math.abs(getLeftRPS()) - targetRPS) < tolerance;
+        return targetRPS > 0 && Math.abs(Math.abs(getLeftRPS()) - targetRPS) < flywheelToleranceCached;
     }
 
     // ==================== Triggers ====================
@@ -197,6 +197,8 @@ public class ShooterSubsystem extends SubsystemBase {
                 lastFlywheelD = d;
                 lastFlywheelFF = f;
             }
+
+            flywheelToleranceCached = flywheelToleranceEntry.getDouble(ShooterConstants.kFlywheelToleranceRPS);
         }
 
         // Rebuild interpolation table from tunable entries

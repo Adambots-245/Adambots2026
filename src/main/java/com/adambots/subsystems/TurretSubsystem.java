@@ -1,5 +1,6 @@
 package com.adambots.subsystems;
 
+import com.adambots.Constants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
 import com.adambots.lib.actuators.BaseMotor;
@@ -37,15 +38,16 @@ public class TurretSubsystem extends SubsystemBase {
     // Track last setpoint for isAtTarget()
     private double lastSetpointDegrees = 0;
 
-    // Track angle each cycle so we can capture it before a limit-switch encoder reset
-    private double lastKnownAngleDegrees = 0;
-
     // Calibration state
     private boolean isCalibrated = false;
-    private double maxDiscoveredDegrees = TurretConstants.kTurretMaxDegrees;
 
     // Scan state for oscillating sweep
     private boolean scanningForward = true;
+
+    // Auto-track toggle (driver opts in via Button 5)
+    private boolean autoTrackEnabled = false;
+    private boolean wasAutoTracking = false;
+    private double holdAngleDegrees = 0.0;
 
     public TurretSubsystem(BaseMotor turretMotor) {
         this.turretMotor = turretMotor;
@@ -61,8 +63,11 @@ public class TurretSubsystem extends SubsystemBase {
                            TurretConstants.kTurretFreeCurrentLimit, 3000)
             .apply();
 
-        // Hardware limits: both enabled, both auto-reset encoder to 0 when hit
-        turretMotor.configureHardLimits(true, true, 0.0, 0.0);
+        // Hardware limits: both enabled
+        // Reverse limit → encoder = 0.0 (home)
+        // Forward limit → encoder = maxRotations (120°, so PID stays valid)
+        double maxRotations = (TurretConstants.kTurretMaxDegrees / 360.0) * TurretConstants.kTurretGearRatio;
+        turretMotor.configureHardLimits(true, true, maxRotations, 0.0);
 
         lastTurretP = TurretConstants.kTurretP;
         lastTurretI = TurretConstants.kTurretI;
@@ -76,6 +81,7 @@ public class TurretSubsystem extends SubsystemBase {
      * Call after Dash.useTab() in RobotContainer.
      */
     public void setupTurretTunables(int[] pos, int cols) {
+        if (!Constants.TUNING_ENABLED) return;
         turretPEntry = Dash.addTunable("Turret kP", TurretConstants.kTurretP, pos[0], pos[1]);
         advance(pos, cols);
         turretIEntry = Dash.addTunable("Turret kI", TurretConstants.kTurretI, pos[0], pos[1]);
@@ -132,24 +138,15 @@ public class TurretSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Check hardware limit switches for calibration and range discovery
+        // Check hardware limit switches for calibration
         if (turretMotor.getReverseLimitSwitch()) {
             isCalibrated = true;
         }
-        if (turretMotor.getForwardLimitSwitch()) {
-            // Encoder just got reset to 0 by the limit switch — use pre-reset angle
-            if (lastKnownAngleDegrees > 0) {
-                maxDiscoveredDegrees = lastKnownAngleDegrees;
-            }
-        }
-
-        // Track angle every cycle so we have the pre-reset value when a limit triggers
-        lastKnownAngleDegrees = getTurretAngleDegrees();
 
         // Dashboard telemetry
         SmartDashboard.putNumber("Turret/Angle (deg)", getTurretAngleDegrees());
         SmartDashboard.putBoolean("Turret/Calibrated", isCalibrated);
-        SmartDashboard.putNumber("Turret/Max Range (deg)", maxDiscoveredDegrees);
+        SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
 
         // Hot-reload PID from Shuffleboard tunables
         if (turretPEntry != null) {
@@ -198,6 +195,11 @@ public class TurretSubsystem extends SubsystemBase {
             .withName("Stop Turret");
     }
 
+    public Command toggleAutoTrackCommand() {
+        return Commands.runOnce(() -> autoTrackEnabled = !autoTrackEnabled)
+            .withName("Toggle Auto-Track");
+    }
+
     // ==================== Calibration Command ====================
 
     /**
@@ -235,13 +237,13 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     /**
-     * Position-controlled oscillating scan between 0° and maxDiscoveredDegrees.
+     * Position-controlled oscillating scan between 0° and TurretConstants.kTurretMaxDegrees.
      * Uses setTurretAngle (position control) for smooth deceleration at endpoints.
      */
     public Command scanForHubCommand() {
         return Commands.runOnce(() -> scanningForward = true)
             .andThen(run(() -> {
-                double target = scanningForward ? maxDiscoveredDegrees : 0.0;
+                double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
                 setTurretAngle(target);
                 if (isAtTarget(TurretTrackingConstants.kTrackingToleranceDeg)) {
                     scanningForward = !scanningForward;
@@ -268,6 +270,16 @@ public class TurretSubsystem extends SubsystemBase {
             DoubleSupplier poseAngle) {
         return Commands.runOnce(() -> scanningForward = true)
             .andThen(run(() -> {
+                if (!autoTrackEnabled) {
+                    if (wasAutoTracking) {
+                        holdAngleDegrees = getTurretAngleDegrees();
+                        wasAutoTracking = false;
+                    }
+                    setTurretAngle(holdAngleDegrees);
+                    return;
+                }
+                wasAutoTracking = true;
+
                 if (cameraHasTarget.getAsBoolean()) {
                     // Tier 1: Camera sees hub — most accurate
                     setTurretAngle(cameraAngle.getAsDouble());
@@ -278,7 +290,7 @@ public class TurretSubsystem extends SubsystemBase {
                         setTurretAngle(pose);
                     } else {
                         // Tier 3: No info — oscillating sweep
-                        double target = scanningForward ? maxDiscoveredDegrees : 0.0;
+                        double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
                         setTurretAngle(target);
                         if (isAtTarget(TurretTrackingConstants.kTrackingToleranceDeg)) {
                             scanningForward = !scanningForward;

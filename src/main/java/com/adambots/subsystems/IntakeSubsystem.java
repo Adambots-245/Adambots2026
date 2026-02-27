@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 
+import com.adambots.Constants;
 import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
 import com.adambots.Robot;
@@ -61,7 +62,13 @@ public class IntakeSubsystem extends SubsystemBase {
         return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
     }
 
-    private double lastP, lastI, lastD, lastKG, lastKS, lastKV, lastKA;
+    private double lastP = IntakeConstants.kArmP;
+    private double lastI = IntakeConstants.kArmI;
+    private double lastD = IntakeConstants.kArmD;
+    private double lastKG = IntakeConstants.kArmKG;
+    private double lastKS = IntakeConstants.kArmKS;
+    private double lastKV = IntakeConstants.kArmKV;
+    private double lastKA = IntakeConstants.kArmKA;
 
     private double targetPosition = IntakeConstants.kArmLoweredPosition;
 
@@ -71,7 +78,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
         configureMotors();
         setupDash();
-        setupTunables();
+        if (Constants.TUNING_ENABLED) setupTunables();
         // intakeArmMotor.setPosition(0);
 
         if (Robot.isSimulation()) {

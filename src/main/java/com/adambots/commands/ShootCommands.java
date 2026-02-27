@@ -3,7 +3,9 @@ package com.adambots.commands;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
+import com.adambots.Constants.ShooterConstants;
 import com.adambots.subsystems.HopperSubsystem;
+import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 
@@ -64,6 +66,19 @@ public final class ShootCommands {
             hopper.feedCommand().withTimeout(1.0),
             stopAllCommand(shooter, hopper)
         ).withName("Auto Shoot");
+    }
+
+    /**
+     * Lob shot: simultaneously intake + spin flywheel at fixed RPS + feed hopper.
+     * Hold button to run, release to stop all.
+     */
+    public static Command lobShotCommand(
+            ShooterSubsystem shooter, HopperSubsystem hopper, IntakeSubsystem intake) {
+        return Commands.parallel(
+            intake.runIntakeCommand(),
+            shooter.spinUpCommand(ShooterConstants.kLobShotRPS),
+            hopper.feedCommand()
+        ).withName("Lob Shot");
     }
 
     /**

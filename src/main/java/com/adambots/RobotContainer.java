@@ -125,14 +125,14 @@ public class RobotContainer {
         );
 
         // Turret auto-track: camera → pose fallback → oscillating scan
-        // if (turret != null && visionSubsystem != null) {
-        //     turret.setDefaultCommand(
-        //         turret.autoTrackCommand(
-        //             visionSubsystem::getHubCamAngle,
-        //             visionSubsystem::isHubCamVisible,
-        //             visionSubsystem::getTurretTargetAngle)
-        //     );
-        // }
+        if (visionSubsystem != null) {
+            turret.setDefaultCommand(turret.autoTrackCommand(
+                visionSubsystem::getHubCamAngle,
+                visionSubsystem::isHubCamVisible,
+                visionSubsystem::getTurretTargetAngle));
+        } else {
+            turret.setDefaultCommand(turret.holdPositionCommand());
+        }
     }
 
     // ==================== BUTTON BINDINGS ====================
@@ -155,6 +155,14 @@ public class RobotContainer {
             // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
             // arm raising while roller winds down is intentional/harmless.
             intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+
+        // Button 5: Toggle auto-track on/off
+        Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+
+        // Button 6: Lob shot (hold) — intake + shoot at fixed RPS + feed hopper
+        Buttons.JoystickButton6.whileTrue(
+            intake.runLowerIntakeArmCommand()
+                .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
 
         // === Operator (Xbox Controller) ===
         // Right Trigger: Shoot (full sequence)
@@ -217,34 +225,36 @@ public class RobotContainer {
 
     // ==================== DASHBOARD ====================
     private void configureDashboard() {
-        Dash.useTab("Shooter Tuning");
-        int[] pos = {0, 0};
-        int cols = 6;
+        if (Constants.TUNING_ENABLED) {
+            Dash.useTab("Shooter Tuning");
+            int[] pos = {0, 0};
+            int cols = 6;
 
-        // Flywheel PID tunables
-        shooter.setupFlywheelTunables(pos, cols);
+            // Flywheel PID tunables
+            shooter.setupFlywheelTunables(pos, cols);
 
-        // Turret PID tunables
-        if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
-        turret.setupTurretTunables(pos, cols);
+            // Turret PID tunables
+            if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
+            turret.setupTurretTunables(pos, cols);
 
-        // Live telemetry row
-        if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
-        int telemetryRow = pos[1];
+            // Live telemetry row
+            if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
+            int telemetryRow = pos[1];
 
-        if (visionSubsystem != null) {
-            Dash.add("Vision Distance (m)", visionSubsystem::getHubDistance, 0, telemetryRow);
+            if (visionSubsystem != null) {
+                Dash.add("Vision Distance (m)", visionSubsystem::getHubDistance, 0, telemetryRow);
+            }
+            Dash.add("Target RPS", shooter::getTargetRPS, 1, telemetryRow);
+            Dash.add("Left RPS", shooter::getLeftRPS, 2, telemetryRow);
+            Dash.add("Right RPS", shooter::getRightRPS, 3, telemetryRow);
+            Dash.add("At Speed", shooter::isAtSpeed, 4, telemetryRow);
+            Dash.add("Turret Angle (deg)", turret::getTurretAngleDegrees, 5, telemetryRow);
+            if (visionSubsystem != null) {
+                Dash.add("Hub Visible", visionSubsystem::isHubVisible, 6, telemetryRow);
+            }
+
+            Dash.useDefaultTab();
         }
-        Dash.add("Target RPS", shooter::getTargetRPS, 1, telemetryRow);
-        Dash.add("Left RPS", shooter::getLeftRPS, 2, telemetryRow);
-        Dash.add("Right RPS", shooter::getRightRPS, 3, telemetryRow);
-        Dash.add("At Speed", shooter::isAtSpeed, 4, telemetryRow);
-        Dash.add("Turret Angle (deg)", turret::getTurretAngleDegrees, 5, telemetryRow);
-        if (visionSubsystem != null) {
-            Dash.add("Hub Visible", visionSubsystem::isHubVisible, 6, telemetryRow);
-        }
-
-        Dash.useDefaultTab();
 
         // Self-Test tab — one-shot device check for pit crew
         // Layout: button row 0, device boxes start row 1, health info below
@@ -262,6 +272,10 @@ public class RobotContainer {
         Dash.add("Hopper Sensor (cm)",
             () -> RobotMap.hopperSensor.getDistance().in(Centimeters), 0, 2);
         Dash.useDefaultTab();
+    }
+
+    public void onTeleopInit() {
+        turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

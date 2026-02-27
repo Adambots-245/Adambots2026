@@ -14,6 +14,9 @@ package com.adambots;
  */
 public final class Constants {
 
+    /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
+    public static final boolean TUNING_ENABLED = true;
+
     // ==================== DriveConstants ====================
     /**
      * Constants for the swerve drive system.
@@ -56,6 +59,9 @@ public final class Constants {
 
         public static final double kFlywheelToleranceRPS = 2.0;
 
+        /** Fixed RPS for mid-field lob shots (tune on field). */
+        public static final double kLobShotRPS = 55.0;
+
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
         public static final double kFlywheelFreeCurrentLimit = 60.0;
@@ -88,7 +94,7 @@ public final class Constants {
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
         // Reference range — not enforced in code (hardware limits protect the mechanism)
-        public static final double kTurretMaxDegrees = 90.0;
+        public static final double kTurretMaxDegrees = 120.0;
 
         public static final double kTurretManualSpeed = 0.3;
 

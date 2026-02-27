@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.*;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import com.adambots.Constants;
 import com.adambots.Constants.VisionConstants;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
@@ -208,8 +209,10 @@ public class VisionSubsystem extends SubsystemBase {
 
         // Row 3: Mode selector + commands
         col = 0; row = 3;
-        visionModeEntry = Dash.addTunable("Vision Mode (0=Cam,1=Pose,2=Hybrid)",
-            (double) VisionConstants.kVisionMode, col++, row);
+        if (Constants.TUNING_ENABLED) {
+            visionModeEntry = Dash.addTunable("Vision Mode (0=Cam,1=Pose,2=Hybrid)",
+                (double) VisionConstants.kVisionMode, col++, row);
+        }
         Dash.addCommand("Log Vision", logVisionCommand(), col++, row);
 
         Dash.useDefaultTab();
@@ -218,9 +221,11 @@ public class VisionSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         // Read runtime vision mode from Shuffleboard (force pose-only if no shooter cam)
-        visionMode = hasShooterCamera
-            ? (int) visionModeEntry.getDouble(VisionConstants.kVisionMode)
-            : 1;
+        if (visionModeEntry != null) {
+            visionMode = hasShooterCamera
+                ? (int) visionModeEntry.getDouble(VisionConstants.kVisionMode)
+                : 1;
+        }
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache

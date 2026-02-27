@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.Centimeters;
 import com.adambots.Constants.HopperConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
+import com.adambots.lib.utils.Dash;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.epilogue.Logged;
@@ -26,10 +27,12 @@ public class HopperSubsystem extends SubsystemBase {
         this.hopperMotor = hopperMotor;
         this.uptakeMotor = uptakeMotor;
         this.hopperPieceSensor = hopperPieceSensor;
-        hopperMotor.setInverted(true);
+        // hopperMotor.setInverted(true);
         hopperMotor.setBrakeMode(true);
         uptakeMotor.setInverted(true);
         uptakeMotor.setBrakeMode(true);
+
+        setupDash();
     }
 
     public boolean hasPiece() {
@@ -74,6 +77,15 @@ public class HopperSubsystem extends SubsystemBase {
     public Command stopCommand() {
         return runOnce(this::stop)
             .withName("Stop Hopper");
+    }
+
+    public void setupDash(){
+        Dash.useTab("Hopper");
+
+        int row = 0;
+        int col = 0;
+        Dash.addCommand("Feed", feedCommand(), col++, row++);
+        Dash.addCommand("Stop", stopCommand(), col++, row++);
     }
 
     @Override

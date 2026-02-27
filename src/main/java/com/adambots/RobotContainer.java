@@ -143,6 +143,8 @@ public class RobotContainer {
         // Trigger (1): Shoot (full sequence)
         Buttons.JoystickButton1.whileTrue(
             ShootCommands.shootCommand(shooter, hopper));
+        
+        Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
         // Button 3: Toggle intake
         Buttons.JoystickButton3.onTrue(

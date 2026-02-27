@@ -111,7 +111,7 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.5;
+        public static final double kHopperSpeed = 0.10;
         public static final double kUptakeSpeed = 0.5;
         public static final double kDetectionRange = 2.0; // cm
     }
@@ -175,16 +175,16 @@ public final class Constants {
 
         // Back-Left ArduCam (on top of back-left swerve module, facing backward)
         public static final double kBackLeftCameraX = -0.28;   // back of robot
-        public static final double kBackLeftCameraY = 0.28;    // left side
-        public static final double kBackLeftCameraZ = 0.22;    // on top of module (~8.5in up)
+        public static final double kBackLeftCameraY = 0.24;    // left side
+        public static final double kBackLeftCameraZ = 0.18;    // on top of module (~8.5in up)
         public static final double kBackLeftCameraRoll = 0.0;
         public static final double kBackLeftCameraPitch = 15.0;  // slightly up to see AprilTags
         public static final double kBackLeftCameraYaw = 180.0;   // facing backward
 
         // Back-Right ArduCam (on top of back-right swerve module, facing backward)
         public static final double kBackRightCameraX = -0.28;  // back of robot
-        public static final double kBackRightCameraY = -0.28;  // right side
-        public static final double kBackRightCameraZ = 0.22;   // on top of module (~8.5in up)
+        public static final double kBackRightCameraY = -0.24;  // right side
+        public static final double kBackRightCameraZ = 0.175;   // on top of module (~8.5in up)
         public static final double kBackRightCameraRoll = 0.0;
         public static final double kBackRightCameraPitch = 15.0;  // slightly up to see AprilTags
         public static final double kBackRightCameraYaw = 180.0;   // facing backward
@@ -277,13 +277,13 @@ public final class Constants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
-        public static final double kArmP = 4.8;    // Volts per rotation of error
+        public static final double kArmP = 35;    // Volts per rotation of error
         public static final double kArmI = 0.0;     // Volts per rotation*second of error (almost never needed with proper kG)
-        public static final double kArmD = 0.1;     // Volts per rotation/second of error (damping)
+        public static final double kArmD = 0.10;     // Volts per rotation/second of error (damping)
         public static final double kArmKV = 0.12;   // Volts per rotation/second of velocity
         public static final double kArmKS = 0.25;   // Volts to overcome static friction
         public static final double kArmKA = 0.01;   // Volts per rotation/second^2 of acceleration
-        public static final double kArmKG = 0.35;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
+        public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
 
         // Motion Magic profile constraints
         public static final double kArmCruiseVelocity = 2.0;  // rotations per second
@@ -298,11 +298,11 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kLowSpeed = 0.3;
-        public static final double kHighSpeed = 0.5;
+        public static final double kLowSpeed = 0.5;
+        public static final double kHighSpeed = 0.8;
 
-        public static final double kArmRaisedPosition = 0.0;   // motor rotations when arm is raised (retracted, home)
-        public static final double kArmLoweredPosition = 0.25; // motor rotations when arm is lowered (deployed)
+        public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
+        public static final double kArmLoweredPosition = 0.22; // motor rotations when arm is lowered (deployed)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)

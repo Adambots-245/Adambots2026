@@ -72,7 +72,7 @@ public class IntakeSubsystem extends SubsystemBase {
         configureMotors();
         setupDash();
         setupTunables();
-        intakeArmMotor.setPosition(0);
+        // intakeArmMotor.setPosition(0);
 
         if (Robot.isSimulation()) {
             setupSimulation();
@@ -93,6 +93,8 @@ public class IntakeSubsystem extends SubsystemBase {
                         RotationsPerSecondPerSecond.of(IntakeConstants.kArmAcceleration),
                         IntakeConstants.kArmJerk)
                 .apply();
+        
+        intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
         // Set extended PID with feedforward gains (kV, kS, kA, kG)
         intakeArmMotor.setPID(0,

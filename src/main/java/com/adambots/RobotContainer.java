@@ -8,8 +8,8 @@ import static edu.wpi.first.units.Units.Centimeters;
 
 import java.io.File;
 
-import com.adambots.commands.SelfTestCommand;
 import com.adambots.commands.ShootCommands;
+import com.adambots.commands.SystemCheckCommand;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -296,21 +296,49 @@ public class RobotContainer {
             Dash.useDefaultTab();
         }
 
-        // Self-Test tab — one-shot device check for pit crew
-        // Layout: button row 0, device boxes start row 1, health info below
-        Dash.useTab("Self-Test");
-        SelfTestCommand selfTest = new SelfTestCommand(
-            Dash.getCurrentTab(), 1,
+        // System Check tab — passive health + exercise buttons for pit crew
+        Dash.useTab("System Check");
+
+        // Rows 0-2: Passive health indicators (auto-updating)
+        new SystemCheckCommand(swerve,
             RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
             RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor,
             RobotMap.turretMotor,
             RobotMap.hopperMotor, RobotMap.uptakeMotor,
             RobotMap.kClimberElevatorMotor,
             RobotMap.kClimberRatchetSolenoid);
-        Dash.addCommand("Run Self-Test", selfTest, 0, 0);
-        // Live sensor — wave hand over CANRange to verify it's working
+
+        // Row 3: Swerve exercise commands
+        int col = 0, row = 3;
+        Dash.addCommand("Steer Modules",
+            Commands.runOnce(() -> swerve.lock(), swerve), col++, row);
+        Dash.addCommand("Center Modules",
+            swerve.centerModulesCommand(), col++, row);
+        Dash.addCommand("Drive Forward",
+            swerve.driveForwardDistanceCommand(0.5, 0.3), col++, row);
+        Dash.addCommand("Run Intake",
+            intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()), col++, row);
+        Dash.addCommand("Stop Intake",
+            intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()), col++, row);
+
+        // Row 4: Shooter + turret exercise commands
+        col = 0; row = 4;
+        Dash.addCommand("Spin Flywheel", shooter.spinUpCommand(), col++, row);
+        Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
+        Dash.addCommand("Move Turret", turret.scanForHubCommand(), col++, row);
+        Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
+        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
+
+        // Row 5: Hopper + climber exercise commands
+        col = 0; row = 5;
+        Dash.addCommand("Feed Hopper", hopper.feedCommand(), col++, row);
+        Dash.addCommand("Stop Hopper", hopper.stopCommand(), col++, row);
+        Dash.addCommand("Extend Climber", climber.extendCommand(), col++, row);
+        Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
+
+        // Row 6: Live sensor
         Dash.add("Hopper Sensor (cm)",
-            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), 0, 2);
+            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), 0, 6);
         Dash.useDefaultTab();
     }
 

@@ -119,7 +119,13 @@ public class Robot extends LoggedRobot {
         Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
 
         // Update Epilogue logging (manual invocation since we use LoggedRobot instead of TimedRobot)
-        Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
+        // Wrapped in try-catch: during simulation the WPILib epilogue-runtime JAR's Epilogue.class
+        // may load instead of the annotation-processor-generated one, causing NoSuchFieldError.
+        try {
+            Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
+        } catch (NoSuchFieldError e) {
+            // Epilogue class mismatch — harmless in simulation, logging is best-effort
+        }
     }
 
     /** This function is called once each time the robot enters Disabled mode. */

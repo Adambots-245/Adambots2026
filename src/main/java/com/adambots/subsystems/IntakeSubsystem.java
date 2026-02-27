@@ -435,6 +435,14 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        // When the reverse limit switch is active and we're targeting the raised position,
+        // snap the target to 0 so the motor stops pushing against the hard stop.
+        // The hardware limit already auto-reset the encoder to 0.
+        if (intakeArmMotor.getReverseLimitSwitch() && targetPosition < 0) {
+            targetPosition = 0;
+            intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, 0);
+        }
+
         // No PID loop here - the motor controller handles everything at 1kHz.
         // We only check for tunable gain updates from Shuffleboard.
 

@@ -97,7 +97,7 @@ public class RobotMap {
     // ==================== CLIMBER ====================
     // Port assignments - On CANivore
     private static final int kClimberElevatorMotorPort = 19;
-    private static final int kClimberRatchetSolenoidChannel = 4; // Electrical solenoid channel
+    private static final int kClimberRatchetSolenoidChannel = 0; // Electrical solenoid channel
     private static final int kClimberRaisedLimitPort = 4;   // DIO - limit switch at top
     private static final int kClimberLoweredLimitPort = 5;  // DIO - limit switch at bottom
 

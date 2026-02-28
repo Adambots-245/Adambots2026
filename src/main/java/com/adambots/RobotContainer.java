@@ -276,7 +276,8 @@ public class RobotContainer {
             Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), cc++, cmdRow);
             Dash.addCommand("Lob Shot",
                 intake.runLowerIntakeArmCommand()
-                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)), cc++, cmdRow);
+                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
+                    .withName("Lob Shot"), cc++, cmdRow);
             Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
             Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
             Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), cc++, cmdRow);
@@ -289,15 +290,18 @@ public class RobotContainer {
 
             // Driver commands
             Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
-            Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyro()), col++, row);
+            Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyro()).withName("Zero Gyro"), col++, row);
             Dash.addCommand("Lower + Intake",
-                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()), col++, row);
+                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
+                    .withName("Lower + Intake"), col++, row);
             Dash.addCommand("Stop + Raise",
-                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()), col++, row);
+                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
+                    .withName("Stop + Raise"), col++, row);
             Dash.addCommand("Toggle AutoTrack", turret.toggleAutoTrackCommand(), col++, row);
             Dash.addCommand("Lob Shot",
                 intake.runLowerIntakeArmCommand()
-                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)), col++, row);
+                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
+                    .withName("Lob Shot"), col++, row);
 
             // Operator commands
             col = 0; row++;
@@ -325,8 +329,8 @@ public class RobotContainer {
         // System Check tab — passive health + exercise buttons for pit crew
         Dash.useTab("System Check");
 
-        // Rows 0-2: Passive health indicators (auto-updating)
-        new SystemCheckCommand(swerve,
+        // Passive health indicators (auto-updating, dynamic row count)
+        SystemCheckCommand sysCheck = new SystemCheckCommand(swerve,
             RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
             RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor,
             RobotMap.turretMotor,
@@ -334,37 +338,54 @@ public class RobotContainer {
             RobotMap.kClimberElevatorMotor,
             RobotMap.kClimberRatchetSolenoid);
 
-        // Row 3: Swerve exercise commands
-        int col = 0, row = 3;
+        // Exercise commands — flow dynamically after health indicators
+        int col = 0, row = sysCheck.getRowCount();
+        int sysCols = Constants.kShuffleboardCols;
+
+        // Swerve
         Dash.addCommand("Steer Modules",
-            Commands.runOnce(() -> swerve.lock(), swerve), col++, row);
+            Commands.runOnce(() -> swerve.lock(), swerve).withName("Steer Modules"), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Center Modules",
-            swerve.centerModulesCommand(), col++, row);
+            swerve.centerModulesCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Drive Forward",
-            swerve.driveForwardDistanceCommand(0.5, 0.3), col++, row);
+            swerve.driveForwardDistanceCommand(0.5, 0.3), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Run Intake",
-            intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()), col++, row);
+            intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
+                .withName("Run Intake"), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Stop Intake",
-            intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()), col++, row);
+            intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
+                .withName("Stop Intake"), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
 
-        // Row 4: Shooter + turret exercise commands
-        col = 0; row = 4;
-        Dash.addCommand("Spin Flywheel", shooter.spinUpCommand(), col++, row);
-        Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
-        Dash.addCommand("Move Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col++, row);
-        Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
+        // Shooter + turret
+        Dash.addCommand("Spin Flywheel", shooter.spinUpCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Move Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
 
-        // Row 5: Hopper + climber exercise commands
-        col = 0; row = 5;
-        Dash.addCommand("Feed Hopper", hopper.feedCommand(), col++, row);
-        Dash.addCommand("Stop Hopper", hopper.stopCommand(), col++, row);
-        Dash.addCommand("Extend Climber", climber.extendCommand(), col++, row);
-        Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
+        // Hopper + climber
+        Dash.addCommand("Feed Hopper", hopper.feedCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Stop Hopper", hopper.stopCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Extend Climber", climber.extendCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
+        Dash.addCommand("Lock Climber", climber.lockCommand(), col, row);
+        if (++col >= sysCols) { col = 0; row++; }
 
-        // Row 6: Live sensor
+        // Live sensor
         Dash.add("Hopper Sensor (cm)",
-            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), 0, 6);
+            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), col, row);
         Dash.useDefaultTab();
     }
 

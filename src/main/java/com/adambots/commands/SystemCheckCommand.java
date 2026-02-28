@@ -1,5 +1,6 @@
 package com.adambots.commands;
 
+import com.adambots.Constants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseSolenoid;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -17,16 +18,13 @@ import swervelib.SwerveModule;
  * <p>All indicators auto-update every robot loop via Dash suppliers.
  * Construct once during dashboard setup — no need to schedule as a command.
  *
- * <p>Layout (boolean boxes are 1×1, text/number widgets are 2×1):
- * <pre>
- * Row 0: [Battery(2x1)] [CANivore(2x1)] [RIO CAN(2x1)]
- * Row 1: [IntakeM][IntakeArm][ShootL][ShootR][Turret][HopperM][Uptake][Climber][Ratchet]
- * Row 2: [FL_D][FL_S][FL_E] [FR_D][FR_S][FR_E] [BL_D][BL_S][BL_E] [BR_D][BR_S][BR_E] [Pigeon]
- * </pre>
+ * <p>Layout flows dynamically using {@code Constants.kShuffleboardCols} to wrap.
+ * Occupies rows 0 through {@link #getRowCount()} - 1.
  */
 public class SystemCheckCommand {
 
     private final CANBus canivoreBus = new CANBus("*");
+    private int rowCount;
 
     public SystemCheckCommand(
             SwerveSubsystem swerve,
@@ -37,22 +35,28 @@ public class SystemCheckCommand {
             BaseMotor climberMotor,
             BaseSolenoid ratchetSolenoid) {
 
-        // --- Row 0: System health (2×1 each) ---
+        int cols = Constants.kShuffleboardCols;
+        int col = 0, row = 0;
+
+        // --- System health (2×1 each) ---
         Dash.add("Battery (V)",
-            () -> Math.round(RobotController.getBatteryVoltage() * 100.0) / 100.0, 0, 0);
+            () -> Math.round(RobotController.getBatteryVoltage() * 100.0) / 100.0, col, row);
+        col += 2;
         Dash.add("CANivore", () -> {
             CANBusStatus cs = canivoreBus.getStatus();
             return String.format("%.1f%% Off:%d TX:%d RX:%d",
                 cs.BusUtilization * 100.0, cs.BusOffCount, cs.TEC, cs.REC);
-        }, 2, 0);
+        }, col, row);
+        col += 2;
         Dash.add("RIO CAN", () -> {
             CANStatus rs = RobotController.getCANStatus();
             return String.format("%.1f%% Off:%d TX:%d RX:%d",
                 rs.percentBusUtilization * 100.0, rs.busOffCount,
                 rs.transmitErrorCount, rs.receiveErrorCount);
-        }, 4, 0);
+        }, col, row);
+        col = 0; row++;
 
-        // --- Row 1: Motor health (1×1 boolean boxes) ---
+        // --- Motor health (1×1 boolean boxes) ---
         BaseMotor[] motors = {
             intakeMotor, intakeArmMotor,
             shooterLeftMotor, shooterRightMotor,
@@ -69,34 +73,41 @@ public class SystemCheckCommand {
         };
         for (int i = 0; i < motors.length; i++) {
             final BaseMotor m = motors[i];
-            Dash.add(motorNames[i], () -> !m.getMotorType().equals("DummyMotor"), i, 1);
+            Dash.add(motorNames[i], () -> !m.getMotorType().equals("DummyMotor"), col, row);
+            col++;
+            if (col >= cols) { col = 0; row++; }
         }
-        // Ratchet solenoid — last slot on row 1
+        // Ratchet solenoid
         Dash.add("Ratchet", () -> {
             try { ratchetSolenoid.get(); return true; }
             catch (Exception e) { return false; }
-        }, motors.length, 1);
+        }, col, row);
+        col = 0; row++;
 
-        // --- Row 2: Swerve module health (1×1 boolean boxes) ---
+        // --- Swerve module health (1×1 combined boolean per module) ---
         SwerveModule[] modules = swerve.getSwerveDrive().getModules();
         for (int i = 0; i < modules.length && i < 4; i++) {
             final SwerveModule mod = modules[i];
             String label = moduleLabel(mod.configuration.name);
-            int base = i * 3;
 
-            // Drive motor — returns valid position
-            Dash.add(label + " Drv",
-                () -> !Double.isNaN(mod.getDriveMotor().getPosition()), base, 2);
-            // Steer motor — returns valid position
-            Dash.add(label + " Str",
-                () -> !Double.isNaN(mod.getAngleMotor().getPosition()), base + 1, 2);
-            // Absolute encoder — no read issue
-            Dash.add(label + " Enc",
-                () -> !mod.getAbsoluteEncoderReadIssue(), base + 2, 2);
+            Dash.add(label, () ->
+                !Double.isNaN(mod.getDriveMotor().getPosition())
+                && !Double.isNaN(mod.getAngleMotor().getPosition())
+                && !mod.getAbsoluteEncoderReadIssue(), col, row);
+            col++;
+            if (col >= cols) { col = 0; row++; }
         }
-        // Pigeon IMU — heading is not NaN
+        // Pigeon IMU
         Dash.add("Pigeon",
-            () -> !Double.isNaN(swerve.getHeading().getDegrees()), 12, 2);
+            () -> !Double.isNaN(swerve.getHeading().getDegrees()), col, row);
+        col = 0; row++;
+
+        rowCount = row;
+    }
+
+    /** Number of rows occupied by this component's health indicators. */
+    public int getRowCount() {
+        return rowCount;
     }
 
     /** Abbreviate YAGSL module name: "frontleft" → "FL", "backright" → "BR". */

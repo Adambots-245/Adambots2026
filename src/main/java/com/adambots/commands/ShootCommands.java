@@ -26,7 +26,7 @@ public final class ShootCommands {
             HopperSubsystem hopper) {
         return Commands.sequence(
             shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            hopper.feedCommand().withTimeout(1.0),
+            hopper.feedCommand().withTimeout(5.0),
             stopAllCommand(shooter, hopper)
         ).withName("Shoot");
     }
@@ -39,8 +39,9 @@ public final class ShootCommands {
             HopperSubsystem hopper,
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
+            shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
             shooter.spinForDistanceCommand(distanceSupplier).until(shooter.isAtSpeedTrigger()),
-            hopper.feedCommand().withTimeout(1.0),
+            hopper.feedCommand().withTimeout(10.0),
             stopAllCommand(shooter, hopper)
         ).withName("Shoot At Distance");
     }

@@ -184,16 +184,16 @@ public final class Constants {
         public static final double kBackLeftCameraY = 0.24;    // left side
         public static final double kBackLeftCameraZ = 0.18;    // on top of module (~8.5in up)
         public static final double kBackLeftCameraRoll = 0.0;
-        public static final double kBackLeftCameraPitch = 15.0;  // slightly up to see AprilTags
-        public static final double kBackLeftCameraYaw = 180.0;   // facing backward
+        public static final double kBackLeftCameraPitch = 22.0;  // slightly up to see AprilTags
+        public static final double kBackLeftCameraYaw = 170.0;   // facing backward
 
         // Back-Right ArduCam (on top of back-right swerve module, facing backward)
         public static final double kBackRightCameraX = -0.28;  // back of robot
         public static final double kBackRightCameraY = -0.24;  // right side
         public static final double kBackRightCameraZ = 0.175;   // on top of module (~8.5in up)
         public static final double kBackRightCameraRoll = 0.0;
-        public static final double kBackRightCameraPitch = 15.0;  // slightly up to see AprilTags
-        public static final double kBackRightCameraYaw = 180.0;   // facing backward
+        public static final double kBackRightCameraPitch = 22.0;  // slightly up to see AprilTags
+        public static final double kBackRightCameraYaw = -160.0;   // facing backward
 
         // Shooter LifeCam (on top of shooter at back of robot, facing forward)
         public static final double kShooterCameraX = -0.20;   // behind center (shooter is at back)
@@ -308,7 +308,7 @@ public final class Constants {
         public static final double kHighSpeed = 0.8;
 
         public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
-        public static final double kArmLoweredPosition = 0.22; // motor rotations when arm is lowered (deployed)
+        public static final double kArmLoweredPosition = 0.25; // motor rotations when arm is lowered (deployed)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)

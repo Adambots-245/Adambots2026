@@ -34,7 +34,7 @@ public class RobotMap {
     public static final boolean HOPPER_ENABLED = true;
     public static final boolean SHOOTER_ENABLED = true;
     public static final boolean TURRET_ENABLED = true;
-    public static final boolean CLIMBER_ENABLED = false;
+    public static final boolean CLIMBER_ENABLED = true;
     public static final boolean LEDS_ENABLED = false;
     public static final boolean BACK_CAMERAS_ENABLED = true;
     public static final boolean SHOOTER_CAMERA_ENABLED = true;
@@ -55,14 +55,14 @@ public class RobotMap {
     // Hardware devices
     // TalonFXMotor(canId, isOnCANivore, supplyCurrentLimit, isKraken)
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
-        ? new TalonFXMotor(kIntakeMotorPort, true, 40.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kIntakeMotorPort, true, 60.0, true) : new DummyMotor();
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
         ? new MinionMotor(kIntakeMotorArmPort, true) : new DummyMotor();
 
     // ==================== SHOOTER ====================
     // Port assignments - on CANivore
-    public static final int kShooterLeftPort = 24;    // Kraken X60 (leader)
-    public static final int kShooterRightPort = 25;   // Kraken X60 (follower)
+    public static final int kShooterLeftPort = 25;    // Kraken X60 (leader)
+    public static final int kShooterRightPort = 24;   // Kraken X60 (follower)
 
     // Hardware devices
     public static final BaseMotor shooterLeftMotor = SHOOTER_ENABLED

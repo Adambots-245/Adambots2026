@@ -124,15 +124,15 @@ public class RobotContainer {
             )
         );
 
-        // Turret auto-track: camera → pose fallback → oscillating scan
-        if (visionSubsystem != null) {
-            turret.setDefaultCommand(turret.autoTrackCommand(
-                visionSubsystem::getHubCamAngle,
-                visionSubsystem::isHubCamVisible,
-                visionSubsystem::getTurretTargetAngle));
-        } else {
-            turret.setDefaultCommand(turret.holdPositionCommand());
-        }
+        // // Turret auto-track: camera → pose fallback → oscillating scan
+        // if (visionSubsystem != null) {
+        //     turret.setDefaultCommand(turret.autoTrackCommand(
+        //         visionSubsystem::getHubCamAngle,
+        //         visionSubsystem::isHubCamVisible,
+        //         visionSubsystem::getTurretTargetAngle));
+        // } else {
+        //     turret.setDefaultCommand(turret.holdPositionCommand());
+        // }
     }
 
     // ==================== BUTTON BINDINGS ====================
@@ -254,6 +254,8 @@ public class RobotContainer {
                 Dash.add("Alliance", visionSubsystem::getAllianceColor, 7, telemetryRow);
                 Dash.add("Hub Center X", () -> visionSubsystem.getHubCenter().getX(), 8, telemetryRow);
             }
+            Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), 8, 0);
+
 
             Dash.useDefaultTab();
 
@@ -262,7 +264,7 @@ public class RobotContainer {
             int col = 0, row = 0;
 
             // Driver commands
-            Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), col++, row);
+            Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
             Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyro()), col++, row);
             Dash.addCommand("Lower + Intake",
                 intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()), col++, row);

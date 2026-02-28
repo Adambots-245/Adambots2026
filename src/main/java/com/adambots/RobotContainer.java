@@ -8,6 +8,7 @@ import static edu.wpi.first.units.Units.Centimeters;
 
 import java.io.File;
 
+import com.adambots.commands.AutoCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.SystemCheckCommand;
 import com.adambots.lib.subsystems.CANdleSubsystem;
@@ -23,9 +24,11 @@ import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
+import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -50,7 +53,7 @@ public class RobotContainer {
     private VisionSubsystem visionSubsystem;
     private VisionSystem vision;
 
-    private final SendableChooser<Command> autoChooser = new SendableChooser<>();
+    private SendableChooser<Command> autoChooser = new SendableChooser<>();
 
     public RobotContainer() {
         // 1. Swerve config for PathPlanner
@@ -215,10 +218,12 @@ public class RobotContainer {
         NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
         NamedCommands.registerCommand("shoot",
             ShootCommands.shootCommand(shooter, hopper));
+        NamedCommands.registerCommand("tune", Commands.print("\n[TUNE] Hello, World!\n"));
     }
 
     // ==================== AUTO CHOOSER ====================
     private void configureAutoChooser() {
+        autoChooser = AutoBuilder.buildAutoChooser();
         autoChooser.setDefaultOption("None", Commands.none());
         SmartDashboard.putData("Auto Chooser", autoChooser);
     }

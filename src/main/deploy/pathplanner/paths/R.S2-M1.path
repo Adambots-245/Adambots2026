@@ -12,20 +12,20 @@
         "y": 2.046183915792174
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "R.S2"
     },
     {
       "anchor": {
-        "x": 14.702982486278545,
-        "y": 1.93346606458786
+        "x": 14.5,
+        "y": 2.0
       },
       "prevControl": {
-        "x": 14.207355952893794,
-        "y": 2.113422217115858
+        "x": 14.004373466615249,
+        "y": 2.179956152527998
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "R.M1"
     }
   ],
   "rotationTargets": [],
@@ -42,7 +42,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 118.82092822008178
+    "rotation": 141.35112085423177
   },
   "reversed": false,
   "folder": null,

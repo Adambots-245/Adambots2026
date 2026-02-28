@@ -10,6 +10,7 @@ import com.adambots.lib.utils.Dash;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -44,6 +45,9 @@ public class TurretSubsystem extends SubsystemBase {
 
     // Calibration state
     private boolean isCalibrated = false;
+
+    // Auto-calibrated gear ratio (0 = not yet measured, use constant)
+    private double measuredGearRatio = 0;
 
     // Scan state for oscillating sweep
     private boolean scanningForward = true;
@@ -112,9 +116,14 @@ public class TurretSubsystem extends SubsystemBase {
 
     // ==================== Turret Control ====================
 
+    /** Returns measuredGearRatio if calibrated, otherwise the constant. */
+    private double getEffectiveGearRatio() {
+        return measuredGearRatio > 0 ? measuredGearRatio : TurretConstants.kTurretGearRatio;
+    }
+
     public void setTurretAngle(double degrees) {
         lastSetpointDegrees = degrees;
-        double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
+        double rotations = (degrees / 360.0) * getEffectiveGearRatio();
         turretMotor.set(ControlMode.POSITION, rotations);
     }
 
@@ -123,7 +132,7 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     public double getTurretAngleDegrees() {
-        return (turretMotor.getPosition() / TurretConstants.kTurretGearRatio) * 360.0;
+        return (turretMotor.getPosition() / getEffectiveGearRatio()) * 360.0;
     }
 
     public boolean isAtTarget(double toleranceDeg) {
@@ -159,6 +168,7 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Angle (deg)", getTurretAngleDegrees());
         SmartDashboard.putBoolean("Turret/Calibrated", isCalibrated);
         SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
+        SmartDashboard.putNumber("Turret/GearRatio", getEffectiveGearRatio());
 
         // Hot-reload PID from Shuffleboard tunables
         if (turretPEntry != null) {
@@ -228,51 +238,93 @@ public class TurretSubsystem extends SubsystemBase {
      * Not wired by default — use if pre-placing isn't reliable.
      */
     public Command calibrateCommand() {
-        return runEnd(
-            () -> turretMotor.set(-TurretConstants.kCalibrationSpeed),
-            this::stopTurret
-        )
-        .until(turretMotor::getReverseLimitSwitch)
-        .withTimeout(TurretConstants.kCalibrationTimeoutSec)
-        .andThen(Commands.runOnce(() -> {
-            if (isCalibrated) {
-                // Move slightly off the reverse limit to avoid PID fighting the hard stop
-                setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
-            }
-        }, this))
-        .withName("Calibrate Turret");
+        return
+            // Phase 1: Drive to reverse limit — hardware auto-zeros encoder
+            runEnd(
+                () -> turretMotor.set(-TurretConstants.kCalibrationSpeed),
+                this::stopTurret
+            )
+            .until(turretMotor::getReverseLimitSwitch)
+            .withTimeout(TurretConstants.kCalibrationTimeoutSec)
+            // Phase 2: Drive to forward limit to measure full travel
+            .andThen(
+                runEnd(
+                    () -> turretMotor.set(TurretConstants.kCalibrationSpeed),
+                    this::stopTurret
+                )
+                .until(turretMotor::getForwardLimitSwitch)
+                .withTimeout(TurretConstants.kCalibrationTimeoutSec)
+            )
+            // Phase 3: Compute gear ratio from measured travel, then return to offset
+            .andThen(Commands.runOnce(() -> {
+                if (isCalibrated) {
+                    double measuredRotations = turretMotor.getPosition();
+                    if (measuredRotations > 0) {
+                        measuredGearRatio = measuredRotations / (TurretConstants.kTurretMaxDegrees / 360.0);
+                        System.out.println("[Turret] Auto-calibrated gear ratio: " + measuredGearRatio
+                            + " (constant: " + TurretConstants.kTurretGearRatio + ")");
+                    }
+                    setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
+                }
+            }, this))
+            .withName("Calibrate Turret");
     }
 
     // ==================== Vision Tracking Commands ====================
 
     /**
-     * Continuously aims turret at the vision-supplied angle.
-     * When target is lost, holds the last known position (PID holds).
+     * Converts raw vision angles to an absolute turret position, clamped to [0, kTurretMaxDegrees].
+     * Camera angle is a turret-relative offset (add to current heading).
+     * Pose angle is a robot-relative bearing (subtract 180° because turret faces backward).
      */
-    public Command trackHubCommand(DoubleSupplier angleSupplier, BooleanSupplier hasTargetSupplier) {
+    private double toAbsoluteTurretAngle(double cameraAngle, boolean cameraHasTarget,
+                                          double poseAngle, boolean poseHasTarget) {
+        double target;
+        if (cameraHasTarget) {
+            target = getTurretAngleDegrees() + cameraAngle;
+        } else if (poseHasTarget) {
+            target = MathUtil.inputModulus(poseAngle - 180.0, 0, 360);
+        } else {
+            return getTurretAngleDegrees(); // hold position
+        }
+        return MathUtil.clamp(target, 0, TurretConstants.kTurretMaxDegrees);
+    }
+
+    /**
+     * Continuously aims turret at the hub using camera and pose vision data.
+     * Camera is preferred (turret-relative offset); pose is fallback (robot-relative bearing).
+     * When both targets are lost, holds the last known position (PID holds).
+     */
+    public Command trackHubCommand(
+            DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
+            DoubleSupplier poseAngle, BooleanSupplier poseHasTarget) {
         return run(() -> {
-            if (hasTargetSupplier.getAsBoolean()) {
-                setTurretAngle(angleSupplier.getAsDouble());
+            if (cameraHasTarget.getAsBoolean() || poseHasTarget.getAsBoolean()) {
+                setTurretAngle(toAbsoluteTurretAngle(
+                    cameraAngle.getAsDouble(), cameraHasTarget.getAsBoolean(),
+                    poseAngle.getAsDouble(), poseHasTarget.getAsBoolean()));
             }
         }).withName("Track Hub");
     }
 
     /**
      * Auto-track with three-tier fallback:
-     * 1. Camera sees hub → track camera angle (most accurate)
-     * 2. Camera lost, pose available → track pose-based angle (keeps roughly aimed)
+     * 1. Camera sees hub → track via toAbsoluteTurretAngle (most accurate)
+     * 2. Camera lost, pose available → track via toAbsoluteTurretAngle (keeps roughly aimed)
      * 3. Neither available → oscillating sweep to search for hub
      *
      * Single run() command — evaluates every cycle with no gaps.
      *
-     * @param cameraAngle turret-relative angle from shooter camera
+     * @param cameraAngle turret-relative offset angle from shooter camera
      * @param cameraHasTarget whether shooter camera sees the hub
-     * @param poseAngle pose-based turret angle (already converted to turret coordinates)
+     * @param poseAngle robot-relative bearing from pose estimation
+     * @param poseHasTarget whether pose data is available
      */
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
             BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle) {
+            DoubleSupplier poseAngle,
+            BooleanSupplier poseHasTarget) {
         return Commands.runOnce(() -> scanningForward = true)
             .andThen(run(() -> {
                 if (!autoTrackEnabled) {
@@ -287,19 +339,20 @@ public class TurretSubsystem extends SubsystemBase {
 
                 if (cameraHasTarget.getAsBoolean()) {
                     // Tier 1: Camera sees hub — most accurate
-                    setTurretAngle(cameraAngle.getAsDouble());
+                    setTurretAngle(toAbsoluteTurretAngle(
+                        cameraAngle.getAsDouble(), true,
+                        poseAngle.getAsDouble(), poseHasTarget.getAsBoolean()));
+                } else if (poseHasTarget.getAsBoolean()) {
+                    // Tier 2: Pose-based fallback — keeps turret roughly aimed
+                    setTurretAngle(toAbsoluteTurretAngle(
+                        cameraAngle.getAsDouble(), false,
+                        poseAngle.getAsDouble(), true));
                 } else {
-                    double pose = poseAngle.getAsDouble();
-                    if (!Double.isNaN(pose)) {
-                        // Tier 2: Pose-based fallback — keeps turret roughly aimed
-                        setTurretAngle(pose);
-                    } else {
-                        // Tier 3: No info — oscillating sweep
-                        double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
-                        setTurretAngle(target);
-                        if (isAtTarget(trackingToleranceDeg)) {
-                            scanningForward = !scanningForward;
-                        }
+                    // Tier 3: No info — oscillating sweep
+                    double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
+                    setTurretAngle(target);
+                    if (isAtTarget(trackingToleranceDeg)) {
+                        scanningForward = !scanningForward;
                     }
                 }
             }))

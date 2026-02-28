@@ -17,7 +17,6 @@ import com.adambots.lib.vision.config.VisionCameraConfig.CameraPurpose;
 import com.adambots.lib.vision.config.VisionConfigBuilder;
 import com.adambots.lib.vision.config.VisionSystemConfig;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -418,18 +417,6 @@ public class VisionSubsystem extends SubsystemBase {
     public double getHubPoseDistance() { return hubPoseDistanceMeters; }
     public double getHubPoseAngle() { return hubPoseAngleDegrees; }
     public boolean isHubPoseVisible() { return hubPoseHasTarget; }
-
-    // ==================== Turret-Relative Pose Angle ====================
-
-    /**
-     * Returns the turret-relative angle to the hub using pose estimation.
-     * Turret faces backward, so hub directly behind robot (±180° pose) = turret 0°.
-     * Returns NaN if pose data is unavailable.
-     */
-    public double getTurretTargetAngle() {
-        if (!hubPoseHasTarget) return Double.NaN;
-        return MathUtil.inputModulus(hubPoseAngleDegrees - 180.0, -180, 180);
-    }
 
     // ==================== Hub Shared Getters ====================
 

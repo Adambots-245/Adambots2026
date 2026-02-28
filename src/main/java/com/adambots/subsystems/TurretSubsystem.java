@@ -232,7 +232,8 @@ public class TurretSubsystem extends SubsystemBase {
         .withTimeout(TurretConstants.kCalibrationTimeoutSec)
         .andThen(Commands.runOnce(() -> {
             if (isCalibrated) {
-                setTurretAngle(0);
+                // Move slightly off the reverse limit to avoid PID fighting the hard stop
+                setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
             }
         }, this))
         .withName("Calibrate Turret");

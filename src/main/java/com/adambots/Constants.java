@@ -107,6 +107,8 @@ public final class Constants {
         public static final double kCalibrationSpeed = 0.10;
         /** Safety timeout for calibration command (seconds) */
         public static final double kCalibrationTimeoutSec = 5.0;
+        /** Degrees to move off the reverse limit after zeroing to avoid PID stall whine */
+        public static final double kCalibrationOffsetDegrees = 2.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 20.0;

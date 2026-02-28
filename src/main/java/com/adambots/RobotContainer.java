@@ -10,6 +10,7 @@ import java.io.File;
 
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.SystemCheckCommand;
+import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -220,6 +221,14 @@ public class RobotContainer {
     // ==================== AUTO CHOOSER ====================
     private void configureAutoChooser() {
         autoChooser.setDefaultOption("None", Commands.none());
+        
+        if (Constants.TUNING_ENABLED){
+            // Swerve tuning commands (select from dashboard, run in auto mode)
+            autoChooser.addOption("Tune Rotation PID", TuningCommands.tuneRotationPIDCommand(swerve));
+            autoChooser.addOption("Tune Translation PID", TuningCommands.tuneTranslationPIDCommand(swerve));
+            autoChooser.addOption("Estimate MOI", TuningCommands.estimateMOICommand(swerve));
+        }
+
         SmartDashboard.putData("Auto Chooser", autoChooser);
     }
 

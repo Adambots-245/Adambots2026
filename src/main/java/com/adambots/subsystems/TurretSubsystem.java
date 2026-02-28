@@ -96,6 +96,10 @@ public class TurretSubsystem extends SubsystemBase {
         advance(pos, cols);
         trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
         advance(pos, cols);
+        Dash.add("Forward Limit", ()->turretMotor.getForwardLimitSwitch(), pos[0], pos[1]);
+        advance(pos, cols);
+        Dash.add("Reverse Limit", ()->turretMotor.getReverseLimitSwitch(), pos[0], pos[1]);
+        advance(pos, cols);
     }
 
     private static void advance(int[] pos, int cols) {

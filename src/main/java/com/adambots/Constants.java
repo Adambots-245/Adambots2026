@@ -104,7 +104,7 @@ public final class Constants {
 
         // ==================== Calibration ====================
         /** Duty cycle for slow drive toward reverse limit during calibration */
-        public static final double kCalibrationSpeed = 0.10;
+        public static final double kCalibrationSpeed = 0.05;
         /** Safety timeout for calibration command (seconds) */
         public static final double kCalibrationTimeoutSec = 5.0;
         /** Degrees to move off the reverse limit after zeroing to avoid PID stall whine */
@@ -206,7 +206,7 @@ public final class Constants {
         public static final double kShooterCameraY = 0.0;      // centered
         public static final double kShooterCameraZ = 0.50;     // on top of shooter (~20in up)
         public static final double kShooterCameraRoll = 0.0;
-        public static final double kShooterCameraPitch = 0.0;  // level
+        public static final double kShooterCameraPitch = 27.0;  // level
         public static final double kShooterCameraYaw = 0.0;    // facing forward
 
         // ==================== Pose Estimation Parameters ====================
@@ -330,6 +330,30 @@ public final class Constants {
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;
+    }
+
+     // ==================== TuningConstants ====================
+    /**
+     * Constants for swerve auto-tuning routines (PID relay feedback and MOI estimation).
+     */
+    public static final class TuningConstants {
+        /** Relay amplitude for rotation PID tuning (fraction of max angular velocity) */
+        public static final double kTuningMaxAngularOutput = 0.3;
+
+        /** Relay amplitude for translation PID tuning (fraction of max linear velocity) */
+        public static final double kTuningMaxLinearOutput = 0.3;
+
+        /** Target angular velocity for MOI step-response test (rad/s) */
+        public static final double kMOITestAngularVelocity = 2.0;
+
+        /** Duration of the MOI spin-up test in seconds */
+        public static final double kMOITestDurationSeconds = 3.0;
+
+        /** Settling time before measuring MOI spin-down (seconds) */
+        public static final double kMOISpinUpSettleTime = 1.0;
+
+        /** Sampling interval for MOI acceleration measurement (seconds) */
+        public static final double kMOISampleIntervalSeconds = 0.02;
     }
 
     /**

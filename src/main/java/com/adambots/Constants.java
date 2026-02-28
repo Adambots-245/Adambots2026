@@ -100,7 +100,7 @@ public final class Constants {
         // Reference range — not enforced in code (hardware limits protect the mechanism)
         public static final double kTurretMaxDegrees = 120.0;
 
-        public static final double kTurretManualSpeed = 0.3;
+        public static final double kTurretManualSpeed = 0.05;
 
         // ==================== Calibration ====================
         /** Duty cycle for slow drive toward reverse limit during calibration */

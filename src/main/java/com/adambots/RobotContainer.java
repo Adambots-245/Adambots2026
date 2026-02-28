@@ -130,9 +130,8 @@ public class RobotContainer {
         // // Turret auto-track: camera → pose fallback → oscillating scan
         // if (visionSubsystem != null) {
         //     turret.setDefaultCommand(turret.autoTrackCommand(
-        //         visionSubsystem::getHubCamAngle,
-        //         visionSubsystem::isHubCamVisible,
-        //         visionSubsystem::getTurretTargetAngle));
+        //         visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+        //         visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible));
         // } else {
         //     turret.setDefaultCommand(turret.holdPositionCommand());
         // }
@@ -334,7 +333,9 @@ public class RobotContainer {
             Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
             if (visionSubsystem != null) {
                 Dash.addCommand("Track Hub",
-                    turret.trackHubCommand(visionSubsystem::getHubAngle, visionSubsystem::isHubVisible)
+                    turret.trackHubCommand(
+                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                        visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible)
                         .withName("Track Hub"), col++, row);
             }
 

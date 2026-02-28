@@ -72,7 +72,8 @@ public class RobotContainer {
         shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
         turret = new TurretSubsystem(RobotMap.turretMotor);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
-        climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid);
+        climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
+            RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
         leds = RobotMap.LEDS_ENABLED
             ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
 
@@ -297,6 +298,10 @@ public class RobotContainer {
             Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
             Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
             Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), cc++, cmdRow);
+            Dash.addCommand("Turret Left",
+                turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
+            Dash.addCommand("Turret Right",
+                turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
 
             Dash.useDefaultTab();
 
@@ -343,6 +348,28 @@ public class RobotContainer {
             Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
             Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
             Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
+
+            Dash.useDefaultTab();
+        }
+
+        // Climber tab — limit switch diagnostics and motor exercise
+        if (Constants.TUNING_ENABLED) {
+            Dash.useTab("Climber");
+            int col = 0, row = 0;
+
+            // Row 0: Live sensor readouts
+            Dash.add("Raised Limit", climber::isAtRaisedLimit, col++, row);
+            Dash.add("Lowered Limit", climber::isAtLoweredLimit, col++, row);
+            Dash.add("Ratchet Engaged", climber::isRatchetEngaged, col++, row);
+            Dash.add("Motor Position", () -> RobotMap.kClimberElevatorMotor.getPosition(), col++, row);
+
+            // Row 1: Exercise commands
+            col = 0; row++;
+            Dash.addCommand("Extend", climber.extendCommand(), col++, row);
+            Dash.addCommand("Retract", climber.retractCommand(), col++, row);
+            Dash.addCommand("Climb", climber.climbCommand(), col++, row);
+            Dash.addCommand("Lock", climber.lockCommand(), col++, row);
+            Dash.addCommand("Stop", climber.stopCommand(), col++, row);
 
             Dash.useDefaultTab();
         }

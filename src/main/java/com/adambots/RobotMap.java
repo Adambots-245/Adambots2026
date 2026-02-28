@@ -14,6 +14,8 @@ import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.sensors.DummyDistanceSensor;
 
+import edu.wpi.first.wpilibj.DigitalInput;
+
 /**
  * RobotMap contains all hardware port mappings and device instantiation for the robot.
  *
@@ -96,12 +98,18 @@ public class RobotMap {
     // Port assignments - On CANivore
     private static final int kClimberElevatorMotorPort = 19;
     private static final int kClimberRatchetSolenoidChannel = 4; // Electrical solenoid channel
+    private static final int kClimberRaisedLimitPort = 4;   // DIO - limit switch at top
+    private static final int kClimberLoweredLimitPort = 5;  // DIO - limit switch at bottom
 
     // Hardware devices
     public static final BaseMotor kClimberElevatorMotor = CLIMBER_ENABLED
         ? new TalonFXMotor(kClimberElevatorMotorPort, true, 60.0, true) : new DummyMotor();
     public static final BaseSolenoid kClimberRatchetSolenoid = CLIMBER_ENABLED
         ? new ElectricalSolenoid(kClimberRatchetSolenoidChannel) : new DummySolenoid();
+    public static final DigitalInput kClimberRaisedLimit = CLIMBER_ENABLED
+        ? new DigitalInput(kClimberRaisedLimitPort) : null;
+    public static final DigitalInput kClimberLoweredLimit = CLIMBER_ENABLED
+        ? new DigitalInput(kClimberLoweredLimitPort) : null;
 
     // ==================== LED (CANdle) ====================
     public static final int kCANdlePort = 31;  // CAN ID for CANdle LED controller

@@ -53,11 +53,11 @@ public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: SOLENOID HELPERS ====================
     private void releaseRatchet() {
-        ratchetSolenoid.set(true);
+        ratchetSolenoid.set(false);
     }
 
     private void engageRatchet() {
-        ratchetSolenoid.set(false);
+        ratchetSolenoid.set(true);
     }
 
     public boolean isRatchetEngaged() {

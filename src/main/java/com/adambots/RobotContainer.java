@@ -438,7 +438,7 @@ public class RobotContainer {
     }
 
     public void onTeleopInit() {
-        turret.calibrateCommand().schedule();
+        // turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

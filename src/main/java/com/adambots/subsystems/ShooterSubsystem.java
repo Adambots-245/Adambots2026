@@ -70,7 +70,7 @@ public class ShooterSubsystem extends SubsystemBase {
                            ShooterConstants.kFlywheelFreeCurrentLimit, 3000)
             .apply();
 
-        rightFlywheel.setStrictFollower(RobotMap.kShooterLeftPort, true);
+        rightFlywheel.setStrictFollower(RobotMap.kShooterMotor2Port, true);
         rightFlywheel.setBrakeMode(false);
 
         lastFlywheelP = ShooterConstants.kFlywheelP;

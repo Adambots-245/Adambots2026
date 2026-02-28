@@ -69,7 +69,7 @@ public class RobotContainer {
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
         intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm);
-        shooter = new ShooterSubsystem(RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor);
+        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
         turret = new TurretSubsystem(RobotMap.turretMotor);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid);
@@ -353,7 +353,7 @@ public class RobotContainer {
         // Passive health indicators (auto-updating, dynamic row count)
         SystemCheckCommand sysCheck = new SystemCheckCommand(swerve,
             RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
-            RobotMap.shooterLeftMotor, RobotMap.shooterRightMotor,
+            RobotMap.shooterMotor2, RobotMap.shooterMotor1,
             RobotMap.turretMotor,
             RobotMap.hopperMotor, RobotMap.uptakeMotor,
             RobotMap.kClimberElevatorMotor,

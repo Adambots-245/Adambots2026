@@ -61,14 +61,14 @@ public class RobotMap {
 
     // ==================== SHOOTER ====================
     // Port assignments - on CANivore
-    public static final int kShooterLeftPort = 25;    // Kraken X60 (leader)
-    public static final int kShooterRightPort = 24;   // Kraken X60 (follower)
+    public static final int kShooterMotor2Port = 25;    // Kraken X60 (leader)
+    public static final int kShooterMotor1Port = 24;   // Kraken X60 (follower)
 
     // Hardware devices
-    public static final BaseMotor shooterLeftMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterLeftPort, true, 60.0, true) : new DummyMotor();
-    public static final BaseMotor shooterRightMotor = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterRightPort, true, 60.0, true) : new DummyMotor();
+    public static final BaseMotor shooterMotor2 = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterMotor2Port, true, 60.0, true) : new DummyMotor();
+    public static final BaseMotor shooterMotor1 = SHOOTER_ENABLED
+        ? new TalonFXMotor(kShooterMotor1Port, true, 60.0, true) : new DummyMotor();
 
     // ==================== TURRET ====================
     // Port assignments - on CANivore

@@ -106,22 +106,20 @@ public class ShooterSubsystem extends SubsystemBase {
         flywheelToleranceEntry = Dash.addTunable("Flywheel Tolerance (RPS)", ShooterConstants.kFlywheelToleranceRPS, pos[0], pos[1]);
         advance(pos, cols);
 
-        // Table distances in one row, RPS values directly below
+        // Table distances then RPS values — flows onto same row when cols >= 10
         newRow(pos);
         for (int i = 0; i < 5; i++) {
             tableDistanceEntries[i] = Dash.addTunable(
-                "Table Dist " + (i + 1), ShooterConstants.kDefaultInterpolationTable[i][0], pos[0], pos[1]);
+                "Dist " + (i + 1), ShooterConstants.kDefaultInterpolationTable[i][0], pos[0], pos[1]);
             advance(pos, cols);
         }
-        newRow(pos);
         for (int i = 0; i < 5; i++) {
             tableRPSEntries[i] = Dash.addTunable(
-                "Table RPS " + (i + 1), ShooterConstants.kDefaultInterpolationTable[i][1], pos[0], pos[1]);
+                "RPS " + (i + 1), ShooterConstants.kDefaultInterpolationTable[i][1], pos[0], pos[1]);
             advance(pos, cols);
         }
 
-        // Lob shot RPS
-        newRow(pos);
+        // Lob shot RPS — continues on current row
         lobShotRPSEntry = Dash.addTunable("Lob Shot RPS", ShooterConstants.kLobShotRPS, pos[0], pos[1]);
         advance(pos, cols);
     }
@@ -244,6 +242,11 @@ public class ShooterSubsystem extends SubsystemBase {
     public Command spinUpCommand(double rps) {
         return runEnd(() -> setFlywheelRPS(rps), this::stopFlywheel)
             .withName("Spin " + rps + " RPS");
+    }
+
+    public Command spinUpCommand(DoubleSupplier rpsSupplier) {
+        return runEnd(() -> setFlywheelRPS(rpsSupplier.getAsDouble()), this::stopFlywheel)
+            .withName("Spin Up (dynamic)");
     }
 
     /** Spin flywheel to the RPS needed for the given distance (from vision). */

@@ -253,22 +253,6 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     /**
-     * Position-controlled oscillating scan between 0° and TurretConstants.kTurretMaxDegrees.
-     * Uses setTurretAngle (position control) for smooth deceleration at endpoints.
-     */
-    public Command scanForHubCommand() {
-        return Commands.runOnce(() -> scanningForward = true)
-            .andThen(run(() -> {
-                double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
-                setTurretAngle(target);
-                if (isAtTarget(trackingToleranceDeg)) {
-                    scanningForward = !scanningForward;
-                }
-            }))
-            .withName("Scan For Hub");
-    }
-
-    /**
      * Auto-track with three-tier fallback:
      * 1. Camera sees hub → track camera angle (most accurate)
      * 2. Camera lost, pose available → track pose-based angle (keeps roughly aimed)

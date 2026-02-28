@@ -17,6 +17,10 @@ public final class Constants {
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
     public static final boolean TUNING_ENABLED = true;
 
+    /** Shuffleboard visible grid size — tweak to match your screen/layout. */
+    public static final int kShuffleboardCols = 10;
+    public static final int kShuffleboardRows = 5;
+
     // ==================== DriveConstants ====================
     /**
      * Constants for the swerve drive system.
@@ -268,6 +272,14 @@ public final class Constants {
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback) */
         public static final int kVisionMode = 2;
+
+        // ==================== Vision Filtering ====================
+        /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
+        public static final int kMedianFilterSize = 5;
+        /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
+        public static final double kLowPassTimeConstant = 0.1;
+        /** Robot loop period (seconds) — used for low-pass filter calculation. */
+        public static final double kLoopPeriod = 0.02;
     }
 
     // ==================== ClimberConstants ====================
@@ -313,6 +325,9 @@ public final class Constants {
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)
         public static final int kArmSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
+
+        /** Timeout for the PathPlanner "intake" named command (seconds). */
+        public static final double kAutoIntakeTimeout = 3.0;
     }
 
     /**

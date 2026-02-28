@@ -16,32 +16,47 @@ import edu.wpi.first.wpilibj2.command.Commands;
  */
 public final class ShootCommands {
 
+    /** How long the shoot sequence runs (spin + feed) before auto-stopping. */
+    public static final double kShootDurationSeconds = 5.0;
+
+    /** Max time to wait for flywheel to reach target speed before feeding anyway. */
+    public static final double kSpinUpTimeoutSeconds = 3.0;
+
     private ShootCommands() {}
 
     /**
-     * Spin up → wait for speed → feed hopper + uptake → stop all.
+     * Spin up → once at speed (or timeout), keep spinning + feed hopper in parallel → stop all.
      */
     public static Command shootCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper) {
         return Commands.sequence(
-            shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            hopper.feedCommand().withTimeout(5.0),
+            shooter.spinUpCommand()
+                .until(shooter.isAtSpeedTrigger())
+                .withTimeout(kSpinUpTimeoutSeconds),
+            Commands.parallel(
+                shooter.spinUpCommand(),
+                hopper.feedCommand()
+            ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
         ).withName("Shoot");
     }
 
     /**
-     * Spin for vision distance → wait for speed → feed hopper + uptake → stop all.
+     * Spin for vision distance → once at speed (or timeout), keep spinning + feed → stop all.
      */
     public static Command shootAtDistanceCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
-            shooter.spinUpCommand().until(shooter.isAtSpeedTrigger()),
-            shooter.spinForDistanceCommand(distanceSupplier).until(shooter.isAtSpeedTrigger()),
-            hopper.feedCommand().withTimeout(10.0),
+            shooter.spinForDistanceCommand(distanceSupplier)
+                .until(shooter.isAtSpeedTrigger())
+                .withTimeout(kSpinUpTimeoutSeconds),
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier),
+                hopper.feedCommand()
+            ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
         ).withName("Shoot At Distance");
     }
@@ -61,9 +76,14 @@ public final class ShootCommands {
             Commands.parallel(
                 turret.trackHubCommand(visionAngle, hasTarget),
                 shooter.spinForDistanceCommand(visionDist)
-            ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger())),
-            // Feed when ready
-            hopper.feedCommand().withTimeout(1.0),
+            ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
+             .withTimeout(kSpinUpTimeoutSeconds),
+            // Keep spinning + tracking while feeding
+            Commands.parallel(
+                turret.trackHubCommand(visionAngle, hasTarget),
+                shooter.spinForDistanceCommand(visionDist),
+                hopper.feedCommand()
+            ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
         ).withName("Auto Shoot");
     }
@@ -76,7 +96,7 @@ public final class ShootCommands {
             ShooterSubsystem shooter, HopperSubsystem hopper, IntakeSubsystem intake) {
         return Commands.parallel(
             intake.runIntakeCommand(),
-            shooter.spinUpCommand(shooter.lobShotRPS()),
+            shooter.spinUpCommand(shooter::lobShotRPS),
             hopper.feedCommand()
         ).withName("Lob Shot");
     }

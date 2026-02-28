@@ -42,7 +42,7 @@ public final class IntakeCommands {
     }
 
     /**
-     * Creates a command that clears a jam by reversing briefly then resuming intake.
+     * Creates a command that clears a jam by reversing intake and hopper briefly, then stopping both.
      *
      * @param intake The intake subsystem
      * @param hopper The hopper subsystem

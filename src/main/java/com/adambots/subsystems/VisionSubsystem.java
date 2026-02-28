@@ -18,6 +18,8 @@ import com.adambots.lib.vision.config.VisionConfigBuilder;
 import com.adambots.lib.vision.config.VisionSystemConfig;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.LinearFilter;
+import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -76,6 +78,21 @@ public class VisionSubsystem extends SubsystemBase {
 
     // Hub tracking — shared
     private int hubVisibleTagCount = 0;
+    private boolean prevHubCamHasTarget = false;
+
+    // Median → low-pass filter chains for distance and angle (both approaches)
+    private final MedianFilter camDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
+    private final MedianFilter camAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
+    private final MedianFilter poseDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
+    private final MedianFilter poseAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
+    private final LinearFilter camDistLowPass = LinearFilter.singlePoleIIR(
+        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
+    private final LinearFilter camAngleLowPass = LinearFilter.singlePoleIIR(
+        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
+    private final LinearFilter poseDistLowPass = LinearFilter.singlePoleIIR(
+        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
+    private final LinearFilter poseAngleLowPass = LinearFilter.singlePoleIIR(
+        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
 
     // Runtime vision mode (editable from Shuffleboard): 0=Camera-only, 1=Pose-only, 2=Hybrid
     private GenericEntry visionModeEntry;
@@ -258,8 +275,11 @@ public class VisionSubsystem extends SubsystemBase {
             // Guard: skip if swerve pose is still at origin (no vision updates processed yet).
             // No camera dependency — Approach B is purely pose-based via swerve odometry.
             if (currentPose.getTranslation().getNorm() > 0) {
-                hubPoseDistanceMeters = photonVision.getDistanceToPoint(hubCenter);
-                hubPoseAngleDegrees = photonVision.getYawToPoint(hubCenter).getDegrees();
+                double rawDist = photonVision.getDistanceToPoint(hubCenter);
+                double rawAngle = photonVision.getYawToPoint(hubCenter).getDegrees();
+                // Median filter (spike rejection) → low-pass (smoothing)
+                hubPoseDistanceMeters = poseDistLowPass.calculate(poseDistMedian.calculate(rawDist));
+                hubPoseAngleDegrees = poseAngleLowPass.calculate(poseAngleMedian.calculate(rawAngle));
                 hubPoseHasTarget = hubPoseDistanceMeters <= VisionConstants.kMaxDistanceMeters;
             } else {
                 hubPoseHasTarget = false;
@@ -276,12 +296,26 @@ public class VisionSubsystem extends SubsystemBase {
         VisionCameraInterface cam = photonVision.getCamera(VisionConstants.kShooterCameraName);
         if (cam == null) {
             hubCamHasTarget = false;
+            if (prevHubCamHasTarget) {
+                camDistMedian.reset();
+                camAngleMedian.reset();
+                camDistLowPass.reset();
+                camAngleLowPass.reset();
+            }
+            prevHubCamHasTarget = false;
             return;
         }
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
             hubCamHasTarget = false;
+            if (prevHubCamHasTarget) {
+                camDistMedian.reset();
+                camAngleMedian.reset();
+                camDistLowPass.reset();
+                camAngleLowPass.reset();
+            }
+            prevHubCamHasTarget = false;
             return;
         }
 
@@ -322,6 +356,13 @@ public class VisionSubsystem extends SubsystemBase {
 
         if (count == 0) {
             hubCamHasTarget = false;
+            if (prevHubCamHasTarget) {
+                camDistMedian.reset();
+                camAngleMedian.reset();
+                camDistLowPass.reset();
+                camAngleLowPass.reset();
+            }
+            prevHubCamHasTarget = false;
             return;
         }
 
@@ -332,13 +373,18 @@ public class VisionSubsystem extends SubsystemBase {
 
         // Straight-line distance from camera position to hub center on the field
         Translation2d camPosition = new Translation2d(camX, camY);
-        hubCamDistanceMeters = camPosition.getDistance(hubCenter);
+        double rawDist = camPosition.getDistance(hubCenter);
 
         // Compute the angle the robot needs to rotate to face the hub
         double angleToHub = Math.atan2(hubCenter.getY() - camY, hubCenter.getX() - camX);
-        hubCamAngleDegrees = Utils.wrapAngleDeg(Math.toDegrees(angleToHub - camHeading));
+        double rawAngle = Utils.wrapAngleDeg(Math.toDegrees(angleToHub - camHeading));
+
+        // Median filter (spike rejection) → low-pass (smoothing)
+        hubCamDistanceMeters = camDistLowPass.calculate(camDistMedian.calculate(rawDist));
+        hubCamAngleDegrees = camAngleLowPass.calculate(camAngleMedian.calculate(rawAngle));
 
         hubCamHasTarget = hubCamDistanceMeters <= VisionConstants.kMaxDistanceMeters;
+        prevHubCamHasTarget = hubCamHasTarget;
     }
 
     // ==================== Hub Unified Getters (selected approach via Shuffleboard toggle) ====================

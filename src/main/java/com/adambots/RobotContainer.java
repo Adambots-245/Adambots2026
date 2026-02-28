@@ -185,10 +185,6 @@ public class RobotContainer {
         Buttons.XboxBButton.onTrue(
             ShootCommands.stopAllCommand(shooter, hopper));
 
-        // A: Smart scan for hub (position-controlled oscillating sweep)
-        Buttons.XboxAButton.whileTrue(
-            turret.scanForHubCommand());
-
         // Y: Hold turret at 0° while held — autoTrack resumes on release
         Buttons.XboxYButton.whileTrue(
             turret.aimTurretCommand(() -> 0.0));
@@ -211,8 +207,12 @@ public class RobotContainer {
     // ==================== PATHPLANNER ====================
     private void configurePathPlannerCommands() {
         NamedCommands.registerCommand("intake",
-            intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
-        NamedCommands.registerCommand("spinUp", shooter.spinUpCommand());
+            intake.runLowerIntakeArmCommand().andThen(
+                intake.runIntakeCommand().withTimeout(Constants.IntakeConstants.kAutoIntakeTimeout)));
+        NamedCommands.registerCommand("spinUp",
+            shooter.spinUpCommand()
+                .until(shooter.isAtSpeedTrigger())
+                .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
             ShootCommands.shootCommand(shooter, hopper));
     }
@@ -226,36 +226,60 @@ public class RobotContainer {
     // ==================== DASHBOARD ====================
     private void configureDashboard() {
         if (Constants.TUNING_ENABLED) {
+            // Shooter Tuning tab — 10 cols × 5 rows visible
+            // Row 0: Flywheel PID (5)          | Shoot button at col 8
+            // Row 1: Dist 1-5 | RPS 1-5        (interpolation table)
+            // Row 2: Lob RPS | Turret PID (5)
+            // Row 3: Live telemetry (9 items)
+            // Row 4: Exercise commands
             Dash.useTab("Shooter Tuning");
             int[] pos = {0, 0};
-            int cols = 6;
+            int cols = Constants.kShuffleboardCols;
 
-            // Flywheel PID tunables
+            // Row 0: Flywheel PID tunables (cols 0-4)
             shooter.setupFlywheelTunables(pos, cols);
 
-            // Turret PID tunables
-            if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
+            // Row 2 (continued): Turret PID tunables after Lob Shot
             turret.setupTurretTunables(pos, cols);
 
-            // Live telemetry row
+            // Row 3: Live telemetry
             if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
             int telemetryRow = pos[1];
 
+            int tc = 0;
             if (visionSubsystem != null) {
-                Dash.add("Vision Distance (m)", visionSubsystem::getHubDistance, 0, telemetryRow);
+                Dash.add("Vision Dist (m)", visionSubsystem::getHubDistance, tc++, telemetryRow);
             }
-            Dash.add("Target RPS", shooter::getTargetRPS, 1, telemetryRow);
-            Dash.add("Left RPS", shooter::getLeftRPS, 2, telemetryRow);
-            Dash.add("Right RPS", shooter::getRightRPS, 3, telemetryRow);
-            Dash.add("At Speed", shooter::isAtSpeed, 4, telemetryRow);
-            Dash.add("Turret Angle (deg)", turret::getTurretAngleDegrees, 5, telemetryRow);
+            Dash.add("Target RPS", shooter::getTargetRPS, tc++, telemetryRow);
+            Dash.add("Left RPS", shooter::getLeftRPS, tc++, telemetryRow);
+            Dash.add("Right RPS", shooter::getRightRPS, tc++, telemetryRow);
+            Dash.add("At Speed", shooter::isAtSpeed, tc++, telemetryRow);
+            Dash.add("Turret Angle", turret::getTurretAngleDegrees, tc++, telemetryRow);
+            Dash.add("Calibrated", turret::isCalibrated, tc++, telemetryRow);
             if (visionSubsystem != null) {
-                Dash.add("Hub Visible", visionSubsystem::isHubVisible, 6, telemetryRow);
-                Dash.add("Alliance", visionSubsystem::getAllianceColor, 7, telemetryRow);
-                Dash.add("Hub Center X", () -> visionSubsystem.getHubCenter().getX(), 8, telemetryRow);
+                Dash.add("Hub Visible", visionSubsystem::isHubVisible, tc++, telemetryRow);
+                Dash.add("Alliance", visionSubsystem::getAllianceColor, tc++, telemetryRow);
             }
-            Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), 8, 0);
 
+            // Row 4: Exercise commands for tuning workflow
+            int cmdRow = telemetryRow + 1;
+            int cc = 0;
+            if (visionSubsystem != null) {
+                Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(
+                    shooter, hopper, visionSubsystem::getHubDistance), cc++, cmdRow);
+            } else {
+                Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), cc++, cmdRow);
+            }
+            Dash.addCommand("Spin Up", shooter.spinUpCommand(), cc++, cmdRow);
+            Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), cc++, cmdRow);
+            Dash.addCommand("Feed Hopper", hopper.feedCommand(), cc++, cmdRow);
+            Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), cc++, cmdRow);
+            Dash.addCommand("Lob Shot",
+                intake.runLowerIntakeArmCommand()
+                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)), cc++, cmdRow);
+            Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
+            Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
+            Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), cc++, cmdRow);
 
             Dash.useDefaultTab();
 
@@ -281,7 +305,7 @@ public class RobotContainer {
             Dash.addCommand("Feed Hopper", hopper.feedCommand(), col++, row);
             Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), col++, row);
             Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
-            Dash.addCommand("Scan for Hub", turret.scanForHubCommand(), col++, row);
+            Dash.addCommand("Scan Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col++, row);
             Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
 
             // Climber commands
@@ -327,7 +351,7 @@ public class RobotContainer {
         col = 0; row = 4;
         Dash.addCommand("Spin Flywheel", shooter.spinUpCommand(), col++, row);
         Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
-        Dash.addCommand("Move Turret", turret.scanForHubCommand(), col++, row);
+        Dash.addCommand("Move Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col++, row);
         Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
         Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
 

@@ -24,6 +24,7 @@ import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
+import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
@@ -51,7 +52,7 @@ public class RobotContainer {
     private VisionSubsystem visionSubsystem;
     private VisionSystem vision;
 
-    private final SendableChooser<Command> autoChooser = new SendableChooser<>();
+    private SendableChooser<Command> autoChooser;
 
     public RobotContainer() {
         // 1. Swerve config for PathPlanner
@@ -196,6 +197,12 @@ public class RobotContainer {
         Buttons.XboxDPadE.whileTrue(
             turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
 
+        // Left Stick Up/Down: Manual turret adjust
+        Buttons.XboxLeftStickUp.whileTrue(
+            turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
+        Buttons.XboxLeftStickDown.whileTrue(
+            turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
+
         // === Climber ===
         // D-pad Up: Extend elevator (hold to raise hook)
         Buttons.XboxDPadN.whileTrue(climber.extendCommand());
@@ -220,9 +227,9 @@ public class RobotContainer {
 
     // ==================== AUTO CHOOSER ====================
     private void configureAutoChooser() {
-        autoChooser.setDefaultOption("None", Commands.none());
-        
-        if (Constants.TUNING_ENABLED){
+        autoChooser = AutoBuilder.buildAutoChooser();
+
+        if (Constants.TUNING_ENABLED) {
             // Swerve tuning commands (select from dashboard, run in auto mode)
             autoChooser.addOption("Tune Rotation PID", TuningCommands.tuneRotationPIDCommand(swerve));
             autoChooser.addOption("Tune Translation PID", TuningCommands.tuneTranslationPIDCommand(swerve));
@@ -320,6 +327,11 @@ public class RobotContainer {
             Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
             Dash.addCommand("Scan Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col++, row);
             Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
+            if (visionSubsystem != null) {
+                Dash.addCommand("Track Hub",
+                    turret.trackHubCommand(visionSubsystem::getHubAngle, visionSubsystem::isHubVisible)
+                        .withName("Track Hub"), col++, row);
+            }
 
             // Climber commands
             col = 0; row++;

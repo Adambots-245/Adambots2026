@@ -43,8 +43,10 @@ public class HopperSubsystem extends SubsystemBase {
         uptakeMotor.setInverted(true);
         uptakeMotor.setBrakeMode(true);
 
-        setupDash();
-        if (Constants.TUNING_ENABLED) setupTunables();
+        if (Constants.TUNING_ENABLED) {
+            setupDash();
+            setupTunables();
+        }
     }
 
     public boolean hasPiece() {
@@ -96,8 +98,10 @@ public class HopperSubsystem extends SubsystemBase {
 
         int row = 0;
         int col = 0;
-        Dash.addCommand("Feed", feedCommand(), col++, row++);
-        Dash.addCommand("Stop", stopCommand(), col++, row++);
+        Dash.addCommand("Feed", feedCommand(), col++, row);
+        Dash.addCommand("Stop", stopCommand(), col++, row);
+
+        Dash.useDefaultTab();
     }
 
     private void setupTunables() {

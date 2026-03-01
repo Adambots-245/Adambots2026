@@ -59,6 +59,9 @@ public class IntakeSubsystem extends SubsystemBase {
     private GenericEntry cruiseVelocityEntry;
     private GenericEntry accelerationEntry;
     private GenericEntry loweredPositionEntry;
+    private GenericEntry bopAngleEntry;
+
+    private double bopAngle = IntakeConstants.kBopAngle;
 
     private double lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
     private double lastAcceleration = IntakeConstants.kArmAcceleration;
@@ -96,7 +99,10 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     private void configureMotors() {
-        intakeMotor.setBrakeMode(false);
+        intakeMotor.configure()
+                .brakeMode(false)
+                .currentLimits(IntakeConstants.kRollerStatorCurrentLimit, IntakeConstants.kRollerSupplyCurrentLimit, 0)
+                .apply();
 
         // Configure arm motor: brake mode + current limits + gear ratio
         intakeArmMotor.configure()
@@ -146,6 +152,7 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.addCommand("Raise Arm", runRaiseIntakeArmCommand(), 4, 1);
         Dash.addCommand("Stop Arm", stopIntakeArmCommand(), 5, 1);
         Dash.addCommand("Reset Position", resetIntakeArmPosition(), 6, 1);
+        Dash.addCommand("Bop Arm", bopArmCommand(), 7, 1);
 
         Dash.useDefaultTab();
     }
@@ -168,6 +175,7 @@ public class IntakeSubsystem extends SubsystemBase {
         cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
         accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
         loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
+        bopAngleEntry = Dash.addTunable("Bop Angle (rot)", IntakeConstants.kBopAngle, 3, 3);
 
         Dash.useDefaultTab();
 
@@ -192,9 +200,11 @@ public class IntakeSubsystem extends SubsystemBase {
         cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
         accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
         loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
+        bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
         lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
         lastAcceleration = IntakeConstants.kArmAcceleration;
         armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+        bopAngle = IntakeConstants.kBopAngle;
 
         // Apply to motor controller (for real hardware)
         intakeArmMotor.setPID(0,
@@ -323,6 +333,36 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
+     * Command to bop the intake arm — oscillates slightly up and down from the
+     * lowered position to nudge balls toward the hopper while shooting.
+     * Hold to keep bopping; releases back to lowered on end.
+     */
+    public Command bopArmCommand() {
+        // Track which phase we're in (up vs down)
+        boolean[] bopUp = {true};
+        return runEnd(
+            () -> {
+                double current = intakeArmMotor.getPosition();
+                double lowered = armLoweredPosition;
+                double raised = lowered - bopAngle;  // negative = up
+                if (bopUp[0]) {
+                    targetPosition = raised;
+                    // Switch direction once we're close to target
+                    if (Math.abs(current - raised) < 0.01) bopUp[0] = false;
+                } else {
+                    targetPosition = lowered;
+                    if (Math.abs(current - lowered) < 0.01) bopUp[0] = true;
+                }
+                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+            },
+            () -> {
+                bopUp[0] = true;
+                lowerIntakeArm();
+            }
+        ).withName("Bop Arm");
+    }
+
+    /**
      * Command to reset all tunable PID/feedforward gains back to code constants.
      */
     public Command resetTunablesCommand() {
@@ -353,9 +393,11 @@ public class IntakeSubsystem extends SubsystemBase {
                 cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
                 accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
                 loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
+                bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
                 lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
                 lastAcceleration = IntakeConstants.kArmAcceleration;
                 armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+                bopAngle = IntakeConstants.kBopAngle;
             }
         }).withName("Reset Tunables");
     }
@@ -518,6 +560,7 @@ public class IntakeSubsystem extends SubsystemBase {
             }
 
             armLoweredPosition = loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition);
+            bopAngle = bopAngleEntry.getDouble(IntakeConstants.kBopAngle);
         }
     }
 }

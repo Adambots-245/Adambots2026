@@ -135,6 +135,16 @@ public class ClimberSubsystem extends SubsystemBase {
         }).withName("StopClimber");
     }
 
+    /** Engage ratchet (hold position). */
+    public Command engageRatchetCommand() {
+        return runOnce(this::engageRatchet).withName("EngageRatchet");
+    }
+
+    /** Release ratchet (allow motor movement). */
+    public Command releaseRatchetCommand() {
+        return runOnce(this::releaseRatchet).withName("ReleaseRatchet");
+    }
+
     // ==================== SECTION: PERIODIC ====================
     @Override
     public void periodic() {

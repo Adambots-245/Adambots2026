@@ -4,12 +4,9 @@
 
 package com.adambots;
 
-import static edu.wpi.first.units.Units.Centimeters;
-
 import java.io.File;
 
 import com.adambots.commands.ShootCommands;
-import com.adambots.commands.SystemCheckCommand;
 import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
@@ -18,6 +15,7 @@ import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.vision.VisionSystem;
+import com.adambots.utils.DashboardSetup;
 import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
@@ -241,205 +239,11 @@ public class RobotContainer {
 
     // ==================== DASHBOARD ====================
     private void configureDashboard() {
-        if (Constants.TUNING_ENABLED) {
-            // Shooter Tuning tab — 10 cols × 5 rows visible
-            // Row 0: Flywheel PID (5)          | Shoot button at col 8
-            // Row 1: Dist 1-5 | RPS 1-5        (interpolation table)
-            // Row 2: Lob RPS | Turret PID (5)
-            // Row 3: Live telemetry (9 items)
-            // Row 4: Exercise commands
-            Dash.useTab("Shooter Tuning");
-            int[] pos = {0, 0};
-            int cols = Constants.kShuffleboardCols;
-
-            // Row 0: Flywheel PID tunables (cols 0-4)
-            shooter.setupFlywheelTunables(pos, cols);
-
-            // Row 2 (continued): Turret PID tunables after Lob Shot
-            turret.setupTurretTunables(pos, cols);
-
-            // Row 3: Live telemetry
-            if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
-            int telemetryRow = pos[1];
-
-            int tc = 0;
-            if (visionSubsystem != null) {
-                Dash.add("Vision Dist (m)", visionSubsystem::getHubDistance, tc++, telemetryRow);
-            }
-            Dash.add("Target RPS", shooter::getTargetRPS, tc++, telemetryRow);
-            Dash.add("Left RPS", shooter::getLeftRPS, tc++, telemetryRow);
-            Dash.add("Right RPS", shooter::getRightRPS, tc++, telemetryRow);
-            Dash.add("At Speed", shooter::isAtSpeed, tc++, telemetryRow);
-            Dash.add("Turret Angle", turret::getTurretAngleDegrees, tc++, telemetryRow);
-            Dash.add("Calibrated", turret::isCalibrated, tc++, telemetryRow);
-            if (visionSubsystem != null) {
-                Dash.add("Hub Visible", visionSubsystem::isHubVisible, tc++, telemetryRow);
-                Dash.add("Alliance", visionSubsystem::getAllianceColor, tc++, telemetryRow);
-            }
-
-            // Row 4: Exercise commands for tuning workflow
-            int cmdRow = telemetryRow + 1;
-            int cc = 0;
-            if (visionSubsystem != null) {
-                Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(
-                    shooter, hopper, visionSubsystem::getHubDistance), cc++, cmdRow);
-            } else {
-                Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), cc++, cmdRow);
-            }
-            Dash.addCommand("Spin Up", shooter.spinUpCommand(), cc++, cmdRow);
-            Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), cc++, cmdRow);
-            Dash.addCommand("Feed Hopper", hopper.feedCommand(), cc++, cmdRow);
-            Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), cc++, cmdRow);
-            Dash.addCommand("Lob Shot",
-                intake.runLowerIntakeArmCommand()
-                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
-                    .withName("Lob Shot"), cc++, cmdRow);
-            Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
-            Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
-            Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), cc++, cmdRow);
-            Dash.addCommand("Turret Left",
-                turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
-            Dash.addCommand("Turret Right",
-                turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
-
-            Dash.useDefaultTab();
-
-            // Commands tab — mirrors button bindings for controllerless testing
-            Dash.useTab("Commands");
-            int col = 0, row = 0;
-
-            // Driver commands
-            Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
-            Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyro()).withName("Zero Gyro"), col++, row);
-            Dash.addCommand("Lower + Intake",
-                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
-                    .withName("Lower + Intake"), col++, row);
-            Dash.addCommand("Stop + Raise",
-                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
-                    .withName("Stop + Raise"), col++, row);
-            Dash.addCommand("Toggle AutoTrack", turret.toggleAutoTrackCommand(), col++, row);
-            Dash.addCommand("Lob Shot",
-                intake.runLowerIntakeArmCommand()
-                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
-                    .withName("Lob Shot"), col++, row);
-
-            // Operator commands
-            col = 0; row++;
-            Dash.addCommand("Spin Up", shooter.spinUpCommand(), col++, row);
-            Dash.addCommand("Feed Hopper", hopper.feedCommand(), col++, row);
-            Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), col++, row);
-            Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
-            Dash.addCommand("Scan Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col++, row);
-            Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
-            if (visionSubsystem != null) {
-                Dash.addCommand("Track Hub",
-                    turret.trackHubCommand(
-                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                        visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible)
-                        .withName("Track Hub"), col++, row);
-            }
-
-            // Climber commands
-            col = 0; row++;
-            Dash.addCommand("Extend Climber", climber.extendCommand(), col++, row);
-            Dash.addCommand("Climb", climber.climbCommand(), col++, row);
-            Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
-
-            // Utility
-            Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
-            Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
-            Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
-
-            Dash.useDefaultTab();
-        }
-
-        // Climber tab — limit switch diagnostics and motor exercise
-        if (Constants.TUNING_ENABLED) {
-            Dash.useTab("Climber");
-            int col = 0, row = 0;
-
-            // Row 0: Live sensor readouts
-            Dash.add("Raised Limit", climber::isAtRaisedLimit, col++, row);
-            Dash.add("Lowered Limit", climber::isAtLoweredLimit, col++, row);
-            Dash.add("Ratchet Engaged", climber::isRatchetEngaged, col++, row);
-            Dash.add("Motor Position", () -> RobotMap.kClimberElevatorMotor.getPosition(), col++, row);
-
-            // Row 1: Exercise commands
-            col = 0; row++;
-            Dash.addCommand("Extend", climber.extendCommand(), col++, row);
-            Dash.addCommand("Retract", climber.retractCommand(), col++, row);
-            Dash.addCommand("Climb", climber.climbCommand(), col++, row);
-            Dash.addCommand("Lock", climber.lockCommand(), col++, row);
-            Dash.addCommand("Stop", climber.stopCommand(), col++, row);
-
-            Dash.useDefaultTab();
-        }
-
-        // System Check tab — passive health + exercise buttons for pit crew
-        Dash.useTab("System Check");
-
-        // Passive health indicators (auto-updating, dynamic row count)
-        SystemCheckCommand sysCheck = new SystemCheckCommand(swerve,
-            RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
-            RobotMap.shooterMotor2, RobotMap.shooterMotor1,
-            RobotMap.turretMotor,
-            RobotMap.hopperMotor, RobotMap.uptakeMotor,
-            RobotMap.kClimberElevatorMotor,
-            RobotMap.kClimberRatchetSolenoid);
-
-        // Exercise commands — flow dynamically after health indicators
-        int col = 0, row = sysCheck.getRowCount();
-        int sysCols = Constants.kShuffleboardCols;
-
-        // Swerve
-        Dash.addCommand("Steer Modules",
-            Commands.runOnce(() -> swerve.lock(), swerve).withName("Steer Modules"), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Center Modules",
-            swerve.centerModulesCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Drive Forward",
-            swerve.driveForwardDistanceCommand(0.5, 0.3), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Run Intake",
-            intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
-                .withName("Run Intake"), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Stop Intake",
-            intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
-                .withName("Stop Intake"), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-
-        // Shooter + turret
-        Dash.addCommand("Spin Flywheel", shooter.spinUpCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Move Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-
-        // Hopper + climber
-        Dash.addCommand("Feed Hopper", hopper.feedCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Stop Hopper", hopper.stopCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Extend Climber", climber.extendCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Lock Climber", climber.lockCommand(), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-
-        // Live sensor
-        Dash.add("Hopper Sensor (cm)",
-            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), col, row);
-        Dash.useDefaultTab();
+        DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
     }
 
     public void onTeleopInit() {
-        // turret.calibrateCommand().schedule();
+        turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

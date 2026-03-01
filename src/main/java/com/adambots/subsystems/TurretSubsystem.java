@@ -46,9 +46,6 @@ public class TurretSubsystem extends SubsystemBase {
     // Calibration state
     private boolean isCalibrated = false;
 
-    // Auto-calibrated gear ratio (0 = not yet measured, use constant)
-    private double measuredGearRatio = 0;
-
     // Scan state for oscillating sweep
     private boolean scanningForward = true;
 
@@ -116,14 +113,9 @@ public class TurretSubsystem extends SubsystemBase {
 
     // ==================== Turret Control ====================
 
-    /** Returns measuredGearRatio if calibrated, otherwise the constant. */
-    private double getEffectiveGearRatio() {
-        return measuredGearRatio > 0 ? measuredGearRatio : TurretConstants.kTurretGearRatio;
-    }
-
     public void setTurretAngle(double degrees) {
         lastSetpointDegrees = degrees;
-        double rotations = (degrees / 360.0) * getEffectiveGearRatio();
+        double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
         turretMotor.set(ControlMode.POSITION, rotations);
     }
 
@@ -132,7 +124,7 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     public double getTurretAngleDegrees() {
-        return (turretMotor.getPosition() / getEffectiveGearRatio()) * 360.0;
+        return (turretMotor.getPosition() / TurretConstants.kTurretGearRatio) * 360.0;
     }
 
     public boolean isAtTarget(double toleranceDeg) {
@@ -168,8 +160,6 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Angle (deg)", getTurretAngleDegrees());
         SmartDashboard.putBoolean("Turret/Calibrated", isCalibrated);
         SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
-        SmartDashboard.putNumber("Turret/GearRatio", getEffectiveGearRatio());
-
         // Hot-reload PID from Shuffleboard tunables
         if (turretPEntry != null) {
             double p = turretPEntry.getDouble(TurretConstants.kTurretP);
@@ -238,36 +228,19 @@ public class TurretSubsystem extends SubsystemBase {
      * Not wired by default — use if pre-placing isn't reliable.
      */
     public Command calibrateCommand() {
-        return
-            // Phase 1: Drive to reverse limit — hardware auto-zeros encoder
-            runEnd(
-                () -> turretMotor.set(-TurretConstants.kCalibrationSpeed),
-                this::stopTurret
-            )
-            .until(turretMotor::getReverseLimitSwitch)
-            .withTimeout(TurretConstants.kCalibrationTimeoutSec)
-            // Phase 2: Drive to forward limit to measure full travel
-            .andThen(
-                runEnd(
-                    () -> turretMotor.set(TurretConstants.kCalibrationSpeed),
-                    this::stopTurret
-                )
-                .until(turretMotor::getForwardLimitSwitch)
-                .withTimeout(TurretConstants.kCalibrationTimeoutSec)
-            )
-            // Phase 3: Compute gear ratio from measured travel, then return to offset
-            .andThen(Commands.runOnce(() -> {
-                if (isCalibrated) {
-                    double measuredRotations = turretMotor.getPosition();
-                    if (measuredRotations > 0) {
-                        measuredGearRatio = measuredRotations / (TurretConstants.kTurretMaxDegrees / 360.0);
-                        System.out.println("[Turret] Auto-calibrated gear ratio: " + measuredGearRatio
-                            + " (constant: " + TurretConstants.kTurretGearRatio + ")");
-                    }
-                    setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
-                }
-            }, this))
-            .withName("Calibrate Turret");
+        return runEnd(
+            () -> turretMotor.set(-TurretConstants.kCalibrationSpeed),
+            this::stopTurret
+        )
+        .until(turretMotor::getReverseLimitSwitch)
+        .withTimeout(TurretConstants.kCalibrationTimeoutSec)
+        .andThen(Commands.runOnce(() -> {
+            if (isCalibrated) {
+                // Move slightly off the reverse limit to avoid PID fighting the hard stop
+                setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
+            }
+        }, this))
+        .withName("Calibrate Turret");
     }
 
     // ==================== Vision Tracking Commands ====================

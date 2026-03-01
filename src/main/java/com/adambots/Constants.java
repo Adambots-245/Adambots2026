@@ -323,6 +323,11 @@ public final class Constants {
 
         public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
         public static final double kArmLoweredPosition = 0.25; // motor rotations when arm is lowered (deployed)
+        public static final double kBopAngle = 0.05;           // motor rotations to bop up from lowered position
+
+        // Roller motor current limits
+        public static final int kRollerStatorCurrentLimit = 40;  // stator amps (torque limiting — prevents stall damage)
+        public static final int kRollerSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)

@@ -137,6 +137,12 @@ public final class DashboardSetup {
             intake.runLowerIntakeArmCommand()
                 .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
                 .withName("Lob Shot"), col++, row);
+        if (visionSubsystem != null) {
+            Dash.addCommand("Shoot + Bop", Commands.parallel(
+                ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance),
+                intake.bopArmCommand()
+            ).withName("Shoot + Bop"), col++, row);
+        }
 
         // Operator commands
         col = 0; row++;

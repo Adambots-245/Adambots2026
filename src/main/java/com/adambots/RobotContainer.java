@@ -62,7 +62,8 @@ public class RobotContainer {
             .withRotationPID(
                 Constants.DriveConstants.kAutoRotationP,
                 Constants.DriveConstants.kAutoRotationI,
-                Constants.DriveConstants.kAutoRotationD);
+                Constants.DriveConstants.kAutoRotationD)
+            .withHeadingCorrection(true);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)

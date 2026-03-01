@@ -195,12 +195,6 @@ public class RobotContainer {
         Buttons.XboxDPadE.whileTrue(
             turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
 
-        // Left Stick Up/Down: Manual turret adjust
-        Buttons.XboxLeftStickUp.whileTrue(
-            turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
-        Buttons.XboxLeftStickDown.whileTrue(
-            turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
-
         // === Climber ===
         // D-pad Up: Extend elevator (hold to raise hook)
         Buttons.XboxDPadN.whileTrue(climber.extendCommand());

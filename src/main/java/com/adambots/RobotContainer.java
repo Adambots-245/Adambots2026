@@ -240,8 +240,10 @@ public class RobotContainer {
         DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
     }
 
-    public void onTeleopInit() {
-        swerve.zeroGyroWithAlliance();
+    public void onTeleopInit(boolean noAutoRan) {
+        if (noAutoRan) {
+            swerve.zeroGyroWithAlliance();
+        }
         turret.calibrateCommand().schedule();
     }
 

@@ -340,19 +340,18 @@ public class IntakeSubsystem extends SubsystemBase {
     public Command bopArmCommand() {
         // Track which phase we're in (up vs down)
         boolean[] bopUp = {true};
+        double[] switchTime = {0};
         return runEnd(
             () -> {
-                double current = intakeArmMotor.getPosition();
+                double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
                 double lowered = armLoweredPosition;
                 double raised = lowered - bopAngle;  // negative = up
-                if (bopUp[0]) {
-                    targetPosition = raised;
-                    // Switch direction once we're close to target
-                    if (Math.abs(current - raised) < 0.01) bopUp[0] = false;
-                } else {
-                    targetPosition = lowered;
-                    if (Math.abs(current - lowered) < 0.01) bopUp[0] = true;
+                // Switch direction based on elapsed time since last switch
+                if (now - switchTime[0] > 0.25) {
+                    bopUp[0] = !bopUp[0];
+                    switchTime[0] = now;
                 }
+                targetPosition = bopUp[0] ? raised : lowered;
                 intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
             },
             () -> {

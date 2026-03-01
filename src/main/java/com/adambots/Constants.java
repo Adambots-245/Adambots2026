@@ -288,8 +288,9 @@ public final class Constants {
     public static final class ClimberConstants {
         public static final double kClimbSpeed = 0.8;
         public static final double kExtendSpeed = 0.5;
-        public static final double kStallCurrentLimit = 60.0;
-        public static final double kFreeCurrentLimit = 80.0;
+        public static final double kLowerSpeed = 0.2;  // slow extend under gravity
+        public static final double kStatorCurrentLimit = 60.0;
+        public static final double kSupplyCurrentLimit = 40.0;
     }
 
     // ==================== Intake Constants ====================

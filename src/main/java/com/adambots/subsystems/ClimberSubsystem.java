@@ -46,8 +46,8 @@ public class ClimberSubsystem extends SubsystemBase {
     private void configureMotors() {
         elevatorMotor.configure()
             .brakeMode(true)
-            .currentLimits(ClimberConstants.kStallCurrentLimit,
-                           ClimberConstants.kFreeCurrentLimit, 3000)
+            .currentLimits(ClimberConstants.kStatorCurrentLimit,
+                           ClimberConstants.kSupplyCurrentLimit, 3000)
             .apply();
     }
 
@@ -61,7 +61,7 @@ public class ClimberSubsystem extends SubsystemBase {
     }
 
     public boolean isRatchetEngaged() {
-        return !ratchetSolenoid.get();
+        return ratchetSolenoid.get();
     }
 
     // ==================== SECTION: LIMIT SWITCHES ====================
@@ -78,40 +78,58 @@ public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: COMMAND FACTORIES ====================
 
-    /** Extend elevator upward. Releases ratchet while running, engages on end. Stops at raised limit. */
+    /** Extend elevator upward. Releases ratchet once at start, engages on end. Stops at raised limit. */
     public Command extendCommand() {
-        return runEnd(
+        return startRun(
+            this::releaseRatchet,
             () -> {
-                releaseRatchet();
                 if (!isAtRaisedLimit()) {
                     elevatorMotor.set(ClimberConstants.kExtendSpeed);
                 } else {
                     elevatorMotor.set(0);
+                    engageRatchet();
                 }
-            },
-            () -> {
-                elevatorMotor.set(0);
-                engageRatchet();
             }
-        ).withName("ExtendClimber");
+        ).finallyDo(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }).withName("ExtendClimber");
     }
 
-    /** Retract elevator downward. Releases ratchet while running, engages on end. Stops at lowered limit. */
+    /** Retract elevator downward. Releases ratchet once at start, engages on end. Stops at lowered limit. */
     public Command retractCommand() {
-        return runEnd(
+        return startRun(
+            this::releaseRatchet,
             () -> {
-                releaseRatchet();
                 if (!isAtLoweredLimit()) {
                     elevatorMotor.set(-ClimberConstants.kClimbSpeed);
                 } else {
                     elevatorMotor.set(0);
+                    engageRatchet();
                 }
-            },
-            () -> {
-                elevatorMotor.set(0);
-                engageRatchet();
             }
-        ).withName("RetractClimber");
+        ).finallyDo(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }).withName("RetractClimber");
+    }
+
+    /** Lower robot from hang at controlled speed. Gravity assists, so use reduced motor output. */
+    public Command lowerCommand() {
+        return startRun(
+            this::releaseRatchet,
+            () -> {
+                if (!isAtRaisedLimit()) {
+                    elevatorMotor.set(ClimberConstants.kLowerSpeed);
+                } else {
+                    elevatorMotor.set(0);
+                    engageRatchet();
+                }
+            }
+        ).finallyDo(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }).withName("LowerClimber");
     }
 
     /** Alias for retractCommand — pulls the robot up. */
@@ -125,14 +143,6 @@ public class ClimberSubsystem extends SubsystemBase {
             elevatorMotor.set(0);
             engageRatchet();
         }).withName("LockClimber");
-    }
-
-    /** Stop motor and engage ratchet. */
-    public Command stopCommand() {
-        return runOnce(() -> {
-            elevatorMotor.set(0);
-            engageRatchet();
-        }).withName("StopClimber");
     }
 
     /** Engage ratchet (hold position). */
@@ -149,6 +159,13 @@ public class ClimberSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         double startTime = Timer.getFPGATimestamp();
+
+        // Safety: stop motor if at limit in the direction it's moving
+        double output = elevatorMotor.getOutputPercent();
+        if ((output > 0 && isAtRaisedLimit()) || (output < 0 && isAtLoweredLimit())) {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }
 
         Logger.recordOutput("Climber/Position", elevatorMotor.getPosition());
         Logger.recordOutput("Climber/RatchetEngaged", isRatchetEngaged());

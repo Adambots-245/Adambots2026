@@ -35,8 +35,8 @@ public final class DashboardSetup {
 
         if (Constants.TUNING_ENABLED) {
             configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem);
-            configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
             configureClimberTab(climber);
+            configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
         }
 
         configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
@@ -50,7 +50,7 @@ public final class DashboardSetup {
             IntakeSubsystem intake,
             VisionSubsystem visionSubsystem) {
 
-        Dash.useTab("Shooter Tuning");
+        Dash.useTab("Shooter");
         int[] pos = {0, 0};
         int cols = Constants.kShuffleboardCols;
 
@@ -83,7 +83,7 @@ public final class DashboardSetup {
         int cmdRow = telemetryRow + 1;
         int cc = 0;
         if (visionSubsystem != null) {
-            Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(
+            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceCommand(
                 shooter, hopper, visionSubsystem::getHubDistance), cc++, cmdRow);
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), cc++, cmdRow);
@@ -121,7 +121,7 @@ public final class DashboardSetup {
 
         // Driver commands
         if (visionSubsystem != null) {
-            Dash.addCommand("Shoot", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
+            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), col++, row);
         }
@@ -132,7 +132,7 @@ public final class DashboardSetup {
         Dash.addCommand("Stop + Raise",
             intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand())
                 .withName("Stop + Raise"), col++, row);
-        Dash.addCommand("Toggle AutoTrack", turret.toggleAutoTrackCommand(), col++, row);
+        // Dash.addCommand("Toggle AutoTrack", turret.toggleAutoTrackCommand(), col++, row);
         Dash.addCommand("Lob Shot",
             intake.runLowerIntakeArmCommand()
                 .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
@@ -158,6 +158,7 @@ public final class DashboardSetup {
         col = 0; row++;
         Dash.addCommand("Extend Climber", climber.extendCommand(), col++, row);
         Dash.addCommand("Climb", climber.climbCommand(), col++, row);
+        Dash.addCommand("Lower", climber.lowerCommand(), col++, row);
         Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
 
         // Utility
@@ -184,8 +185,8 @@ public final class DashboardSetup {
         Dash.addCommand("Extend", climber.extendCommand(), col++, row);
         Dash.addCommand("Retract", climber.retractCommand(), col++, row);
         Dash.addCommand("Climb", climber.climbCommand(), col++, row);
+        Dash.addCommand("Lower", climber.lowerCommand(), col++, row);
         Dash.addCommand("Lock", climber.lockCommand(), col++, row);
-        Dash.addCommand("Stop", climber.stopCommand(), col++, row);
         Dash.addCommand("Engage Ratchet", climber.engageRatchetCommand(), col++, row);
         Dash.addCommand("Release Ratchet", climber.releaseRatchetCommand(), col++, row);
 

@@ -125,14 +125,14 @@ public class RobotContainer {
             )
         );
 
-        // // Turret auto-track: camera → pose fallback → oscillating scan
-        // if (visionSubsystem != null) {
-        //     turret.setDefaultCommand(turret.autoTrackCommand(
-        //         visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-        //         visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible));
-        // } else {
-        //     turret.setDefaultCommand(turret.holdPositionCommand());
-        // }
+        // Turret auto-track: camera → pose fallback → smart scan
+        if (visionSubsystem != null) {
+            turret.setDefaultCommand(turret.autoTrackCommand(
+                visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible));
+        } else {
+            turret.setDefaultCommand(turret.holdPositionCommand());
+        }
     }
 
     // ==================== BUTTON BINDINGS ====================

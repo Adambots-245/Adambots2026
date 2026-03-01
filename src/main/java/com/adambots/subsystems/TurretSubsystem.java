@@ -46,8 +46,8 @@ public class TurretSubsystem extends SubsystemBase {
     // Calibration state
     private boolean isCalibrated = false;
 
-    // Scan state for oscillating sweep
-    private boolean scanningForward = true;
+    // Last known pose-based ideal angle for smart scan fallback (default: center of range)
+    private double lastPoseIdealAngle = TurretConstants.kTurretMaxDegrees / 2.0;
 
     // Auto-track toggle (driver opts in via Button 5)
     private boolean autoTrackEnabled = false;
@@ -114,6 +114,7 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Turret Control ====================
 
     public void setTurretAngle(double degrees) {
+        degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
         turretMotor.set(ControlMode.POSITION, rotations);
@@ -265,26 +266,58 @@ public class TurretSubsystem extends SubsystemBase {
 
     /**
      * Continuously aims turret at the hub using camera and pose vision data.
-     * Camera is preferred (turret-relative offset); pose is fallback (robot-relative bearing).
-     * When both targets are lost, holds the last known position (PID holds).
+     * Three-tier fallback:
+     * 1. Camera or pose visible → track via toAbsoluteTurretAngle (updates lastPoseIdealAngle when pose available)
+     * 2. Both lost → smart scan using lastPoseIdealAngle to aim toward last known hub direction
      */
     public Command trackHubCommand(
             DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
             DoubleSupplier poseAngle, BooleanSupplier poseHasTarget) {
         return run(() -> {
-            if (cameraHasTarget.getAsBoolean() || poseHasTarget.getAsBoolean()) {
+            boolean camValid = cameraHasTarget.getAsBoolean();
+            boolean poseValid = poseHasTarget.getAsBoolean();
+
+            if (camValid || poseValid) {
+                // Tier 1: Track using best available source
                 setTurretAngle(toAbsoluteTurretAngle(
-                    cameraAngle.getAsDouble(), cameraHasTarget.getAsBoolean(),
-                    poseAngle.getAsDouble(), poseHasTarget.getAsBoolean()));
+                    cameraAngle.getAsDouble(), camValid,
+                    poseAngle.getAsDouble(), poseValid));
+
+                // Update lastPoseIdealAngle whenever pose data is available
+                if (poseValid) {
+                    lastPoseIdealAngle = MathUtil.inputModulus(poseAngle.getAsDouble() - 180.0, 0, 360);
+                }
+            } else {
+                // Tier 2: Both lost — smart scan toward last known hub direction
+                setTurretAngle(smartScanFallback());
             }
         }).withName("Track Hub");
     }
 
     /**
+     * Uses lastPoseIdealAngle to determine where to aim when both camera and pose are lost.
+     * - [0, kTurretMaxDegrees]: hub is within turret range → aim directly at it
+     * - (kTurretMaxDegrees, 180]: hub is just past max limit → park at max
+     * - (180, 360): hub is past 0° limit (wrapped) → park at 0°
+     */
+    private double smartScanFallback() {
+        if (lastPoseIdealAngle >= 0 && lastPoseIdealAngle <= TurretConstants.kTurretMaxDegrees) {
+            // Hub is within turret range — aim directly
+            return lastPoseIdealAngle;
+        } else if (lastPoseIdealAngle > TurretConstants.kTurretMaxDegrees && lastPoseIdealAngle <= 180) {
+            // Hub is just past the max limit — park at max and wait for robot to turn
+            return TurretConstants.kTurretMaxDegrees;
+        } else {
+            // Hub is past the 0° limit (wrapped around) — park at 0° and wait
+            return 0;
+        }
+    }
+
+    /**
      * Auto-track with three-tier fallback:
      * 1. Camera sees hub → track via toAbsoluteTurretAngle (most accurate)
-     * 2. Camera lost, pose available → track via toAbsoluteTurretAngle (keeps roughly aimed)
-     * 3. Neither available → oscillating sweep to search for hub
+     * 2. Camera lost, pose available → track via toAbsoluteTurretAngle (updates lastPoseIdealAngle)
+     * 3. Neither available → smart scan using lastPoseIdealAngle to aim toward last known hub direction
      *
      * Single run() command — evaluates every cycle with no gaps.
      *
@@ -298,7 +331,10 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier cameraHasTarget,
             DoubleSupplier poseAngle,
             BooleanSupplier poseHasTarget) {
-        return Commands.runOnce(() -> scanningForward = true)
+        return Commands.runOnce(() -> {
+                holdAngleDegrees = getTurretAngleDegrees();
+                wasAutoTracking = false;
+            }, this)
             .andThen(run(() -> {
                 if (!autoTrackEnabled) {
                     if (wasAutoTracking) {
@@ -320,13 +356,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(toAbsoluteTurretAngle(
                         cameraAngle.getAsDouble(), false,
                         poseAngle.getAsDouble(), true));
+                    // Update lastPoseIdealAngle for smart scan fallback
+                    lastPoseIdealAngle = MathUtil.inputModulus(poseAngle.getAsDouble() - 180.0, 0, 360);
                 } else {
-                    // Tier 3: No info — oscillating sweep
-                    double target = scanningForward ? TurretConstants.kTurretMaxDegrees : 0.0;
-                    setTurretAngle(target);
-                    if (isAtTarget(trackingToleranceDeg)) {
-                        scanningForward = !scanningForward;
-                    }
+                    // Tier 3: No info — smart scan toward last known hub direction
+                    setTurretAngle(smartScanFallback());
                 }
             }))
             .withName("Auto Track Hub");

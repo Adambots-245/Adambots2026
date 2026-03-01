@@ -144,8 +144,6 @@ public final class DashboardSetup {
         Dash.addCommand("Feed Hopper", hopper.feedCommand(), col++, row);
         Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), col++, row);
         Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
-        Dash.addCommand("Scan Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col++, row);
-        Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col++, row);
         if (visionSubsystem != null) {
             Dash.addCommand("Track Hub",
                 turret.trackHubCommand(

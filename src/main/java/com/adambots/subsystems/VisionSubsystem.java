@@ -78,6 +78,7 @@ public class VisionSubsystem extends SubsystemBase {
     // Hub tracking — shared
     private int hubVisibleTagCount = 0;
     private boolean prevHubCamHasTarget = false;
+    private boolean prevHubPoseHasTarget = false;
 
     // Median → low-pass filter chains for distance and angle (both approaches)
     private final MedianFilter camDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
@@ -283,6 +284,15 @@ public class VisionSubsystem extends SubsystemBase {
             } else {
                 hubPoseHasTarget = false;
             }
+
+            // Single reset point: true→false transition (covers both pose-at-origin and out-of-range)
+            if (!hubPoseHasTarget && prevHubPoseHasTarget) {
+                poseDistMedian.reset();
+                poseAngleMedian.reset();
+                poseDistLowPass.reset();
+                poseAngleLowPass.reset();
+            }
+            prevHubPoseHasTarget = hubPoseHasTarget;
         }
     }
 

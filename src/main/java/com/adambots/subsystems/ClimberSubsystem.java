@@ -46,6 +46,7 @@ public class ClimberSubsystem extends SubsystemBase {
     private void configureMotors() {
         elevatorMotor.configure()
             .brakeMode(true)
+            .inverted(true)
             .currentLimits(ClimberConstants.kStatorCurrentLimit,
                            ClimberConstants.kSupplyCurrentLimit, 3000)
             .apply();
@@ -53,11 +54,11 @@ public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: SOLENOID HELPERS ====================
     private void releaseRatchet() {
-        ratchetSolenoid.set(false);
+        ratchetSolenoid.set(true);
     }
 
     private void engageRatchet() {
-        ratchetSolenoid.set(true);
+        ratchetSolenoid.set(false);
     }
 
     public boolean isRatchetEngaged() {
@@ -99,7 +100,8 @@ public class ClimberSubsystem extends SubsystemBase {
     /** Retract elevator downward. Releases ratchet once at start, engages on end. Stops at lowered limit. */
     public Command retractCommand() {
         return startRun(
-            this::releaseRatchet,
+            // this::releaseRatchet,
+            () -> {},
             () -> {
                 if (!isAtLoweredLimit()) {
                     elevatorMotor.set(-ClimberConstants.kClimbSpeed);

@@ -237,6 +237,7 @@ public class RobotContainer {
     }
 
     public void onTeleopInit() {
+        swerve.zeroGyroWithAlliance();
         turret.calibrateCommand().schedule();
     }
 

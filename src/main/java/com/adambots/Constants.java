@@ -151,10 +151,10 @@ public final class Constants {
         // These must match the camera names configured in PhotonVision
 
         /** Back-left ArduCam OV9281 (on back-left swerve module, facing backward) */
-        public static final String kBackLeftCameraName = "back_left";
+        public static final String kBackLeftCameraName = "back_right";
 
         /** Back-right ArduCam OV9281 (on back-right swerve module, facing backward) */
-        public static final String kBackRightCameraName = "back_right";
+        public static final String kBackRightCameraName = "back_left";
 
         /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
         public static final String kShooterCameraName = "shooter_cam";
@@ -319,20 +319,20 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kLowSpeed = 0.5;
+        public static final double kLowSpeed = 0.55;
         public static final double kHighSpeed = 0.8;
 
         public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
-        public static final double kArmLoweredPosition = 0.25; // motor rotations when arm is lowered (deployed)
+        public static final double kArmLoweredPosition = 0.26; // motor rotations when arm is lowered (deployed)
         public static final double kBopAngle = 0.05;           // motor rotations to bop up from lowered position
 
         // Roller motor current limits
-        public static final int kRollerStatorCurrentLimit = 40;  // stator amps (torque limiting — prevents stall damage)
-        public static final int kRollerSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
+        public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)
+        public static final int kRollerSupplyCurrentLimit = 50;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
-        public static final int kArmStatorCurrentLimit = 40;  // stator amps (torque limiting)
-        public static final int kArmSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
+        public static final int kArmStatorCurrentLimit = 60;  // stator amps (torque limiting)
+        public static final int kArmSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;

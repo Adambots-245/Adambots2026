@@ -101,13 +101,13 @@ public class IntakeSubsystem extends SubsystemBase {
     private void configureMotors() {
         intakeMotor.configure()
                 .brakeMode(false)
-                .currentLimits(IntakeConstants.kRollerStatorCurrentLimit, IntakeConstants.kRollerSupplyCurrentLimit, 0)
+                .currentLimits(IntakeConstants.kRollerStatorCurrentLimit, IntakeConstants.kRollerSupplyCurrentLimit, 3500)
                 .apply();
 
         // Configure arm motor: brake mode + current limits + gear ratio
         intakeArmMotor.configure()
                 .brakeMode(true)
-                .currentLimits(IntakeConstants.kArmStatorCurrentLimit, IntakeConstants.kArmSupplyCurrentLimit, 0)
+                .currentLimits(IntakeConstants.kArmStatorCurrentLimit, IntakeConstants.kArmSupplyCurrentLimit, 2500)
                 .gravity(BaseMotor.GravityType.ARM_COSINE)
                 .sensorToMechanismRatio(IntakeConstants.kArmTotalGearRatio)
                 .motionMagic(

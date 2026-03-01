@@ -119,8 +119,8 @@ public class RobotContainer {
         // Swerve drive
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                 Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
             )
         );
@@ -138,7 +138,11 @@ public class RobotContainer {
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
         // === Driver (Extreme 3D Pro) ===
-        Buttons.JoystickButton2.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
+
+        Buttons.XboxAButton.onTrue(Commands.runOnce(
+            ()-> intake.stopIntakeCommand()
+        ));
 
         // Trigger (1): Shoot (full sequence)
         Buttons.JoystickButton1.whileTrue(

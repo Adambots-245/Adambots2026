@@ -151,10 +151,10 @@ public final class Constants {
         // These must match the camera names configured in PhotonVision
 
         /** Back-left ArduCam OV9281 (on back-left swerve module, facing backward) */
-        public static final String kBackLeftCameraName = "back_right";
+        public static final String kBackLeftCameraName = "back_left";
 
         /** Back-right ArduCam OV9281 (on back-right swerve module, facing backward) */
-        public static final String kBackRightCameraName = "back_left";
+        public static final String kBackRightCameraName = "back_right";
 
         /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
         public static final String kShooterCameraName = "shooter_cam";

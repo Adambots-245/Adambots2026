@@ -62,8 +62,8 @@ public class RobotContainer {
             .withRotationPID(
                 Constants.DriveConstants.kAutoRotationP,
                 Constants.DriveConstants.kAutoRotationI,
-                Constants.DriveConstants.kAutoRotationD)
-            .withHeadingCorrection(true);
+                Constants.DriveConstants.kAutoRotationD);
+            // .withHeadingCorrection(true);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
@@ -120,9 +120,9 @@ public class RobotContainer {
         // Swerve drive
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)
             )
         );
 

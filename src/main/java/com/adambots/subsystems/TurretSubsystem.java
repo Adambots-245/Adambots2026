@@ -54,6 +54,9 @@ public class TurretSubsystem extends SubsystemBase {
     private boolean wasAutoTracking = false;
     private double holdAngleDegrees = 0.0;
 
+    // Tracking tier for diagnostics: 0=idle, 1=camera, 2=pose, 3=smart-scan
+    private int trackingTier = 0;
+
     public TurretSubsystem(BaseMotor turretMotor) {
         this.turretMotor = turretMotor;
         configureMotors();
@@ -161,6 +164,9 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Angle (deg)", getTurretAngleDegrees());
         SmartDashboard.putBoolean("Turret/Calibrated", isCalibrated);
         SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
+        SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
+        SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - getTurretAngleDegrees());
+        SmartDashboard.putNumber("Turret/TrackingTier", trackingTier);
         // Hot-reload PID from Shuffleboard tunables
         if (turretPEntry != null) {
             double p = turretPEntry.getDouble(TurretConstants.kTurretP);
@@ -278,7 +284,8 @@ public class TurretSubsystem extends SubsystemBase {
             boolean poseValid = poseHasTarget.getAsBoolean();
 
             if (camValid || poseValid) {
-                // Tier 1: Track using best available source
+                // Tier 1/2: Track using best available source
+                trackingTier = camValid ? 1 : 2;
                 setTurretAngle(toAbsoluteTurretAngle(
                     cameraAngle.getAsDouble(), camValid,
                     poseAngle.getAsDouble(), poseValid));
@@ -288,7 +295,8 @@ public class TurretSubsystem extends SubsystemBase {
                     lastPoseIdealAngle = MathUtil.inputModulus(poseAngle.getAsDouble() - 180.0, 0, 360);
                 }
             } else {
-                // Tier 2: Both lost — smart scan toward last known hub direction
+                // Tier 3: Both lost — smart scan toward last known hub direction
+                trackingTier = 3;
                 setTurretAngle(smartScanFallback());
             }
         }).withName("Track Hub");
@@ -341,6 +349,7 @@ public class TurretSubsystem extends SubsystemBase {
                         holdAngleDegrees = getTurretAngleDegrees();
                         wasAutoTracking = false;
                     }
+                    trackingTier = 0;
                     setTurretAngle(holdAngleDegrees);
                     return;
                 }
@@ -348,11 +357,13 @@ public class TurretSubsystem extends SubsystemBase {
 
                 if (cameraHasTarget.getAsBoolean()) {
                     // Tier 1: Camera sees hub — most accurate
+                    trackingTier = 1;
                     setTurretAngle(toAbsoluteTurretAngle(
                         cameraAngle.getAsDouble(), true,
                         poseAngle.getAsDouble(), poseHasTarget.getAsBoolean()));
                 } else if (poseHasTarget.getAsBoolean()) {
                     // Tier 2: Pose-based fallback — keeps turret roughly aimed
+                    trackingTier = 2;
                     setTurretAngle(toAbsoluteTurretAngle(
                         cameraAngle.getAsDouble(), false,
                         poseAngle.getAsDouble(), true));
@@ -360,6 +371,7 @@ public class TurretSubsystem extends SubsystemBase {
                     lastPoseIdealAngle = MathUtil.inputModulus(poseAngle.getAsDouble() - 180.0, 0, 360);
                 } else {
                     // Tier 3: No info — smart scan toward last known hub direction
+                    trackingTier = 3;
                     setTurretAngle(smartScanFallback());
                 }
             }))

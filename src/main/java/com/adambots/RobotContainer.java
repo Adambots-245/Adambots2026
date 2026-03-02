@@ -31,6 +31,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 /**
  * RobotContainer — subsystems, commands, triggers, and button bindings.
@@ -62,8 +63,9 @@ public class RobotContainer {
             .withRotationPID(
                 Constants.DriveConstants.kAutoRotationP,
                 Constants.DriveConstants.kAutoRotationI,
-                Constants.DriveConstants.kAutoRotationD);
-            // .withHeadingCorrection(true);
+                Constants.DriveConstants.kAutoRotationD)
+            .withEncoderAutoSync(true, 1.0)
+            .withTelemetryVerbosity(TelemetryVerbosity.HIGH);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)

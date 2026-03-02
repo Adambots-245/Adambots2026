@@ -16,6 +16,7 @@ import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 
 import edu.wpi.first.wpilibj2.command.Commands;
+import swervelib.SwerveModule;
 
 /**
  * Configures all Shuffleboard tabs and dashboard widgets.
@@ -36,6 +37,7 @@ public final class DashboardSetup {
         if (Constants.TUNING_ENABLED) {
             configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem);
             configureClimberTab(climber);
+            configureSwerveTab(swerve);
             configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
         }
 
@@ -102,6 +104,42 @@ public final class DashboardSetup {
             turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
         Dash.addCommand("Turret Right",
             turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
+
+        Dash.useDefaultTab();
+    }
+
+    // ==================== SWERVE DIAGNOSTICS TAB ====================
+    private static void configureSwerveTab(SwerveSubsystem swerve) {
+        Dash.useTab("Swerve");
+        SwerveModule[] modules = swerve.getSwerveDrive().getModules();
+        String[] names = {"FL", "FR", "BL", "BR"};
+
+        // Row 0: Chassis state
+        Dash.add("Pose X", () -> swerve.getPose().getX(), 0, 0);
+        Dash.add("Pose Y", () -> swerve.getPose().getY(), 1, 0);
+        Dash.add("Heading", () -> swerve.getHeading().getDegrees(), 2, 0);
+        Dash.add("Field Vel", () -> {
+            var v = swerve.getFieldVelocity();
+            return Math.hypot(v.vxMetersPerSecond, v.vyMetersPerSecond);
+        }, 3, 0);
+
+        // Rows 1-5: Per-module data
+        for (int i = 0; i < modules.length; i++) {
+            final int idx = i;
+            Dash.add(names[i] + " Abs°", () -> modules[idx].getAbsolutePosition(), i, 1);
+            Dash.add(names[i] + " Rel°", () -> modules[idx].getState().angle.getDegrees(), i, 2);
+            Dash.add(names[i] + " Err°", () -> modules[idx].getAbsolutePosition() - modules[idx].getState().angle.getDegrees(), i, 3);
+            Dash.add(names[i] + " m/s", () -> modules[idx].getState().speedMetersPerSecond, i, 4);
+            Dash.add(names[i] + " OK", () -> !modules[idx].getAbsoluteEncoderReadIssue(), i, 5);
+        }
+
+        // Row 6: Commands
+        Dash.addCommand("Sync Encoders",
+            Commands.runOnce(() -> swerve.getSwerveDrive().synchronizeModuleEncoders(), swerve)
+                .withName("Sync Encoders"), 0, 6);
+        Dash.addCommand("Center Modules", swerve.centerModulesCommand(), 1, 6);
+        Dash.addCommand("Lock Modules",
+            Commands.runOnce(() -> swerve.lock(), swerve).withName("Lock"), 2, 6);
 
         Dash.useDefaultTab();
     }

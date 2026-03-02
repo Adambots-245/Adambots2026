@@ -25,6 +25,7 @@ import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -79,6 +80,10 @@ public class VisionSubsystem extends SubsystemBase {
     private int hubVisibleTagCount = 0;
     private boolean prevHubCamHasTarget = false;
     private boolean prevHubPoseHasTarget = false;
+
+    // Raw (pre-filter) values for diagnostic logging
+    private double rawCamDist, rawCamAngle;
+    private double rawPoseDist, rawPoseAngle;
 
     // Median → low-pass filter chains for distance and angle (both approaches)
     private final MedianFilter camDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
@@ -175,6 +180,8 @@ public class VisionSubsystem extends SubsystemBase {
 
         VisionSystemConfig config = builder
             .ambiguityThreshold(VisionConstants.kAmbiguityThreshold)
+            .maxPoseJump(Meters.of(2.0))
+            .maxHeadingJump(Degrees.of(45.0))
             .build();
 
         // Create PhotonVision with swerve odometry pose supplier
@@ -240,6 +247,17 @@ public class VisionSubsystem extends SubsystemBase {
         Dash.add("Pose X", () -> poseSupplier.get().getX(), col++, row);
         Dash.add("Pose Y", () -> poseSupplier.get().getY(), col++, row);
 
+        // Row 5: Raw (pre-filter) values for AdvantageScope analysis
+        col = 0; row = 5;
+        if (hasShooterCamera) {
+            Dash.add("Raw Cam Dist", () -> rawCamDist, col++, row);
+            Dash.add("Raw Cam Angle", () -> rawCamAngle, col++, row);
+        }
+        if (hasBackCameras) {
+            Dash.add("Raw Pose Dist", () -> rawPoseDist, col++, row);
+            Dash.add("Raw Pose Angle", () -> rawPoseAngle, col++, row);
+        }
+
         Dash.useDefaultTab();
     }
 
@@ -251,6 +269,7 @@ public class VisionSubsystem extends SubsystemBase {
                 ? (int) visionModeEntry.getDouble(VisionConstants.kVisionMode)
                 : 1;
         }
+        SmartDashboard.putNumber("Vision/Mode", visionMode);
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache
@@ -277,6 +296,8 @@ public class VisionSubsystem extends SubsystemBase {
             if (currentPose.getTranslation().getNorm() > 0) {
                 double rawDist = photonVision.getDistanceToPoint(hubCenter);
                 double rawAngle = photonVision.getYawToPoint(hubCenter).getDegrees();
+                rawPoseDist = rawDist;
+                rawPoseAngle = rawAngle;
                 // Median filter (spike rejection) → low-pass (smoothing)
                 hubPoseDistanceMeters = poseDistLowPass.calculate(poseDistMedian.calculate(rawDist));
                 hubPoseAngleDegrees = poseAngleLowPass.calculate(poseAngleMedian.calculate(rawAngle));
@@ -387,6 +408,9 @@ public class VisionSubsystem extends SubsystemBase {
         // Compute the angle the robot needs to rotate to face the hub
         double angleToHub = Math.atan2(hubCenter.getY() - camY, hubCenter.getX() - camX);
         double rawAngle = Utils.wrapAngleDeg(Math.toDegrees(angleToHub - camHeading));
+
+        rawCamDist = rawDist;
+        rawCamAngle = rawAngle;
 
         // Median filter (spike rejection) → low-pass (smoothing)
         hubCamDistanceMeters = camDistLowPass.calculate(camDistMedian.calculate(rawDist));

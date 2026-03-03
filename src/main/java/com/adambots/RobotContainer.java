@@ -26,6 +26,9 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -141,7 +144,7 @@ public class RobotContainer {
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
         // === Driver (Extreme 3D Pro) ===
-        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
             ()-> intake.stopIntakeCommand()
@@ -245,8 +248,15 @@ public class RobotContainer {
 
     public void onTeleopInit(boolean noAutoRan) {
         if (noAutoRan) {
-            swerve.zeroGyroWithAlliance();
-            // swerve.zeroGyro();
+            if (com.adambots.lib.utils.Utils.isOnRedAlliance()) {
+                swerve.resetOdometry(new Pose2d(
+                    new Translation2d(15.98, 4.0),
+                    Rotation2d.fromDegrees(180)));
+            } else {
+                swerve.resetOdometry(new Pose2d(
+                    new Translation2d(1.0, 4.0),
+                    Rotation2d.fromDegrees(0)));
+            }
         }
         turret.calibrateCommand().schedule();
     }

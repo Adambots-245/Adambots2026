@@ -10,6 +10,7 @@ import com.adambots.Constants.VisionConstants;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
 import com.adambots.lib.vision.PhotonVision;
+import com.adambots.lib.vision.VisionCamera;
 import com.adambots.lib.vision.VisionCameraInterface;
 import com.adambots.lib.vision.VisionResult;
 import com.adambots.lib.vision.VisionTarget;
@@ -372,7 +373,10 @@ public class VisionSubsystem extends SubsystemBase {
      * Uses shooter_cam only — the lib doesn't have this camera-only pattern.
      */
     private void updateHubCameraOnly(Translation2d hubCenter, int[] hubTagIds) {
-        VisionCameraInterface cam = photonVision.getCamera(VisionConstants.kShooterCameraName);
+        // Use getVisionCamera() (concrete type) so we can call getEstimatedGlobalPose()
+        // to populate the results cache. ALIGNMENT cameras are skipped by the lib's
+        // updatePoseEstimation(), so their resultsList is never populated automatically.
+        VisionCamera cam = photonVision.getVisionCamera(VisionConstants.kShooterCameraName);
         if (cam == null) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
@@ -384,6 +388,9 @@ public class VisionSubsystem extends SubsystemBase {
             prevHubCamHasTarget = false;
             return;
         }
+        // Trigger results fetch — populates internal resultsList from NetworkTables.
+        // The returned pose is ignored (static transform is wrong for turret-mounted camera).
+        cam.getEstimatedGlobalPose();
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {

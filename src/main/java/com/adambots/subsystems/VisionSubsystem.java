@@ -24,6 +24,7 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -102,6 +103,19 @@ public class VisionSubsystem extends SubsystemBase {
     // Runtime vision mode (editable from Shuffleboard): 0=Camera-only, 1=Pose-only, 2=Hybrid
     private GenericEntry visionModeEntry;
     private int visionMode = VisionConstants.kVisionMode;
+
+    // Tunable ambiguity threshold (default from constants, overridable via DashboardSetup)
+    private GenericEntry ambiguityEntry;
+    private double runtimeAmbiguityThreshold = VisionConstants.kAmbiguityThreshold;
+
+    // Diagnostic counters for camera-only target processing
+    private int diagTagsSeen = 0;
+    private int diagTagsRejectedAmbiguity = 0;
+    private int diagTagsRejectedNotHub = 0;
+    private double diagLastAmbiguity = -1;
+
+    // Throttled logging (1 Hz)
+    private double lastLogTimestamp = 0;
 
     /**
      * Creates a VisionSubsystem with the specified cameras enabled.
@@ -200,6 +214,13 @@ public class VisionSubsystem extends SubsystemBase {
             visionMode = 1;
         }
 
+        System.out.printf("[Vision] Init: redHub=(%.2f,%.2f) blueHub=(%.2f,%.2f) shooterCam=%s backCams=%s ambigThresh=%.2f%n",
+            redHubCenter.getX(), redHubCenter.getY(),
+            blueHubCenter.getX(), blueHubCenter.getY(),
+            hasShooterCamera ? "present" : "absent",
+            hasBackCameras ? "present" : "absent",
+            VisionConstants.kAmbiguityThreshold);
+
         setupDash();
     }
 
@@ -215,12 +236,16 @@ public class VisionSubsystem extends SubsystemBase {
         Dash.add("Hub Tags", this::getHubVisibleTagCount, col++, row);
         Dash.add("Alliance", this::getAllianceColor, col++, row);
 
-        // Row 1: Hub camera-only (Approach A) — only if shooter camera is present
+        // Row 1: Hub camera-only (Approach A) + diagnostics
         if (hasShooterCamera) {
             col = 0; row = 1;
             Dash.add("Hub Cam Distance", this::getHubCamDistance, col++, row);
             Dash.add("Hub Cam Angle", this::getHubCamAngle, col++, row);
             Dash.add("Hub Cam Visible", this::isHubCamVisible, col++, row);
+            Dash.add("Cam Tags Seen", () -> diagTagsSeen, col++, row);
+            Dash.add("Rejected (Ambig)", () -> diagTagsRejectedAmbiguity, col++, row);
+            Dash.add("Rejected (ID)", () -> diagTagsRejectedNotHub, col++, row);
+            Dash.add("Last Ambiguity", () -> diagLastAmbiguity, col++, row);
         }
 
         // Row 2: Hub pose-based (Approach B) — only if back cameras are present
@@ -231,35 +256,34 @@ public class VisionSubsystem extends SubsystemBase {
             Dash.add("Hub Pose Visible", this::isHubPoseVisible, col++, row);
         }
 
-        // Row 3: Mode selector + commands
+        // Row 3: Diagnostic telemetry for debugging alliance/hub issues in pit
         col = 0; row = 3;
-        if (Constants.TUNING_ENABLED) {
-            visionModeEntry = Dash.addTunable("Vision Mode (0=Cam,1=Pose,2=Hybrid)",
-                (double) VisionConstants.kVisionMode, col++, row);
-        }
-        Dash.addCommand("Log Vision", logVisionCommand(), col++, row);
-
-        // Row 4: Diagnostic telemetry for debugging alliance/hub issues in pit
-        col = 0; row = 4;
         Dash.add("Alliance (detected)", this::getAllianceColor, col++, row);
         Dash.add("Hub Center X", () -> getHubCenter().getX(), col++, row);
         Dash.add("Hub Center Y", () -> getHubCenter().getY(), col++, row);
         Dash.add("Pose X", () -> poseSupplier.get().getX(), col++, row);
         Dash.add("Pose Y", () -> poseSupplier.get().getY(), col++, row);
 
-        // Row 5: Raw (pre-filter) values for AdvantageScope analysis
-        col = 0; row = 5;
-        if (hasShooterCamera) {
-            Dash.add("Raw Cam Dist", () -> rawCamDist, col++, row);
-            Dash.add("Raw Cam Angle", () -> rawCamAngle, col++, row);
-        }
-        if (hasBackCameras) {
-            Dash.add("Raw Pose Dist", () -> rawPoseDist, col++, row);
-            Dash.add("Raw Pose Angle", () -> rawPoseAngle, col++, row);
-        }
-
         Dash.useDefaultTab();
     }
+
+    // ==================== Tunable Setters (called by DashboardSetup) ====================
+
+    /** Sets the vision mode GenericEntry (created by DashboardSetup behind TUNING_ENABLED). */
+    public void setVisionModeEntry(GenericEntry entry) {
+        this.visionModeEntry = entry;
+    }
+
+    /** Sets the ambiguity threshold GenericEntry (created by DashboardSetup behind TUNING_ENABLED). */
+    public void setAmbiguityEntry(GenericEntry entry) {
+        this.ambiguityEntry = entry;
+    }
+
+    // Raw value getters for DashboardSetup to display behind TUNING_ENABLED
+    public double getRawCamDist() { return rawCamDist; }
+    public double getRawCamAngle() { return rawCamAngle; }
+    public double getRawPoseDist() { return rawPoseDist; }
+    public double getRawPoseAngle() { return rawPoseAngle; }
 
     @Override
     public void periodic() {
@@ -270,6 +294,11 @@ public class VisionSubsystem extends SubsystemBase {
                 : 1;
         }
         SmartDashboard.putNumber("Vision/Mode", visionMode);
+
+        // Read runtime ambiguity threshold from Shuffleboard
+        if (ambiguityEntry != null) {
+            runtimeAmbiguityThreshold = ambiguityEntry.getDouble(VisionConstants.kAmbiguityThreshold);
+        }
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache
@@ -315,6 +344,26 @@ public class VisionSubsystem extends SubsystemBase {
             }
             prevHubPoseHasTarget = hubPoseHasTarget;
         }
+
+        // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
+        if (Constants.TUNING_ENABLED) {
+            double now = Timer.getFPGATimestamp();
+            if (now - lastLogTimestamp >= 1.0) {
+                lastLogTimestamp = now;
+                Pose2d p = poseSupplier.get();
+                int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
+                String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "?";
+                System.out.printf(
+                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°)%n",
+                    modeName,
+                    hubCamHasTarget ? "T" : "F", diagTagsSeen, diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
+                    hubPoseHasTarget ? "T" : "F",
+                    hubCamDistanceMeters, hubPoseDistanceMeters,
+                    hubCamAngleDegrees, hubPoseAngleDegrees,
+                    tier, hubVisibleTagCount,
+                    p.getX(), p.getY(), p.getRotation().getDegrees());
+            }
+        }
     }
 
     /**
@@ -357,15 +406,30 @@ public class VisionSubsystem extends SubsystemBase {
         double sumCos = 0, sumSin = 0;
         int count = 0;
 
+        // Reset diagnostic counters for this cycle
+        diagTagsSeen = 0;
+        diagTagsRejectedAmbiguity = 0;
+        diagTagsRejectedNotHub = 0;
+
         for (VisionTarget target : result.getTargets()) {
-            if (target.getPoseAmbiguity() > VisionConstants.kAmbiguityThreshold) continue;
+            diagTagsSeen++;
+            double ambiguity = target.getPoseAmbiguity();
+            if (ambiguity >= 0) diagLastAmbiguity = ambiguity;
+
+            if (ambiguity > runtimeAmbiguityThreshold) {
+                diagTagsRejectedAmbiguity++;
+                continue;
+            }
 
             // Filter: only process hub tags for this alliance
             boolean isHubTag = false;
             for (int id : hubTagIds) {
                 if (target.getFiducialId() == id) { isHubTag = true; break; }
             }
-            if (!isHubTag) continue;
+            if (!isHubTag) {
+                diagTagsRejectedNotHub++;
+                continue;
+            }
 
             // Look up this tag's known position on the field
             Optional<Pose3d> tagPose3d = PhotonVision.fieldLayout.getTagPose(target.getFiducialId());

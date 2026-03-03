@@ -15,6 +15,7 @@ import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 
+import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj2.command.Commands;
 import swervelib.SwerveModule;
 
@@ -104,6 +105,29 @@ public final class DashboardSetup {
             turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
         Dash.addCommand("Turret Right",
             turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
+
+        // Vision tunables row (after commands)
+        if (visionSubsystem != null) {
+            int visionRow = cmdRow + 1;
+            int vc = 0;
+            GenericEntry visionModeEntry = Dash.addTunable("Vision Mode (0=Cam,1=Pose,2=Hybrid)",
+                (double) Constants.VisionConstants.kVisionMode, vc++, visionRow);
+            visionSubsystem.setVisionModeEntry(visionModeEntry);
+
+            GenericEntry ambiguityEntry = Dash.addTunable("Ambiguity Threshold",
+                Constants.VisionConstants.kAmbiguityThreshold, vc++, visionRow);
+            visionSubsystem.setAmbiguityEntry(ambiguityEntry);
+
+            Dash.addCommand("Log Vision", visionSubsystem.logVisionCommand(), vc++, visionRow);
+
+            // Raw pre-filter values for AdvantageScope analysis
+            int rawRow = visionRow + 1;
+            int rc = 0;
+            Dash.add("Raw Cam Dist", visionSubsystem::getRawCamDist, rc++, rawRow);
+            Dash.add("Raw Cam Angle", visionSubsystem::getRawCamAngle, rc++, rawRow);
+            Dash.add("Raw Pose Dist", visionSubsystem::getRawPoseDist, rc++, rawRow);
+            Dash.add("Raw Pose Angle", visionSubsystem::getRawPoseAngle, rc++, rawRow);
+        }
 
         Dash.useDefaultTab();
     }
@@ -207,6 +231,26 @@ public final class DashboardSetup {
         Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
         Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
         Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
+        if (visionSubsystem != null) {
+            Dash.addCommand("Log Vision", visionSubsystem.logVisionCommand(), col++, row);
+        }
+
+        // Diagnostic commands row (for troubleshooting turret + vision alignment)
+        if (visionSubsystem != null) {
+            col = 0; row++;
+            Dash.addCommand("Diag: Align",
+                turret.diagAlignCommand(
+                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
+                    visionSubsystem::getHubDistance)
+                    .withName("Diag: Align"), col++, row);
+            Dash.addCommand("Diag: Auto Track",
+                turret.diagAutoTrackCommand(
+                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
+                    visionSubsystem::getHubDistance)
+                    .withName("Diag: Auto Track"), col++, row);
+        }
 
         Dash.useDefaultTab();
     }

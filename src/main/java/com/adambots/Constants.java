@@ -73,11 +73,11 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 45.0},
-            {2.5, 46.5},
-            {3.0, 48.0},
-            {4.0, 54.0},
-            {5.0, 60.0}
+            {2.0, 40.0},
+            {2.5, 42.5},
+            {3.0, 45.0},
+            {4.0, 50.0},
+            {5.0, 65.0}
         };
     }
 
@@ -279,7 +279,7 @@ public final class Constants {
         /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
         public static final int kMedianFilterSize = 5;
         /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
-        public static final double kLowPassTimeConstant = 0.1;
+        public static final double kLowPassTimeConstant = 0.3;
         /** Robot loop period (seconds) — used for low-pass filter calculation. */
         public static final double kLoopPeriod = 0.02;
     }

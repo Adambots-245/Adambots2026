@@ -125,9 +125,9 @@ public class RobotContainer {
         // Swerve drive
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
             )
         );
 

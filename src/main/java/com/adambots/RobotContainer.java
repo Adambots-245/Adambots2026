@@ -68,7 +68,7 @@ public class RobotContainer {
                 Constants.DriveConstants.kAutoRotationI,
                 Constants.DriveConstants.kAutoRotationD)
             .withEncoderAutoSync(true, 1.0)
-            .withTelemetryVerbosity(TelemetryVerbosity.HIGH);
+            .withTelemetryVerbosity(TelemetryVerbosity.LOW);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)

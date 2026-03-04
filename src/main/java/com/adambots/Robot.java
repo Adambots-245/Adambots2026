@@ -14,6 +14,7 @@ import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.epilogue.logging.EpilogueBackend;
+import edu.wpi.first.epilogue.logging.FileBackend;
 import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
 import edu.wpi.first.epilogue.logging.errors.ErrorHandler;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -53,9 +54,11 @@ public class Robot extends LoggedRobot {
         Logger.recordMetadata("ProjectName", "Adambots2026");
 
         if (isReal()) {
+            // Log to disk only — avoid flooding NetworkTables over the radio.
+            // Review logs in AdvantageScope after the match.
             Logger.addDataReceiver(new WPILOGWriter());
-            Logger.addDataReceiver(new NT4Publisher());
         } else {
+            // In simulation, publish to NT for live AdvantageScope viewing.
             Logger.addDataReceiver(new NT4Publisher());
         }
 
@@ -87,7 +90,12 @@ public class Robot extends LoggedRobot {
 
         // 5. Setup Epilogue backend AFTER all @Logged objects exist
         // Note: We can't use Epilogue.bind() with LoggedRobot, so we manually setup the backend
-        epilogueBackend = new NTEpilogueBackend(NetworkTableInstance.getDefault());
+        // Use file-only backend on real robot to avoid flooding NetworkTables over the radio.
+        // Logs are saved to the .wpilog file and can be reviewed in AdvantageScope after the match.
+        // Use NT backend in simulation for live debugging.
+        epilogueBackend = isReal()
+            ? new FileBackend(DataLogManager.getLog())
+            : new NTEpilogueBackend(NetworkTableInstance.getDefault());
 
         // 6. Suppress NPEs from Epilogue when subsystems are null (disabled in RobotMap)
         Epilogue.getConfig().errorHandler = (error, logger) -> {

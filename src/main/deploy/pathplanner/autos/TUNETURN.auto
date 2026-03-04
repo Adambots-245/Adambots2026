@@ -5,28 +5,9 @@
     "data": {
       "commands": [
         {
-          "type": "parallel",
-          "data": {
-            "commands": [
-              {
-                "type": "path",
-                "data": {
-                  "pathName": "B.S2-M1"
-                }
-              },
-              {
-                "type": "named",
-                "data": {
-                  "name": "tune"
-                }
-              }
-            ]
-          }
-        },
-        {
           "type": "path",
           "data": {
-            "pathName": "B.M1-H"
+            "pathName": "45TURN"
           }
         }
       ]

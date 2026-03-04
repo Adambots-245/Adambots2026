@@ -68,7 +68,7 @@ public class RobotContainer {
                 Constants.DriveConstants.kAutoRotationI,
                 Constants.DriveConstants.kAutoRotationD)
             .withEncoderAutoSync(true, 1.0)
-            .withTelemetryVerbosity(TelemetryVerbosity.LOW);
+            .withTelemetryVerbosity(TelemetryVerbosity.POSE);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
@@ -251,11 +251,11 @@ public class RobotContainer {
             if (com.adambots.lib.utils.Utils.isOnRedAlliance()) {
                 swerve.resetOdometry(new Pose2d(
                     new Translation2d(15.98, 4.0),
-                    Rotation2d.fromDegrees(0)));
+                    Rotation2d.fromDegrees(180)));
             } else {
                 swerve.resetOdometry(new Pose2d(
                     new Translation2d(1.0, 4.0),
-                    Rotation2d.fromDegrees(180)));
+                    Rotation2d.fromDegrees(0)));
             }
         }
         turret.calibrateCommand().schedule();

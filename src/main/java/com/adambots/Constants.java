@@ -17,6 +17,16 @@ public final class Constants {
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
     public static final boolean TUNING_ENABLED = true;
 
+    // Per-tab enables — only effective when TUNING_ENABLED is true.
+    // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
+    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
+    public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
+    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
+    public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
+    public static final boolean VISION_TAB   = TUNING_ENABLED && true;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
+
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
     public static final int kShuffleboardCols = 10;
     public static final int kShuffleboardRows = 5;
@@ -214,9 +224,9 @@ public final class Constants {
         /**
          * Ambiguity threshold for rejecting poses (0.0 to 1.0).
          * Lower = more strict, rejects more ambiguous poses.
-         * Recommended: 0.2 for competition, 0.3 for testing.
+         * Raised to 0.8 — LifeCam at 3-4m hub distance routinely reports 0.3-0.8.
          */
-        public static final double kAmbiguityThreshold = 0.2;
+        public static final double kAmbiguityThreshold = 0.8;
 
         /**
          * Standard deviations for single-tag pose estimation.

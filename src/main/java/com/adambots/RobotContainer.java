@@ -231,7 +231,7 @@ public class RobotContainer {
     private void configureAutoChooser() {
         autoChooser = AutoBuilder.buildAutoChooser();
 
-        if (Constants.TUNING_ENABLED) {
+        if (Constants.SWERVE_TAB) {
             // Swerve tuning commands (select from dashboard, run in auto mode)
             autoChooser.addOption("Tune Rotation PID", TuningCommands.tuneRotationPIDCommand(swerve));
             autoChooser.addOption("Tune Translation PID", TuningCommands.tuneTranslationPIDCommand(swerve));
@@ -251,11 +251,11 @@ public class RobotContainer {
             if (com.adambots.lib.utils.Utils.isOnRedAlliance()) {
                 swerve.resetOdometry(new Pose2d(
                     new Translation2d(15.98, 4.0),
-                    Rotation2d.fromDegrees(180)));
+                    Rotation2d.fromDegrees(0)));
             } else {
                 swerve.resetOdometry(new Pose2d(
                     new Translation2d(1.0, 4.0),
-                    Rotation2d.fromDegrees(0)));
+                    Rotation2d.fromDegrees(180)));
             }
         }
         turret.calibrateCommand().schedule();

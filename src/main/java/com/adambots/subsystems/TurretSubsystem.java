@@ -58,9 +58,9 @@ public class TurretSubsystem extends SubsystemBase {
     // Tracking tier for diagnostics: 0=idle, 1=camera, 2=pose, 3=smart-scan
     private int trackingTier = 0;
 
-    // Tunable pose-to-turret offset (default 180° = turret 0° faces straight back)
+    // Tunable pose-to-turret offset (default 120° = turret center ~60° faces straight back)
     private GenericEntry poseOffsetEntry;
-    private double poseOffsetDegrees = 180.0;
+    private double poseOffsetDegrees = 120.0;
 
     public TurretSubsystem(BaseMotor turretMotor) {
         this.turretMotor = turretMotor;
@@ -94,7 +94,7 @@ public class TurretSubsystem extends SubsystemBase {
      * Call after Dash.useTab() in RobotContainer.
      */
     public void setupTurretTunables(int[] pos, int cols) {
-        if (!Constants.TUNING_ENABLED) return;
+        if (!Constants.SHOOTER_TAB) return;
         turretPEntry = Dash.addTunable("Turret kP", TurretConstants.kTurretP, pos[0], pos[1]);
         advance(pos, cols);
         turretIEntry = Dash.addTunable("Turret kI", TurretConstants.kTurretI, pos[0], pos[1]);
@@ -105,7 +105,7 @@ public class TurretSubsystem extends SubsystemBase {
         advance(pos, cols);
         trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
         advance(pos, cols);
-        poseOffsetEntry = Dash.addTunable("Turret Pose Offset (deg)", 180.0, pos[0], pos[1]);
+        poseOffsetEntry = Dash.addTunable("Turret Pose Offset (deg)", 120.0, pos[0], pos[1]);
         advance(pos, cols);
         Dash.add("Forward Limit", ()->turretMotor.getForwardLimitSwitch(), pos[0], pos[1]);
         advance(pos, cols);
@@ -195,7 +195,7 @@ public class TurretSubsystem extends SubsystemBase {
                 trackingToleranceDeg = trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg);
             }
             if (poseOffsetEntry != null) {
-                poseOffsetDegrees = poseOffsetEntry.getDouble(180.0);
+                poseOffsetDegrees = poseOffsetEntry.getDouble(120.0);
             }
         }
     }

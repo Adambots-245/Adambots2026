@@ -43,7 +43,7 @@ public class HopperSubsystem extends SubsystemBase {
         uptakeMotor.setInverted(true);
         uptakeMotor.setBrakeMode(true);
 
-        if (Constants.TUNING_ENABLED) {
+        if (Constants.HOPPER_TAB) {
             setupDash();
             setupTunables();
         }

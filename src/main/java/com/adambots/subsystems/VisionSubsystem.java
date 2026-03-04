@@ -21,7 +21,6 @@ import com.adambots.lib.vision.config.VisionSystemConfig;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.networktables.GenericEntry;
@@ -222,7 +221,7 @@ public class VisionSubsystem extends SubsystemBase {
             hasBackCameras ? "present" : "absent",
             VisionConstants.kAmbiguityThreshold);
 
-        setupDash();
+        if (Constants.VISION_TAB) setupDash();
     }
 
     private void setupDash() {
@@ -347,22 +346,24 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
-        if (Constants.TUNING_ENABLED) {
+        if (Constants.VISION_TAB) {
             double now = Timer.getFPGATimestamp();
             if (now - lastLogTimestamp >= 1.0) {
                 lastLogTimestamp = now;
                 Pose2d p = poseSupplier.get();
                 int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
                 String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "?";
+                Translation2d hc = isRed ? redHubCenter : blueHubCenter;
                 System.out.printf(
-                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°)%n",
+                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
                     modeName,
                     hubCamHasTarget ? "T" : "F", diagTagsSeen, diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
                     hubPoseHasTarget ? "T" : "F",
                     hubCamDistanceMeters, hubPoseDistanceMeters,
                     hubCamAngleDegrees, hubPoseAngleDegrees,
                     tier, hubVisibleTagCount,
-                    p.getX(), p.getY(), p.getRotation().getDegrees());
+                    p.getX(), p.getY(), p.getRotation().getDegrees(),
+                    hc.getX(), hc.getY());
             }
         }
     }
@@ -407,10 +408,10 @@ public class VisionSubsystem extends SubsystemBase {
 
         VisionResult result = resultOpt.get();
 
-        // Average the camera's field position across all visible hub tags.
-        double sumX = 0, sumY = 0;
-        // Use circular mean for heading (cos/sin averaging) to avoid ±180° wraparound bug.
-        double sumCos = 0, sumSin = 0;
+        // Average target.getYaw() across passing hub tags for turret-relative angle.
+        // getYaw() is a direct 2D pixel measurement — robust at any distance, unlike PnP.
+        double sumYaw = 0;
+        double sumPnpDist = 0; // PnP distance kept for debug display only
         int count = 0;
 
         // Reset diagnostic counters for this cycle
@@ -438,20 +439,13 @@ public class VisionSubsystem extends SubsystemBase {
                 continue;
             }
 
-            // Look up this tag's known position on the field
-            Optional<Pose3d> tagPose3d = PhotonVision.fieldLayout.getTagPose(target.getFiducialId());
-            if (tagPose3d.isEmpty()) continue;
+            // Use getYaw() for angle — direct 2D pixel measurement, turret-relative
+            sumYaw += target.getYaw();
 
-            // PhotonVision gives us the transform FROM camera TO the tag.
-            // Inverting it and applying to the tag's field pose gives us the camera's field pose.
+            // PnP distance for debug display only (not used for gating)
             Transform3d camToTag = target.getBestCameraToTarget();
-            Pose3d cameraPose3d = tagPose3d.get().transformBy(camToTag.inverse());
+            sumPnpDist += camToTag.getTranslation().getNorm();
 
-            sumX += cameraPose3d.getX();
-            sumY += cameraPose3d.getY();
-            double heading = cameraPose3d.getRotation().toRotation2d().getRadians();
-            sumCos += Math.cos(heading);
-            sumSin += Math.sin(heading);
             count++;
         }
 
@@ -467,18 +461,8 @@ public class VisionSubsystem extends SubsystemBase {
             return;
         }
 
-        // Average all tag-derived camera poses for a more stable estimate
-        double camX = sumX / count;
-        double camY = sumY / count;
-        double camHeading = Math.atan2(sumSin / count, sumCos / count);
-
-        // Straight-line distance from camera position to hub center on the field
-        Translation2d camPosition = new Translation2d(camX, camY);
-        double rawDist = camPosition.getDistance(hubCenter);
-
-        // Compute the angle the robot needs to rotate to face the hub
-        double angleToHub = Math.atan2(hubCenter.getY() - camY, hubCenter.getX() - camX);
-        double rawAngle = Utils.wrapAngleDeg(Math.toDegrees(angleToHub - camHeading));
+        double rawAngle = sumYaw / count;
+        double rawDist = sumPnpDist / count; // debug only — not used for gating
 
         rawCamDist = rawDist;
         rawCamAngle = rawAngle;
@@ -487,7 +471,8 @@ public class VisionSubsystem extends SubsystemBase {
         hubCamDistanceMeters = camDistLowPass.calculate(camDistMedian.calculate(rawDist));
         hubCamAngleDegrees = camAngleLowPass.calculate(camAngleMedian.calculate(rawAngle));
 
-        hubCamHasTarget = hubCamDistanceMeters <= VisionConstants.kMaxDistanceMeters;
+        // Gate on having ≥1 passing tag — don't use PnP distance for gating
+        hubCamHasTarget = true;
         prevHubCamHasTarget = hubCamHasTarget;
     }
 

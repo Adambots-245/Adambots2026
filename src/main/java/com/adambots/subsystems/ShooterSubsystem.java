@@ -94,7 +94,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param cols max columns per row before wrapping
      */
     public void setupFlywheelTunables(int[] pos, int cols) {
-        if (!Constants.TUNING_ENABLED) return;
+        if (!Constants.SHOOTER_TAB) return;
         flywheelPEntry = Dash.addTunable("Flywheel kP", ShooterConstants.kFlywheelP, pos[0], pos[1]);
         advance(pos, cols);
         flywheelIEntry = Dash.addTunable("Flywheel kI", ShooterConstants.kFlywheelI, pos[0], pos[1]);

@@ -35,12 +35,10 @@ public final class DashboardSetup {
             ClimberSubsystem climber,
             VisionSubsystem visionSubsystem) {
 
-        if (Constants.TUNING_ENABLED) {
-            configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem);
-            configureClimberTab(climber);
-            configureSwerveTab(swerve);
-            configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
-        }
+        if (Constants.SHOOTER_TAB)  configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem);
+        if (Constants.CLIMBER_TAB)  configureClimberTab(climber);
+        if (Constants.SWERVE_TAB)   configureSwerveTab(swerve);
+        if (Constants.COMMANDS_TAB) configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
 
         configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
     }

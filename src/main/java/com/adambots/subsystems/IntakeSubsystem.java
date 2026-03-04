@@ -89,8 +89,10 @@ public class IntakeSubsystem extends SubsystemBase {
         this.intakeArmMotor = intakeArmMotor;
 
         configureMotors();
-        setupDash();
-        if (Constants.TUNING_ENABLED) setupTunables();
+        if (Constants.INTAKE_TAB) {
+            setupDash();
+            setupTunables();
+        }
         // intakeArmMotor.setPosition(0);
 
         if (Robot.isSimulation()) {

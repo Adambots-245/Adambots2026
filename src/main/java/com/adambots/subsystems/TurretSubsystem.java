@@ -266,7 +266,7 @@ public class TurretSubsystem extends SubsystemBase {
      * Converts raw vision angles to an absolute turret position, clamped to [0, kTurretMaxDegrees].
      * Camera angle is a turret-relative offset (add to current heading).
      * Pose angle is a robot-relative bearing (subtract poseOffsetDegrees to convert to turret frame).
-     * The offset is tunable — default 180° assumes turret 0° faces straight backward.
+     * The offset is tunable — default 120° accounts for turret zero at limit switch offset from robot forward.
      */
     private double toAbsoluteTurretAngle(double cameraAngle, boolean cameraHasTarget,
                                           double poseAngle, boolean poseHasTarget) {
@@ -378,12 +378,15 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(toAbsoluteTurretAngle(
                         cameraAngle.getAsDouble(), false,
                         poseAngle.getAsDouble(), true));
-                    // Update lastPoseIdealAngle for smart scan fallback
-                    lastPoseIdealAngle = MathUtil.inputModulus(poseAngle.getAsDouble() - poseOffsetDegrees, 0, 360);
                 } else {
                     // Tier 3: No info — smart scan toward last known hub direction
                     trackingTier = 3;
                     setTurretAngle(smartScanFallback());
+                }
+                // Always update lastPoseIdealAngle when pose is available (any tier)
+                // so Tier 3 smart scan has fresh data if both sources are lost simultaneously
+                if (poseHasTarget.getAsBoolean()) {
+                    lastPoseIdealAngle = MathUtil.inputModulus(poseAngle.getAsDouble() - poseOffsetDegrees, 0, 360);
                 }
             }))
             .withName("Auto Track Hub");

@@ -4,232 +4,176 @@
 
 package com.adambots.subsystems;
 
+import com.adambots.Constants.ClimberConstants;
 import com.adambots.lib.actuators.BaseMotor;
-import com.adambots.lib.sensors.LimitSwitch;
+import com.adambots.lib.actuators.BaseSolenoid;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Climber subsystem for end-game climbing.
+ * Climber subsystem — single Kraken X60 elevator + solenoid ratchet.
  *
- * <p>This subsystem controls the climbing mechanism that allows the robot
- * to climb during the end-game period.
- *
- * <p>AdambotsLib Best Practices:
- * <ul>
- *   <li>Control subsystems using command factories</li>
- *   <li>Get information from subsystems using triggers</li>
- *   <li>Coordinate between subsystems by binding commands to triggers</li>
- * </ul>
+ * <p>The ratchet is spring-return: de-energized = engaged (holds position),
+ * energized = released (allows motor movement).
  */
 @Logged
 public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: HARDWARE ====================
-    private final BaseMotor leftMotor;
-    private final BaseMotor rightMotor;
-    private final LimitSwitch leftLimitSwitch;
-    private final LimitSwitch rightLimitSwitch;
-
-    // ==================== SECTION: STATE ====================
-    // TODO: Declare state variables here
-    // private boolean isLeftAtBottom = false;
-    // private boolean isRightAtBottom = false;
-    // private boolean isClimbing = false;
-
-    // ==================== SECTION: TRIGGERS ====================
-    // Expose state as yes/no questions via Trigger objects
-
-    /**
-     * Returns true when the left climber is at the bottom (retracted).
-     */
-    public Trigger isLeftAtBottomTrigger() {
-        // TODO: Implement limit switch logic
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when the right climber is at the bottom (retracted).
-     */
-    public Trigger isRightAtBottomTrigger() {
-        // TODO: Implement limit switch logic
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when both climbers are at the bottom (fully retracted).
-     */
-    public Trigger isFullyRetractedTrigger() {
-        // TODO: Implement combined limit switch logic
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when the climber is extended (ready to climb).
-     */
-    public Trigger isExtendedTrigger() {
-        // TODO: Implement position check
-        return new Trigger(() -> false);
-    }
-
-    /**
-     * Returns true when the robot is climbing (motors under load).
-     */
-    public Trigger isClimbingTrigger() {
-        // TODO: Implement current check
-        return new Trigger(() -> false);
-    }
+    private final BaseMotor elevatorMotor;
+    private final BaseSolenoid ratchetSolenoid;
+    private final DigitalInput raisedLimit;   // DIO — true when NOT pressed (normally open)
+    private final DigitalInput loweredLimit;  // DIO — true when NOT pressed (normally open)
 
     // ==================== SECTION: CONSTRUCTOR ====================
-    /**
-     * Creates a new ClimberSubsystem.
-     *
-     * @param leftMotor The left climber motor controller (passed from RobotContainer)
-     * @param rightMotor The right climber motor controller (passed from RobotContainer)
-     * @param leftLimitSwitch The left bottom limit switch (passed from RobotContainer)
-     * @param rightLimitSwitch The right bottom limit switch (passed from RobotContainer)
-     */
-    public ClimberSubsystem(BaseMotor leftMotor, BaseMotor rightMotor,
-                            LimitSwitch leftLimitSwitch, LimitSwitch rightLimitSwitch) {
-        this.leftMotor = leftMotor;
-        this.rightMotor = rightMotor;
-        this.leftLimitSwitch = leftLimitSwitch;
-        this.rightLimitSwitch = rightLimitSwitch;
+    public ClimberSubsystem(BaseMotor elevatorMotor, BaseSolenoid ratchetSolenoid,
+                            DigitalInput raisedLimit, DigitalInput loweredLimit) {
+        this.elevatorMotor = elevatorMotor;
+        this.ratchetSolenoid = ratchetSolenoid;
+        this.raisedLimit = raisedLimit;
+        this.loweredLimit = loweredLimit;
 
-        // TODO: Configure motor settings if needed
-        // leftMotor.setCurrentLimit(60);  // Climbers need high current
-        // rightMotor.setCurrentLimit(60);
-        // leftMotor.setBrakeMode(true);   // Important for climbing!
-        // rightMotor.setBrakeMode(true);
+        configureMotors();
+        engageRatchet();
+    }
+
+    private void configureMotors() {
+        elevatorMotor.configure()
+            .brakeMode(true)
+            .inverted(true)
+            .currentLimits(ClimberConstants.kStatorCurrentLimit,
+                           ClimberConstants.kSupplyCurrentLimit, 3000)
+            .apply();
+    }
+
+    // ==================== SECTION: SOLENOID HELPERS ====================
+    private void releaseRatchet() {
+        ratchetSolenoid.set(true);
+    }
+
+    private void engageRatchet() {
+        ratchetSolenoid.set(false);
+    }
+
+    public boolean isRatchetEngaged() {
+        return ratchetSolenoid.get();
+    }
+
+    // ==================== SECTION: LIMIT SWITCHES ====================
+
+    /** Returns true when the raised (upper) limit switch is pressed. */
+    public boolean isAtRaisedLimit() {
+        return raisedLimit != null && !raisedLimit.get();  // DIO reads false when closed
+    }
+
+    /** Returns true when the lowered (bottom) limit switch is pressed. */
+    public boolean isAtLoweredLimit() {
+        return loweredLimit != null && !loweredLimit.get();  // DIO reads false when closed
     }
 
     // ==================== SECTION: COMMAND FACTORIES ====================
-    // All subsystem actions should be exposed as commands
 
-    /**
-     * Returns a command that extends the climber arms upward.
-     * TODO: Set appropriate motor speed in Constants
-     */
+    /** Extend elevator upward. Releases ratchet once at start, engages on end. Stops at raised limit. */
     public Command extendCommand() {
-        return run(() -> {
-            // TODO: Set motors to extend (positive or negative depends on gearing)
+        return startRun(
+            this::releaseRatchet,
+            () -> {
+                if (!isAtRaisedLimit()) {
+                    elevatorMotor.set(ClimberConstants.kExtendSpeed);
+                } else {
+                    elevatorMotor.set(0);
+                    engageRatchet();
+                }
+            }
+        ).finallyDo(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
         }).withName("ExtendClimber");
     }
 
-    /**
-     * Returns a command that retracts the climber arms (climb action).
-     * TODO: Set appropriate motor speed in Constants
-     */
+    /** Retract elevator downward. Releases ratchet once at start, engages on end. Stops at lowered limit. */
     public Command retractCommand() {
-        return run(() -> {
-            // TODO: Set motors to retract
+        return startRun(
+            // this::releaseRatchet,
+            () -> {},
+            () -> {
+                if (!isAtLoweredLimit()) {
+                    elevatorMotor.set(-ClimberConstants.kClimbSpeed);
+                } else {
+                    elevatorMotor.set(0);
+                    engageRatchet();
+                }
+            }
+        ).finallyDo(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
         }).withName("RetractClimber");
     }
 
-    /**
-     * Returns a command that stops the climber.
-     */
-    public Command stopCommand() {
-        return runOnce(() -> {
-            // TODO: Stop both motors
-        }).withName("StopClimber");
+    /** Lower robot from hang at controlled speed. Gravity assists, so use reduced motor output. */
+    public Command lowerCommand() {
+        return startRun(
+            this::releaseRatchet,
+            () -> {
+                if (!isAtRaisedLimit()) {
+                    elevatorMotor.set(ClimberConstants.kLowerSpeed);
+                } else {
+                    elevatorMotor.set(0);
+                    engageRatchet();
+                }
+            }
+        ).finallyDo(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }).withName("LowerClimber");
     }
 
-    /**
-     * Returns a command that extends until fully extended, then stops.
-     */
-    public Command extendFullyCommand() {
-        return extendCommand()
-            .until(isExtendedTrigger())
-            .andThen(stopCommand())
-            .withName("ExtendFully");
-    }
-
-    /**
-     * Returns a command that retracts until at bottom, then stops.
-     * Used for initial zeroing or full retraction.
-     */
-    public Command retractFullyCommand() {
-        return retractCommand()
-            .until(isFullyRetractedTrigger())
-            .andThen(stopCommand())
-            .withName("RetractFully");
-    }
-
-    /**
-     * Returns a command that performs the full climb sequence.
-     */
+    /** Alias for retractCommand — pulls the robot up. */
     public Command climbCommand() {
-        return retractCommand()
-            .withName("Climb");
+        return retractCommand().withName("Climb");
     }
 
-    /**
-     * Returns a command that allows manual control of the left climber.
-     * For testing or manual adjustment.
-     *
-     * @param speed Speed supplier (typically from joystick)
-     */
-    public Command manualLeftCommand(java.util.function.DoubleSupplier speed) {
-        return run(() -> {
-            // TODO: Set left motor to supplied speed
-            // leftMotor.set(speed.getAsDouble());
-        }).withName("ManualLeft");
+    /** Stop motor and engage ratchet to hold position. */
+    public Command lockCommand() {
+        return runOnce(() -> {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }).withName("LockClimber");
     }
 
-    /**
-     * Returns a command that allows manual control of the right climber.
-     * For testing or manual adjustment.
-     *
-     * @param speed Speed supplier (typically from joystick)
-     */
-    public Command manualRightCommand(java.util.function.DoubleSupplier speed) {
-        return run(() -> {
-            // TODO: Set right motor to supplied speed
-            // rightMotor.set(speed.getAsDouble());
-        }).withName("ManualRight");
+    /** Engage ratchet (hold position). */
+    public Command engageRatchetCommand() {
+        return runOnce(this::engageRatchet).withName("EngageRatchet");
+    }
+
+    /** Release ratchet (allow motor movement). */
+    public Command releaseRatchetCommand() {
+        return runOnce(this::releaseRatchet).withName("ReleaseRatchet");
     }
 
     // ==================== SECTION: PERIODIC ====================
-    /**
-     * This method runs every 20ms.
-     * Use for: caching sensor values, updating odometry, logging/telemetry.
-     * Do NOT use for: control logic, state machines, conditional actions.
-     */
     @Override
     public void periodic() {
         double startTime = Timer.getFPGATimestamp();
 
-        // TODO: Cache limit switch values
-        // isLeftAtBottom = leftLimitSwitch.isPressed();
-        // isRightAtBottom = rightLimitSwitch.isPressed();
+        // Safety: stop motor if at limit in the direction it's moving
+        double output = elevatorMotor.getOutputPercent();
+        if ((output > 0 && isAtRaisedLimit()) || (output < 0 && isAtLoweredLimit())) {
+            elevatorMotor.set(0);
+            engageRatchet();
+        }
 
-        // TODO: Update telemetry
-        // SmartDashboard.putBoolean("Climber/LeftAtBottom", isLeftAtBottom);
-        // SmartDashboard.putBoolean("Climber/RightAtBottom", isRightAtBottom);
-        // SmartDashboard.putNumber("Climber/LeftPosition", leftMotor.getPosition());
-        // SmartDashboard.putNumber("Climber/RightPosition", rightMotor.getPosition());
+        Logger.recordOutput("Climber/Position", elevatorMotor.getPosition());
+        Logger.recordOutput("Climber/RatchetEngaged", isRatchetEngaged());
+        Logger.recordOutput("Climber/RaisedLimit", isAtRaisedLimit());
+        Logger.recordOutput("Climber/LoweredLimit", isAtLoweredLimit());
 
         Logger.recordOutput("Timing/ClimberSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
-    }
-
-    // ==================== SECTION: PRIVATE HELPERS ====================
-    // Internal helper methods
-
-    /**
-     * Gets the average climber position.
-     *
-     * @return The average position of both climbers
-     */
-    private double getPosition() {
-        // TODO: Return average climber position
-        // return (leftMotor.getPosition() + rightMotor.getPosition()) / 2.0;
-        return 0;
     }
 }

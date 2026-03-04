@@ -27,26 +27,22 @@ public final class IntakeCommands {
     private IntakeCommands() {}
 
     /**
-     * Creates a command that intakes a game piece and indexes it into the hopper.
-     * Runs intake until game piece detected, then runs hopper to index.
+     * Creates a command that runs intake and hopper together while held.
+     * No ball detector — operator releases when game piece is collected.
      *
      * @param intake The intake subsystem
      * @param hopper The hopper subsystem
-     * @return Command that intakes and indexes one game piece
+     * @return Command that runs intake + hopper feed, stops both on release
      */
-    public static Command intakeAndIndexCommand(IntakeSubsystem intake, HopperSubsystem hopper) {
-        return Commands.sequence(
-            // Run intake until game piece detected
-            intake.intakeCommand().until(intake.hasGamePieceTrigger()),
-            // Stop intake
-            intake.stopCommand(),
-            // Index into hopper
+    public static Command intakeWhileHeldCommand(IntakeSubsystem intake, HopperSubsystem hopper) {
+        return Commands.parallel(
+            intake.runIntakeCommand(),
             hopper.feedCommand()
-        ).withName("IntakeAndIndex");
+        ).withName("IntakeWhileHeld");
     }
 
     /**
-     * Creates a command that clears a jam by reversing briefly then resuming intake.
+     * Creates a command that clears a jam by reversing intake and hopper briefly, then stopping both.
      *
      * @param intake The intake subsystem
      * @param hopper The hopper subsystem
@@ -56,12 +52,12 @@ public final class IntakeCommands {
         return Commands.sequence(
             // Reverse briefly
             Commands.parallel(
-                intake.outtakeCommand(),
-                hopper.reverseCarouselCommand()
+                intake.reverseIntakeCommand(),
+                hopper.reverseCommand()
             ).withTimeout(0.3),
             // Stop
             Commands.parallel(
-                intake.stopCommand(),
+                intake.stopIntakeCommand(),
                 hopper.stopCommand()
             )
         ).withName("ClearJam");

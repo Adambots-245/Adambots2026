@@ -7,18 +7,16 @@ package com.adambots;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.ironmaple.simulation.SimulatedArena;
-
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.ControllerType;
 
 import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.epilogue.logging.EpilogueBackend;
+import edu.wpi.first.epilogue.logging.FileBackend;
 import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
+import edu.wpi.first.epilogue.logging.errors.ErrorHandler;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Timer;
@@ -55,12 +53,12 @@ public class Robot extends LoggedRobot {
         // Configure AdvantageKit Logger FIRST (required before LoggedRobot parent init)
         Logger.recordMetadata("ProjectName", "Adambots2026");
 
-        if (isReal()) {
-            Logger.addDataReceiver(new WPILOGWriter());
-            Logger.addDataReceiver(new NT4Publisher());
-        } else {
+        if (!isReal()) {
+            // In simulation only — publish to NT for live AdvantageScope viewing.
             Logger.addDataReceiver(new NT4Publisher());
         }
+        // On real robot: no data receivers = AdvantageKit logging fully disabled.
+        // Re-enable WPILOGWriter once connection stability is resolved.
 
         Logger.start();
     }
@@ -71,8 +69,8 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotInit() {
-        // 1. Start WPILib data logging (Epilogue uses this)
-        DataLogManager.start();
+        // 1. WPILib DataLogManager disabled to reduce disk I/O — re-enable once stable
+        // DataLogManager.start();
 
         // 2. Initialize buttons with Xbox controllers for both driver and operator
         // NOTE: Changed driver from EXTREME_3D_PRO to XBOX for simulation testing
@@ -86,12 +84,19 @@ public class Robot extends LoggedRobot {
         // 3. Create RobotContainer (creates all subsystems)
         container = new RobotContainer();
 
-        // 4. Setup CommandScheduler timing hooks for troubleshooting overruns
-        setupCommandSchedulerHooks();
+        // 4. CommandScheduler timing hooks disabled — re-enable once connection stability is resolved
+        // setupCommandSchedulerHooks();
 
-        // 5. Setup Epilogue backend AFTER all @Logged objects exist
-        // Note: We can't use Epilogue.bind() with LoggedRobot, so we manually setup the backend
-        epilogueBackend = new NTEpilogueBackend(NetworkTableInstance.getDefault());
+        // 5. Epilogue disabled to reduce CPU/IO load — re-enable once connection stability is resolved
+        // epilogueBackend = isReal()
+        //     ? new FileBackend(DataLogManager.getLog())
+        //     : new NTEpilogueBackend(NetworkTableInstance.getDefault());
+        //
+        // Epilogue.getConfig().errorHandler = (error, logger) -> {
+        //     if (!(error instanceof NullPointerException)) {
+        //         ErrorHandler.printErrorMessages().handle(error, logger);
+        //     }
+        // };
     }
 
     /**
@@ -113,10 +118,14 @@ public class Robot extends LoggedRobot {
         CommandScheduler.getInstance().run();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
-        Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
+        // Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
 
-        // Update Epilogue logging (manual invocation since we use LoggedRobot instead of TimedRobot)
-        Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
+        // Epilogue logging disabled — re-enable once connection stability is resolved
+        // try {
+        //     Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
+        // } catch (NoSuchFieldError e) {
+        //     // Epilogue class mismatch — harmless in simulation, logging is best-effort
+        // }
     }
 
     /** This function is called once each time the robot enters Disabled mode. */
@@ -150,6 +159,7 @@ public class Robot extends LoggedRobot {
         if (autonomousCommand != null) {
             autonomousCommand.cancel();
         }
+        container.onTeleopInit(autonomousCommand == null);
     }
 
     /** This function is called periodically during operator control. */
@@ -169,24 +179,13 @@ public class Robot extends LoggedRobot {
     /** This function is called once when the robot is first started up. */
     @Override
     public void simulationInit() {
-        // Initialize the maple-sim simulated arena
-        // This sets up the physics simulation environment for projectiles
-        SimulatedArena.getInstance();
-
-        // Set default starting pose: ~3m from Blue Reef, facing toward it
-        container.getSwerve().resetOdometry(
-            new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0)));
+        // TODO: Wire sim init in Step 4
     }
 
     /** This function is called periodically whilst in simulation. */
     @Override
     public void simulationPeriodic() {
-        // Update vision simulation with current robot pose
-        var robotPose = container.getSwerve().getPose();
-        container.getVisionSim().simulationPeriodic(robotPose);
-
-        // Update the simulated arena (processes projectiles, game pieces, etc.)
-        SimulatedArena.getInstance().simulationPeriodic();
+        // TODO: Wire sim loop in Step 4
     }
 
     /**

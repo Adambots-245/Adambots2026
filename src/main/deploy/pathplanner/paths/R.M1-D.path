@@ -12,7 +12,7 @@
         "y": 1.5611043858572358
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "R.M1"
     },
     {
       "anchor": {
@@ -41,7 +41,7 @@
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "R.D"
     }
   ],
   "rotationTargets": [],
@@ -64,7 +64,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 141.98102022311636
+    "rotation": 141.35112085423177
   },
   "useDefaultConstraints": true
 }

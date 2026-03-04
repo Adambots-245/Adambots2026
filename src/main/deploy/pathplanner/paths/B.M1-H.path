@@ -12,7 +12,7 @@
         "y": 1.8241024289997587
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "B.M1"
     },
     {
       "anchor": {
@@ -25,7 +25,7 @@
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "B.H"
     }
   ],
   "rotationTargets": [],
@@ -48,7 +48,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 48.40160692033143
+    "rotation": 47.36137022684026
   },
   "useDefaultConstraints": true
 }

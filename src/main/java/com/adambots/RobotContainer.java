@@ -6,6 +6,7 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.commands.AutoCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
@@ -225,6 +226,7 @@ public class RobotContainer {
                 .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
             ShootCommands.shootCommand(shooter, hopper));
+        NamedCommands.registerCommand("tune", Commands.print("\n[TUNE] Hello, World!\n"));
     }
 
     // ==================== AUTO CHOOSER ====================
@@ -238,6 +240,7 @@ public class RobotContainer {
             autoChooser.addOption("Estimate MOI", TuningCommands.estimateMOICommand(swerve));
         }
 
+        autoChooser.setDefaultOption("None", Commands.none());
         SmartDashboard.putData("Auto Chooser", autoChooser);
     }
 

@@ -12,7 +12,7 @@
         "y": 7.319964183715005
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "B.S4"
     },
     {
       "anchor": {
@@ -25,7 +25,7 @@
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "B.M2"
     }
   ],
   "rotationTargets": [],
@@ -42,7 +42,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": -46.44827327291118
+    "rotation": -46.55168707499098
   },
   "reversed": false,
   "folder": null,

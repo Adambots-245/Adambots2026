@@ -53,14 +53,12 @@ public class Robot extends LoggedRobot {
         // Configure AdvantageKit Logger FIRST (required before LoggedRobot parent init)
         Logger.recordMetadata("ProjectName", "Adambots2026");
 
-        if (isReal()) {
-            // Log to disk only — avoid flooding NetworkTables over the radio.
-            // Review logs in AdvantageScope after the match.
-            Logger.addDataReceiver(new WPILOGWriter());
-        } else {
-            // In simulation, publish to NT for live AdvantageScope viewing.
+        if (!isReal()) {
+            // In simulation only — publish to NT for live AdvantageScope viewing.
             Logger.addDataReceiver(new NT4Publisher());
         }
+        // On real robot: no data receivers = AdvantageKit logging fully disabled.
+        // Re-enable WPILOGWriter once connection stability is resolved.
 
         Logger.start();
     }
@@ -71,8 +69,8 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotInit() {
-        // 1. Start WPILib data logging (Epilogue uses this)
-        DataLogManager.start();
+        // 1. WPILib DataLogManager disabled to reduce disk I/O — re-enable once stable
+        // DataLogManager.start();
 
         // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
         Buttons.init(
@@ -85,24 +83,19 @@ public class Robot extends LoggedRobot {
         // 3. Create RobotContainer (creates all subsystems)
         container = new RobotContainer();
 
-        // 4. Setup CommandScheduler timing hooks for troubleshooting overruns
-        setupCommandSchedulerHooks();
+        // 4. CommandScheduler timing hooks disabled — re-enable once connection stability is resolved
+        // setupCommandSchedulerHooks();
 
-        // 5. Setup Epilogue backend AFTER all @Logged objects exist
-        // Note: We can't use Epilogue.bind() with LoggedRobot, so we manually setup the backend
-        // Use file-only backend on real robot to avoid flooding NetworkTables over the radio.
-        // Logs are saved to the .wpilog file and can be reviewed in AdvantageScope after the match.
-        // Use NT backend in simulation for live debugging.
-        epilogueBackend = isReal()
-            ? new FileBackend(DataLogManager.getLog())
-            : new NTEpilogueBackend(NetworkTableInstance.getDefault());
-
-        // 6. Suppress NPEs from Epilogue when subsystems are null (disabled in RobotMap)
-        Epilogue.getConfig().errorHandler = (error, logger) -> {
-            if (!(error instanceof NullPointerException)) {
-                ErrorHandler.printErrorMessages().handle(error, logger);
-            }
-        };
+        // 5. Epilogue disabled to reduce CPU/IO load — re-enable once connection stability is resolved
+        // epilogueBackend = isReal()
+        //     ? new FileBackend(DataLogManager.getLog())
+        //     : new NTEpilogueBackend(NetworkTableInstance.getDefault());
+        //
+        // Epilogue.getConfig().errorHandler = (error, logger) -> {
+        //     if (!(error instanceof NullPointerException)) {
+        //         ErrorHandler.printErrorMessages().handle(error, logger);
+        //     }
+        // };
     }
 
     /**
@@ -124,16 +117,14 @@ public class Robot extends LoggedRobot {
         CommandScheduler.getInstance().run();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
-        Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
+        // Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
 
-        // Update Epilogue logging (manual invocation since we use LoggedRobot instead of TimedRobot)
-        // Wrapped in try-catch: during simulation the WPILib epilogue-runtime JAR's Epilogue.class
-        // may load instead of the annotation-processor-generated one, causing NoSuchFieldError.
-        try {
-            Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
-        } catch (NoSuchFieldError e) {
-            // Epilogue class mismatch — harmless in simulation, logging is best-effort
-        }
+        // Epilogue logging disabled — re-enable once connection stability is resolved
+        // try {
+        //     Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
+        // } catch (NoSuchFieldError e) {
+        //     // Epilogue class mismatch — harmless in simulation, logging is best-effort
+        // }
     }
 
     /** This function is called once each time the robot enters Disabled mode. */

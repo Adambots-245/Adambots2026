@@ -222,6 +222,8 @@ public final class Constants {
         public static final double kShooterCameraRoll = 0.0;
         public static final double kShooterCameraPitch = 27.0;  // level
         public static final double kShooterCameraYaw = 0.0;     // facing forward
+        /** Angle from turret forward to shooter/camera direction (matches TurretSubsystem.poseOffsetDegrees). */
+        public static final double kShooterCameraTurretOffset = 120.0;
 
         // ==================== Pose Estimation Parameters ====================
 

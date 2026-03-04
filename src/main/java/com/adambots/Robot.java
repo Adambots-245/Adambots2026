@@ -7,8 +7,16 @@ package com.adambots;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.ironmaple.simulation.SimulatedArena;
+
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.ControllerType;
+
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation3d;
 
 import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
@@ -179,13 +187,29 @@ public class Robot extends LoggedRobot {
     /** This function is called once when the robot is first started up. */
     @Override
     public void simulationInit() {
-        // TODO: Wire sim init in Step 4
+        SimulatedArena.getInstance();
+        container.getSwerve().resetOdometry(
+            new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0)));
     }
 
     /** This function is called periodically whilst in simulation. */
     @Override
     public void simulationPeriodic() {
-        // TODO: Wire sim loop in Step 4
+        var robotPose = container.getSwerve().getPose();
+        double turretAngle = container.getTurretAngle();
+        container.getVision().simulationPeriodic(robotPose, turretAngle);
+        SimulatedArena.getInstance().simulationPeriodic();
+
+        // Publish field-relative camera pose for AdvantageScope Camera Override
+        double robotYaw = robotPose.getRotation().getRadians();
+        double camYaw = robotYaw + Math.toRadians(turretAngle + Constants.VisionConstants.kShooterCameraTurretOffset);
+        double camX = robotPose.getX() + Constants.VisionConstants.kShooterCameraX * Math.cos(camYaw)
+                     - Constants.VisionConstants.kShooterCameraY * Math.sin(camYaw);
+        double camY = robotPose.getY() + Constants.VisionConstants.kShooterCameraX * Math.sin(camYaw)
+                     + Constants.VisionConstants.kShooterCameraY * Math.cos(camYaw);
+        Logger.recordOutput("CameraPose", new Pose3d(
+            new Translation3d(camX, camY, Constants.VisionConstants.kShooterCameraZ),
+            new Rotation3d(0, Math.toRadians(-Constants.VisionConstants.kShooterCameraPitch), camYaw)));
     }
 
     /**

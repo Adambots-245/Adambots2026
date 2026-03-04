@@ -18,12 +18,23 @@ import com.adambots.lib.vision.config.VisionCameraConfig.CameraPurpose;
 import com.adambots.lib.vision.config.VisionConfigBuilder;
 import com.adambots.lib.vision.config.VisionSystemConfig;
 
+import org.photonvision.PhotonCamera;
+import org.photonvision.simulation.PhotonCameraSim;
+import org.photonvision.simulation.SimCameraProperties;
+import org.photonvision.simulation.VisionSystemSim;
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -116,6 +127,10 @@ public class VisionSubsystem extends SubsystemBase {
 
     // Throttled logging (1 Hz)
     private double lastLogTimestamp = 0;
+
+    // ==================== Simulation ====================
+    private VisionSystemSim visionSim;
+    private PhotonCameraSim shooterCamSim;
 
     /**
      * Creates a VisionSubsystem with the specified cameras enabled.
@@ -222,6 +237,10 @@ public class VisionSubsystem extends SubsystemBase {
             VisionConstants.kAmbiguityThreshold);
 
         if (Constants.VISION_TAB) setupDash();
+
+        if (RobotBase.isSimulation() && hasShooterCamera) {
+            setupSimVision();
+        }
     }
 
     private void setupDash() {
@@ -265,6 +284,74 @@ public class VisionSubsystem extends SubsystemBase {
         Dash.add("Pose Y", () -> poseSupplier.get().getY(), col++, row);
 
         Dash.useDefaultTab();
+    }
+
+    // ==================== Simulation ====================
+
+    /**
+     * Initialize PhotonVision simulation. Creates a VisionSystemSim with a simulated
+     * shooter camera that produces synthetic AprilTag detections based on robot pose.
+     */
+    private void setupSimVision() {
+        visionSim = new VisionSystemSim("main");
+
+        AprilTagFieldLayout fieldLayout = AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
+        visionSim.addAprilTags(fieldLayout);
+
+        // Configure simulated camera to match the real LifeCam HD-3000
+        SimCameraProperties camProps = new SimCameraProperties();
+        camProps.setCalibration(
+            Constants.SimulationConstants.kCameraResolutionWidth,
+            Constants.SimulationConstants.kCameraResolutionHeight,
+            Rotation2d.fromDegrees(Constants.SimulationConstants.kCameraFOVDegrees));
+        camProps.setCalibError(0.25, 0.08);
+        camProps.setFPS(Constants.SimulationConstants.kCameraFPS);
+        camProps.setAvgLatencyMs(Constants.SimulationConstants.kCameraAvgLatencyMs);
+        camProps.setLatencyStdDevMs(Constants.SimulationConstants.kCameraLatencyStdDevMs);
+
+        // Create simulated camera with the same name as the real one
+        PhotonCamera simCam = new PhotonCamera(VisionConstants.kShooterCameraName);
+        shooterCamSim = new PhotonCameraSim(simCam, camProps);
+        shooterCamSim.enableDrawWireframe(true);
+
+        // Initial static transform (will be updated each cycle for turret rotation)
+        Transform3d robotToCamera = new Transform3d(
+            new Translation3d(
+                VisionConstants.kShooterCameraX,
+                VisionConstants.kShooterCameraY,
+                VisionConstants.kShooterCameraZ),
+            new Rotation3d(
+                0,
+                Math.toRadians(-VisionConstants.kShooterCameraPitch),
+                Math.toRadians(VisionConstants.kShooterCameraYaw)));
+        visionSim.addCamera(shooterCamSim, robotToCamera);
+
+        System.out.println("[Vision] Simulation initialized with shooter camera sim");
+    }
+
+    /**
+     * Update vision simulation. Must be called from Robot.simulationPeriodic().
+     * Rotates the simulated camera transform to match the current turret angle.
+     *
+     * @param robotPose current robot pose on the field
+     * @param turretAngleDeg current turret angle in degrees (0 = forward)
+     */
+    public void simulationPeriodic(Pose2d robotPose, double turretAngleDeg) {
+        if (visionSim == null) return;
+
+        // Update camera transform to rotate with turret
+        Transform3d robotToCamera = new Transform3d(
+            new Translation3d(
+                VisionConstants.kShooterCameraX,
+                VisionConstants.kShooterCameraY,
+                VisionConstants.kShooterCameraZ),
+            new Rotation3d(
+                0,
+                Math.toRadians(-VisionConstants.kShooterCameraPitch),
+                Math.toRadians(turretAngleDeg + VisionConstants.kShooterCameraTurretOffset)));
+        visionSim.adjustCamera(shooterCamSim, robotToCamera);
+
+        visionSim.update(robotPose);
     }
 
     // ==================== Tunable Setters (called by DashboardSetup) ====================
@@ -327,9 +414,11 @@ public class VisionSubsystem extends SubsystemBase {
                 double rawAngle = photonVision.getYawToPoint(hubCenter).getDegrees();
                 rawPoseDist = rawDist;
                 rawPoseAngle = rawAngle;
-                // Median filter (spike rejection) → low-pass (smoothing)
+                // Distance: median → low-pass (safe for linear values)
                 hubPoseDistanceMeters = poseDistLowPass.calculate(poseDistMedian.calculate(rawDist));
-                hubPoseAngleDegrees = poseAngleLowPass.calculate(poseAngleMedian.calculate(rawAngle));
+                // Angle: use raw value — the swerve pose estimator already smooths the pose,
+                // and linear filters break at the ±180° wraparound boundary causing wild oscillation.
+                hubPoseAngleDegrees = rawAngle;
                 hubPoseHasTarget = hubPoseDistanceMeters <= VisionConstants.kMaxDistanceMeters;
             } else {
                 hubPoseHasTarget = false;

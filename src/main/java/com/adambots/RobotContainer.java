@@ -30,6 +30,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -68,7 +69,7 @@ public class RobotContainer {
                 Constants.DriveConstants.kAutoRotationI,
                 Constants.DriveConstants.kAutoRotationD)
             .withEncoderAutoSync(true, 1.0)
-            .withTelemetryVerbosity(TelemetryVerbosity.LOW);
+            .withTelemetryVerbosity(RobotBase.isSimulation() ? TelemetryVerbosity.POSE : TelemetryVerbosity.LOW);
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
@@ -143,36 +144,25 @@ public class RobotContainer {
 
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
-        // === Driver (Extreme 3D Pro) ===
-        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
+        // === Driver (Extreme 3D Pro — null when using Xbox controller in sim) ===
+        if (Buttons.JoystickButton10 != null) {
+            Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
+            Buttons.JoystickButton1.whileTrue(ShootCommands.shootCommand(shooter, hopper));
+            Buttons.JoystickButton3.onTrue(
+                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
+            Buttons.JoystickButton4.onTrue(
+                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+            Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+            Buttons.JoystickButton6.whileTrue(
+                intake.runLowerIntakeArmCommand()
+                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
+        }
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
             ()-> intake.stopIntakeCommand()
         ));
 
-        // Trigger (1): Shoot (full sequence)
-        Buttons.JoystickButton1.whileTrue(
-            ShootCommands.shootCommand(shooter, hopper));
-        
         Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
-
-        // Button 3: Toggle intake
-        Buttons.JoystickButton3.onTrue(
-            // runLowerIntakeArmCommand is runOnce (sets Motion Magic target), so andThen
-            // fires immediately — roller spinning while arm deploys is intentional/harmless.
-            intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
-        Buttons.JoystickButton4.onTrue(
-            // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
-            // arm raising while roller winds down is intentional/harmless.
-            intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
-
-        // Button 5: Toggle auto-track on/off
-        Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
-
-        // Button 6: Lob shot (hold) — intake + shoot at fixed RPS + feed hopper
-        Buttons.JoystickButton6.whileTrue(
-            intake.runLowerIntakeArmCommand()
-                .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
 
         // === Operator (Xbox Controller) ===
         // Right Trigger: Shoot (full sequence)
@@ -264,4 +254,10 @@ public class RobotContainer {
     public Command getAutonomousCommand() {
         return autoChooser.getSelected();
     }
+
+    // ==================== Simulation Accessors ====================
+
+    public SwerveSubsystem getSwerve() { return swerve; }
+    public VisionSubsystem getVision() { return visionSubsystem; }
+    public double getTurretAngle() { return turret.getTurretAngleDegrees(); }
 }

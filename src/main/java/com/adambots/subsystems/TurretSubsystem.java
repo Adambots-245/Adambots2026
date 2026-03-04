@@ -1,8 +1,10 @@
 package com.adambots.subsystems;
 
 import com.adambots.Constants;
+import com.adambots.Constants.SimulationConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
+import com.adambots.Robot;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 import com.adambots.lib.utils.Dash;
@@ -11,14 +13,22 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Turret subsystem with position-controlled PID via onboard motor controller.
@@ -62,9 +72,15 @@ public class TurretSubsystem extends SubsystemBase {
     private GenericEntry poseOffsetEntry;
     private double poseOffsetDegrees = 120.0;
 
+    // Simulation
+    private SingleJointedArmSim turretSim;
+
     public TurretSubsystem(BaseMotor turretMotor) {
         this.turretMotor = turretMotor;
         configureMotors();
+        if (RobotBase.isSimulation()) {
+            setupSimulation();
+        }
     }
 
     private void configureMotors() {
@@ -198,6 +214,46 @@ public class TurretSubsystem extends SubsystemBase {
                 poseOffsetDegrees = poseOffsetEntry.getDouble(120.0);
             }
         }
+    }
+
+    // ==================== Simulation ====================
+
+    private void setupSimulation() {
+        // Model turret as a horizontal arm (no gravity) with the turret's gear ratio
+        turretSim = new SingleJointedArmSim(
+            DCMotor.getKrakenX60Foc(1),
+            TurretConstants.kTurretGearRatio,
+            SimulationConstants.kTurretMOI,
+            0.3, // arm length (visual only, not critical for turret)
+            Math.toRadians(-TurretConstants.kTurretMaxDegrees),
+            Math.toRadians(TurretConstants.kTurretMaxDegrees),
+            false, // no gravity for horizontal turret
+            0.0); // start at center
+        // Auto-calibrate in sim since there's no physical limit switch
+        isCalibrated = true;
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        if (turretSim == null) return;
+
+        // Feed motor voltage to sim (read from CTRE sim state)
+        double voltage = turretMotor.getSimMotorVoltage();
+        turretSim.setInputVoltage(voltage);
+        turretSim.update(0.02);
+
+        // Write sim position/velocity back to motor
+        double angleRot = Math.toDegrees(turretSim.getAngleRads()) / 360.0 * TurretConstants.kTurretGearRatio;
+        double velRotPerSec = Math.toDegrees(turretSim.getVelocityRadPerSec()) / 360.0 * TurretConstants.kTurretGearRatio;
+        turretMotor.setSimPosition(angleRot);
+        turretMotor.setSimVelocity(velRotPerSec);
+
+        // Publish component pose for AdvantageScope 3D visualization
+        Logger.recordOutput("Components", new Pose3d[] {
+            new Pose3d(
+                new Translation3d(0, 0, 0.15), // turret pivot height
+                new Rotation3d(0, 0, Math.toRadians(getTurretAngleDegrees())))
+        });
     }
 
     // ==================== Command Factories ====================
@@ -402,8 +458,10 @@ public class TurretSubsystem extends SubsystemBase {
             DoubleSupplier poseAngle, BooleanSupplier poseHasTarget,
             DoubleSupplier hubDistance) {
         final double[] logTimer = {0};
+        final boolean[] hasExecuted = {false};
         return Commands.runOnce(() -> {
                 logTimer[0] = 0;
+                hasExecuted[0] = false;
                 System.out.println("[DiagAlign] === START === turret=" + String.format("%.1f", getTurretAngleDegrees())
                     + "° poseOffset=" + String.format("%.1f", poseOffsetDegrees) + "°");
             }, this)
@@ -417,6 +475,7 @@ public class TurretSubsystem extends SubsystemBase {
 
                 double targetAngle = toAbsoluteTurretAngle(camAng, camValid, poseAng, poseValid);
                 setTurretAngle(targetAngle);
+                hasExecuted[0] = true;
 
                 // Log at 5 Hz (every 0.2s)
                 logTimer[0] += 0.02;
@@ -430,7 +489,7 @@ public class TurretSubsystem extends SubsystemBase {
                         targetAngle - currentAngle, dist);
                 }
             }))
-            .until(() -> isAtTarget(trackingToleranceDeg))
+            .until(() -> hasExecuted[0] && isAtTarget(trackingToleranceDeg))
             .withTimeout(8.0)
             .finallyDo(interrupted -> {
                 System.out.printf("[DiagAlign] === %s === turret=%.1f° setpoint=%.1f° err=%.1f°%n",

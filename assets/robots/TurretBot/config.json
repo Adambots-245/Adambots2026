@@ -1,63 +1,28 @@
 {
-  "name": "Turret Bot",
+  "name": "Adambots Turret Bot",
   "isFTC": false,
   "rotations": [
-    {
-      "axis": "x",
-      "degrees": 90
-    },
-    {
-      "axis": "z",
-      "degrees": 90
-    }
+    {"axis": "z", "degrees": 90}
   ],
-  "position": [
-    -0.3,
-    0,
-    0.05
-  ],
+  "position": [0, 0, 0],
   "cameras": [
     {
-      "name": "Camera",
+      "name": "shooter_cam",
       "rotations": [
-        {
-          "axis": "y",
-          "degrees": -25
-        },
-        {
-          "axis": "z",
-          "degrees": 180
-        }
+        {"axis": "z", "degrees": 180},
+        {"axis": "y", "degrees": -27}
       ],
-      "position": [
-        0.35,
-        0,
-        0.5
-      ],
-      "resolution": [
-        960,
-        720
-      ],
-      "fov": 90
+      "position": [-0.20, 0.0, 0.53],
+      "resolution": [640, 480],
+      "fov": 68
     }
   ],
   "components": [
     {
       "zeroedRotations": [
-        {
-          "axis": "x",
-          "degrees": 90
-        },
-        {
-          "axis": "z",
-          "degrees": 90
-        }
+        {"axis": "z", "degrees": 90}
       ],
-      "zeroedPosition": [
-        0.0,
-        0.0,
-        0.15
-      ]
+      "zeroedPosition": [0.0, 0.0, 0.15]
     }
   ]
 }

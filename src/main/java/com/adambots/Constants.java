@@ -98,9 +98,9 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID (tested on test board) ====================
-        public static final double kTurretP = 0.75;
+        public static final double kTurretP = 0.85;
         public static final double kTurretI = 0;
-        public static final double kTurretD = 0;
+        public static final double kTurretD = 0.01;
         public static final double kTurretFF = 0.2;
 
         // ==================== Turret Mechanical ====================
@@ -108,7 +108,7 @@ public final class Constants {
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
         // Reference range — not enforced in code (hardware limits protect the mechanism)
-        public static final double kTurretMaxDegrees = 120.0;
+        public static final double kTurretMaxDegrees = 110.0;
 
         public static final double kTurretManualSpeed = 0.05;
 
@@ -121,7 +121,7 @@ public final class Constants {
         public static final double kCalibrationOffsetDegrees = 2.0;
 
         // ==================== Current Limits ====================
-        public static final double kTurretStallCurrentLimit = 20.0;
+        public static final double kTurretStallCurrentLimit = 60.0;
         public static final double kTurretFreeCurrentLimit = 40.0;
     }
 
@@ -129,6 +129,8 @@ public final class Constants {
     public static final class TurretTrackingConstants {
         /** Degrees tolerance to consider turret "on target" for tracking */
         public static final double kTrackingToleranceDeg = 2.0;
+        /** Consecutive frames camera must be valid before switching to camera tier (60ms at 3) */
+        public static final int kCamHysteresisFrames = 3;
     }
 
     // ==================== HopperConstants ====================

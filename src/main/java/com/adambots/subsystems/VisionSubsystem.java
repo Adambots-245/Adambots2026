@@ -327,9 +327,11 @@ public class VisionSubsystem extends SubsystemBase {
                 double rawAngle = photonVision.getYawToPoint(hubCenter).getDegrees();
                 rawPoseDist = rawDist;
                 rawPoseAngle = rawAngle;
-                // Median filter (spike rejection) → low-pass (smoothing)
+                // Distance: median → low-pass (safe for linear values)
                 hubPoseDistanceMeters = poseDistLowPass.calculate(poseDistMedian.calculate(rawDist));
-                hubPoseAngleDegrees = poseAngleLowPass.calculate(poseAngleMedian.calculate(rawAngle));
+                // Angle: use raw value — the swerve pose estimator already smooths the pose,
+                // and linear filters break at the ±180° wraparound boundary causing wild oscillation.
+                hubPoseAngleDegrees = rawAngle;
                 hubPoseHasTarget = hubPoseDistanceMeters <= VisionConstants.kMaxDistanceMeters;
             } else {
                 hubPoseHasTarget = false;

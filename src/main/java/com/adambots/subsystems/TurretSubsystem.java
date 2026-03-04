@@ -402,8 +402,10 @@ public class TurretSubsystem extends SubsystemBase {
             DoubleSupplier poseAngle, BooleanSupplier poseHasTarget,
             DoubleSupplier hubDistance) {
         final double[] logTimer = {0};
+        final boolean[] hasExecuted = {false};
         return Commands.runOnce(() -> {
                 logTimer[0] = 0;
+                hasExecuted[0] = false;
                 System.out.println("[DiagAlign] === START === turret=" + String.format("%.1f", getTurretAngleDegrees())
                     + "° poseOffset=" + String.format("%.1f", poseOffsetDegrees) + "°");
             }, this)
@@ -417,6 +419,7 @@ public class TurretSubsystem extends SubsystemBase {
 
                 double targetAngle = toAbsoluteTurretAngle(camAng, camValid, poseAng, poseValid);
                 setTurretAngle(targetAngle);
+                hasExecuted[0] = true;
 
                 // Log at 5 Hz (every 0.2s)
                 logTimer[0] += 0.02;
@@ -430,7 +433,7 @@ public class TurretSubsystem extends SubsystemBase {
                         targetAngle - currentAngle, dist);
                 }
             }))
-            .until(() -> isAtTarget(trackingToleranceDeg))
+            .until(() -> hasExecuted[0] && isAtTarget(trackingToleranceDeg))
             .withTimeout(8.0)
             .finallyDo(interrupted -> {
                 System.out.printf("[DiagAlign] === %s === turret=%.1f° setpoint=%.1f° err=%.1f°%n",

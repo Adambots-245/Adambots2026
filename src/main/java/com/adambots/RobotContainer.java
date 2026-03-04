@@ -55,7 +55,7 @@ public class RobotContainer {
     private VisionSubsystem visionSubsystem;
     private VisionSystem vision;
 
-    private SendableChooser<Command> autoChooser;
+    private SendableChooser<Command> autoChooser = new SendableChooser<>();
 
     public RobotContainer() {
         // 1. Swerve config for PathPlanner

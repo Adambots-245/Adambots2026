@@ -131,19 +131,20 @@ public class RobotContainer {
             )
         );
 
-        // Turret auto-track: camera-only scan-and-track
-        if (visionSubsystem != null) {
-            turret.setDefaultCommand(turret.autoTrackCommand(
-                visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
-        } else {
-            turret.setDefaultCommand(turret.holdPositionCommand());
-        }
+        // // Turret auto-track: camera-only scan-and-track
+        // if (visionSubsystem != null) {
+        //     turret.setDefaultCommand(turret.autoTrackCommand(
+        //         visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
+        // } else {
+        //     turret.setDefaultCommand(turret.holdPositionCommand());
+        // }
     }
 
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
         // === Driver (Extreme 3D Pro) ===
-        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
+        // Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
+        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
             ()-> intake.stopIntakeCommand()
@@ -257,7 +258,7 @@ public class RobotContainer {
                     Rotation2d.fromDegrees(0)));
             }
         }
-        turret.calibrateCommand().schedule();
+        // turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

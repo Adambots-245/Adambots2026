@@ -46,12 +46,5 @@
   },
   "resetOdom": true,
   "folder": null,
-  "choreoAuto": false,
-  "startingPose": {
-    "position": {
-      "x": 3.6776931648170184,
-      "y": 0.9377069496003207
-    },
-    "rotation": 89.69397743363103
-  }
+  "choreoAuto": false
 }

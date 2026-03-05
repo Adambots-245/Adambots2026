@@ -342,7 +342,7 @@ public final class Constants {
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
         public static final double kLowSpeed = 0.55;
-        public static final double kHighSpeed = 0.8;
+        public static final double kHighSpeed = 0.4;
 
         public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
         public static final double kArmLoweredPosition = 0.26; // motor rotations when arm is lowered (deployed)

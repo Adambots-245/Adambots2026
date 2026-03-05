@@ -349,7 +349,7 @@ public class IntakeSubsystem extends SubsystemBase {
                 double lowered = armLoweredPosition;
                 double raised = lowered - bopAngle;  // negative = up
                 // Switch direction based on elapsed time since last switch
-                if (now - switchTime[0] > 0.25) {
+                if (now - switchTime[0] > 0.35) {
                     bopUp[0] = !bopUp[0];
                     switchTime[0] = now;
                 }

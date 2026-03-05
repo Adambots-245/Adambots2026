@@ -127,9 +127,9 @@ public class RobotContainer {
 
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, invertForRed),
-                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, invertForRed),
-                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)
             )
         );
 
@@ -146,7 +146,7 @@ public class RobotContainer {
     private void configureButtonBindings() {
         // === Driver (Extreme 3D Pro) ===
         // Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
-        Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+        Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
             ()-> intake.stopIntakeCommand()
@@ -154,9 +154,11 @@ public class RobotContainer {
 
         // Trigger (1): Shoot (full sequence)
         Buttons.JoystickButton1.whileTrue(
-            ShootCommands.shootCommand(shooter, hopper));
+            // ShootCommands.shootCommand(shooter, hopper));
+            ShootCommands.shootAtDistanceCommand(
+                shooter, hopper, visionSubsystem::getHubDistance));
         
-        Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
+        // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
         // Button 3: Toggle intake
         Buttons.JoystickButton3.onTrue(
@@ -226,7 +228,9 @@ public class RobotContainer {
                 .until(shooter.isAtSpeedTrigger())
                 .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
-            ShootCommands.shootCommand(shooter, hopper));
+            // ShootCommands.shootCommand(shooter, hopper));
+            ShootCommands.shootAtDistanceCommand(
+                shooter, hopper, visionSubsystem::getHubDistance));
     }
 
     // ==================== AUTO CHOOSER ====================

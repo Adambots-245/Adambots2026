@@ -85,8 +85,8 @@ public final class Constants {
         public static final double[][] kDefaultInterpolationTable = {
             {2.0, 40.0},
             {2.5, 42.5},
-            {3.0, 45.0},
-            {4.0, 50.0},
+            {3.0, 50.0},
+            {4.0, 55.0},
             {5.0, 65.0}
         };
     }
@@ -98,10 +98,15 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID (tested on test board) ====================
-        public static final double kTurretP = 0.85;
+        public static final double kTurretP = 25.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.01;
-        public static final double kTurretFF = 0.2;
+        public static final double kTurretFF = 0.0;
+
+        // ==================== Motion Magic Profile ====================
+        public static final double kTurretCruiseVelocity = 2.0;   // RPS at motor
+        public static final double kTurretAcceleration = 4.0;      // RPS/s at motor
+        public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
         // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion

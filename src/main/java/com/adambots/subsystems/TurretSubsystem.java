@@ -1,5 +1,8 @@
 package com.adambots.subsystems;
 
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
+
 import com.adambots.Constants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
@@ -81,6 +84,10 @@ public class TurretSubsystem extends SubsystemBase {
             .brakeMode(true)
             .currentLimits(TurretConstants.kTurretStallCurrentLimit,
                            TurretConstants.kTurretFreeCurrentLimit, 3000)
+            .motionMagic(
+                RotationsPerSecond.of(TurretConstants.kTurretCruiseVelocity),
+                RotationsPerSecondPerSecond.of(TurretConstants.kTurretAcceleration),
+                TurretConstants.kTurretJerk)
             .apply();
 
         // Hardware limits: both enabled
@@ -131,10 +138,11 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Turret Control ====================
 
     public void setTurretAngle(double degrees) {
+        if (!isCalibrated) return;
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
-        turretMotor.set(ControlMode.POSITION, rotations);
+        turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
     }
 
     public void stopTurret() {

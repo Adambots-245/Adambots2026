@@ -131,13 +131,13 @@ public class RobotContainer {
             )
         );
 
-        // // Turret auto-track: camera-only scan-and-track
-        // if (visionSubsystem != null) {
-        //     turret.setDefaultCommand(turret.autoTrackCommand(
-        //         visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
-        // } else {
-        //     turret.setDefaultCommand(turret.holdPositionCommand());
-        // }
+        // Turret auto-track: camera-only scan-and-track
+        if (visionSubsystem != null) {
+            turret.setDefaultCommand(turret.autoTrackCommand(
+                visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
+        } else {
+            turret.setDefaultCommand(turret.holdPositionCommand());
+        }
     }
 
     // ==================== BUTTON BINDINGS ====================
@@ -258,7 +258,7 @@ public class RobotContainer {
                     Rotation2d.fromDegrees(0)));
             }
         }
-        // turret.calibrateCommand().schedule();
+        turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

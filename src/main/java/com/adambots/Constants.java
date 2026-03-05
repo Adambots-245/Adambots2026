@@ -83,12 +83,15 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 40.0},
-            {2.5, 42.5},
-            {3.0, 50.0},
+            {2.0, 42.0},
+            {2.5, 47.5},
+            {3.0, 52.0},
             {4.0, 55.0},
             {5.0, 65.0}
         };
+
+        public static final double kMinRPS = 42.0;  // table minimum
+        public static final double kMaxRPS = 65.0;  // table maximum
     }
 
     // ==================== TurretConstants ====================

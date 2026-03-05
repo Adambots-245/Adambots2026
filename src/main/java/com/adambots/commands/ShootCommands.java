@@ -30,16 +30,52 @@ public final class ShootCommands {
     public static Command shootCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper) {
-        return Commands.sequence(
-            shooter.spinUpCommand()
+        return shootCommand(shooter, hopper, null, false);
+    }
+
+    /**
+     * Spin up → once at speed (or timeout), keep spinning + feed hopper in parallel → stop all.
+     * Optionally lowers the intake arm (without running rollers) at the start of the sequence.
+     */
+    public static Command shootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            boolean lowerIntake) {
+        return shootCommand(shooter, hopper, intake, lowerIntake, null);
+    }
+
+    /**
+     * Spin up → once at speed (or timeout), keep spinning + feed hopper in parallel → stop all.
+     * When rpsSupplier is provided, uses dynamic RPS; otherwise uses fixed default.
+     */
+    public static Command shootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            boolean lowerIntake,
+            DoubleSupplier rpsSupplier) {
+        Command spinUp = rpsSupplier != null
+            ? shooter.spinUpCommand(rpsSupplier)
+            : shooter.spinUpCommand();
+        Command spinUpFeed = rpsSupplier != null
+            ? shooter.spinUpCommand(rpsSupplier)
+            : shooter.spinUpCommand();
+
+        Command sequence = Commands.sequence(
+            spinUp
                 .until(shooter.isAtSpeedTrigger())
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.parallel(
-                shooter.spinUpCommand(),
+                spinUpFeed,
                 hopper.feedCommand()
             ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
-        ).withName("Shoot");
+        );
+        if (lowerIntake && intake != null) {
+            sequence = intake.runLowerIntakeArmCommand().andThen(sequence);
+        }
+        return sequence.withName("Shoot");
     }
 
     /**
@@ -49,7 +85,20 @@ public final class ShootCommands {
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
             DoubleSupplier distanceSupplier) {
-        return Commands.sequence(
+        return shootAtDistanceCommand(shooter, hopper, distanceSupplier, null, false);
+    }
+
+    /**
+     * Spin for vision distance → once at speed (or timeout), keep spinning + feed → stop all.
+     * Optionally lowers the intake arm (without running rollers) at the start of the sequence.
+     */
+    public static Command shootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            DoubleSupplier distanceSupplier,
+            IntakeSubsystem intake,
+            boolean lowerIntake) {
+        Command sequence = Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier)
                 .until(shooter.isAtSpeedTrigger())
                 .withTimeout(kSpinUpTimeoutSeconds),
@@ -58,7 +107,11 @@ public final class ShootCommands {
                 hopper.feedCommand()
             ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
-        ).withName("Shoot At Distance");
+        );
+        if (lowerIntake && intake != null) {
+            sequence = intake.runLowerIntakeArmCommand().andThen(sequence);
+        }
+        return sequence.withName("Shoot At Distance");
     }
 
     /**

@@ -26,9 +26,6 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -144,7 +141,7 @@ public class RobotContainer {
 
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
-        // === Driver (Extreme 3D Pro) ===
+        // === Driver (Thrustmaster) ===
         // Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
         Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
@@ -154,9 +151,8 @@ public class RobotContainer {
 
         // Trigger (1): Shoot (full sequence)
         Buttons.JoystickButton1.whileTrue(
-            // ShootCommands.shootCommand(shooter, hopper));
             ShootCommands.shootAtDistanceCommand(
-                shooter, hopper, visionSubsystem::getHubDistance));
+                shooter, hopper, visionSubsystem::getHubDistance, intake, false));
         
         // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
@@ -179,9 +175,10 @@ public class RobotContainer {
                 .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
 
         // === Operator (Xbox Controller) ===
-        // Right Trigger: Shoot (full sequence)
+        // Right Trigger: Shoot with throttle-mapped RPS (vision fallback)
         Buttons.XboxRightTriggerButton.whileTrue(
-            ShootCommands.shootCommand(shooter, hopper));
+            ShootCommands.shootCommand(shooter, hopper, intake, false,
+                () -> shooter.throttleToRPS(Buttons.JoystickThrottle.getAsDouble())));
 
         // Left Trigger: Spin up flywheel (hold)
         Buttons.XboxLeftTriggerButton.whileTrue(
@@ -199,9 +196,9 @@ public class RobotContainer {
         Buttons.XboxBButton.onTrue(
             ShootCommands.stopAllCommand(shooter, hopper));
 
-        // Y: Hold turret at 0° while held — autoTrack resumes on release
+        // Y: Hold turret at 90° while held — autoTrack resumes on release
         Buttons.XboxYButton.whileTrue(
-            turret.aimTurretCommand(() -> 0.0));
+            turret.aimTurretCommand(() -> 90.0));
 
         // D-pad Left/Right: Manual turret adjust
         Buttons.XboxDPadW.whileTrue(
@@ -253,17 +250,6 @@ public class RobotContainer {
     }
 
     public void onTeleopInit(boolean noAutoRan) {
-        if (noAutoRan) {
-            if (com.adambots.lib.utils.Utils.isOnRedAlliance()) {
-                swerve.resetOdometry(new Pose2d(
-                    new Translation2d(15.98, 4.0),
-                    Rotation2d.fromDegrees(180)));
-            } else {
-                swerve.resetOdometry(new Pose2d(
-                    new Translation2d(1.0, 4.0),
-                    Rotation2d.fromDegrees(0)));
-            }
-        }
         turret.calibrateCommand().schedule();
     }
 

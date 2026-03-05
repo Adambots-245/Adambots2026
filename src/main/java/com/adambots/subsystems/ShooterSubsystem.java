@@ -229,6 +229,15 @@ public class ShooterSubsystem extends SubsystemBase {
         }
     }
 
+    /**
+     * Map throttle (-1.0→1.0) to the tested RPS range.
+     * Forward (away from driver, -1.0) = max RPS, back (toward driver, 1.0) = min RPS.
+     */
+    public double throttleToRPS(double throttle) {
+        double normalized = (-throttle + 1.0) / 2.0; // 0.0→1.0 where forward=1.0
+        return ShooterConstants.kMinRPS + normalized * (ShooterConstants.kMaxRPS - ShooterConstants.kMinRPS);
+    }
+
     // ==================== Command Factories ====================
 
     /** Spin up to the middle table entry's RPS (default). */

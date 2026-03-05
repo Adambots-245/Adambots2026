@@ -185,7 +185,7 @@ public final class DashboardSetup {
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), col++, row);
         }
-        Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyroWithAlliance()).withName("Zero Gyro"), col++, row);
+        Dash.addCommand("Zero Gyro", Commands.runOnce(() -> swerve.zeroGyro()).withName("Zero Gyro"), col++, row);
         Dash.addCommand("Lower + Intake",
             intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand())
                 .withName("Lower + Intake"), col++, row);

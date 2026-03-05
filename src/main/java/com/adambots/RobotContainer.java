@@ -122,11 +122,13 @@ public class RobotContainer {
 
     // ==================== DEFAULT COMMANDS ====================
     private void configureDefaultCommands() {
-        // Swerve drive
+        // Swerve drive — negate translation on red so "forward" = away from red driver station
+        boolean invertForRed = com.adambots.lib.utils.Utils.isOnRedAlliance();
+
         swerve.setDefaultCommand(
             swerve.driveCommand(
-                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, invertForRed),
+                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, invertForRed),
                 Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
             )
         );

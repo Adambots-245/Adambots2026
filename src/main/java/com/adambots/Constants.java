@@ -266,8 +266,6 @@ public final class Constants {
         // Use with vision.hasID() or allowedTags() in VisionConfigBuilder
         // Reference: plans/vision-implementation.md for full tag layout
 
-        // TODO: Verify tag IDs match 2026 REBUILT field layout
-
         /** Red alliance HUB tags - primary targets for scoring */
         public static final int[] kRedHubTags = {2, 3, 4, 5, 8, 9, 10, 11};
 

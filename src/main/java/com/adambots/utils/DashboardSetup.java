@@ -213,8 +213,7 @@ public final class DashboardSetup {
         if (visionSubsystem != null) {
             Dash.addCommand("Track Hub",
                 turret.trackHubCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible)
+                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible)
                     .withName("Track Hub"), col++, row);
         }
 

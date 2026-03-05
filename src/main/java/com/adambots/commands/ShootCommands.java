@@ -70,19 +70,17 @@ public final class ShootCommands {
             HopperSubsystem hopper,
             DoubleSupplier cameraAngle,
             BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle,
-            BooleanSupplier poseHasTarget,
             DoubleSupplier visionDist) {
         return Commands.sequence(
             // Track and spin up simultaneously
             Commands.parallel(
-                turret.trackHubCommand(cameraAngle, cameraHasTarget, poseAngle, poseHasTarget),
+                turret.trackHubCommand(cameraAngle, cameraHasTarget),
                 shooter.spinForDistanceCommand(visionDist)
             ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
              .withTimeout(kSpinUpTimeoutSeconds),
             // Keep spinning + tracking while feeding
             Commands.parallel(
-                turret.trackHubCommand(cameraAngle, cameraHasTarget, poseAngle, poseHasTarget),
+                turret.trackHubCommand(cameraAngle, cameraHasTarget),
                 shooter.spinForDistanceCommand(visionDist),
                 hopper.feedCommand()
             ).withTimeout(kShootDurationSeconds),

@@ -91,8 +91,7 @@ public class VisionSubsystem extends SubsystemBase {
     private final MedianFilter camAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
     private final MedianFilter poseDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
     private final MedianFilter poseAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
-    private final LinearFilter camDistLowPass = LinearFilter.singlePoleIIR(
-        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
+    // camDistLowPass removed — low-pass on distance caused 0.19m cold-start bug after filter resets
     private final LinearFilter camAngleLowPass = LinearFilter.singlePoleIIR(
         VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
     private final LinearFilter poseDistLowPass = LinearFilter.singlePoleIIR(
@@ -383,9 +382,7 @@ public class VisionSubsystem extends SubsystemBase {
         if (cam == null) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
-                camDistMedian.reset();
                 camAngleMedian.reset();
-                camDistLowPass.reset();
                 camAngleLowPass.reset();
             }
             prevHubCamHasTarget = false;
@@ -399,9 +396,7 @@ public class VisionSubsystem extends SubsystemBase {
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
-                camDistMedian.reset();
                 camAngleMedian.reset();
-                camDistLowPass.reset();
                 camAngleLowPass.reset();
             }
             prevHubCamHasTarget = false;
@@ -413,7 +408,7 @@ public class VisionSubsystem extends SubsystemBase {
         // Average target.getYaw() across passing hub tags for turret-relative angle.
         // getYaw() is a direct 2D pixel measurement — robust at any distance, unlike PnP.
         double sumYaw = 0;
-        double sumPnpDist = 0; // PnP distance kept for debug display only
+        double bestDist = Double.MAX_VALUE; // closest tag's PnP distance (most reliable)
         int count = 0;
 
         // Reset diagnostic counters for this cycle
@@ -444,9 +439,11 @@ public class VisionSubsystem extends SubsystemBase {
             // Use getYaw() for angle — direct 2D pixel measurement, turret-relative
             sumYaw += target.getYaw();
 
-            // PnP distance for debug display only (not used for gating)
+            // Use closest tag's PnP distance — best accuracy at range, avoids
+            // averaging tags at different distances into a composite value
             Transform3d camToTag = target.getBestCameraToTarget();
-            sumPnpDist += camToTag.getTranslation().getNorm();
+            double dist = camToTag.getTranslation().getNorm();
+            if (dist < bestDist) bestDist = dist;
 
             count++;
         }
@@ -454,9 +451,7 @@ public class VisionSubsystem extends SubsystemBase {
         if (count == 0) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
-                camDistMedian.reset();
                 camAngleMedian.reset();
-                camDistLowPass.reset();
                 camAngleLowPass.reset();
             }
             prevHubCamHasTarget = false;
@@ -464,13 +459,14 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         double rawAngle = sumYaw / count;
-        double rawDist = sumPnpDist / count; // debug only — not used for gating
+        double rawDist = bestDist;
 
         rawCamDist = rawDist;
         rawCamAngle = rawAngle;
 
-        // Median filter (spike rejection) → low-pass (smoothing)
-        hubCamDistanceMeters = camDistLowPass.calculate(camDistMedian.calculate(rawDist));
+        // Distance: median only (no low-pass — avoids 0.19m cold-start after filter reset)
+        hubCamDistanceMeters = camDistMedian.calculate(rawDist);
+        // Angle: median → low-pass (angle smoothing is useful for turret tracking)
         hubCamAngleDegrees = camAngleLowPass.calculate(camAngleMedian.calculate(rawAngle));
 
         // Gate on having ≥1 passing tag — don't use PnP distance for gating

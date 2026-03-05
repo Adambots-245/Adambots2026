@@ -12,7 +12,7 @@ import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.GenericEntry;
-import edu.wpi.first.wpilibj.Timer;
+
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -50,6 +50,9 @@ public class TurretSubsystem extends SubsystemBase {
     // Last known pose-based ideal angle for smart scan fallback (default: center of range)
     private double lastPoseIdealAngle = TurretConstants.kTurretMaxDegrees / 2.0;
 
+    // Scan direction for camera-only tracking: +1 = toward max, -1 = toward 0
+    private int scanDirection = 1;
+
     // Auto-track toggle (driver opts in via Button 5)
     private boolean autoTrackEnabled = false;
     private boolean wasAutoTracking = false;
@@ -61,9 +64,10 @@ public class TurretSubsystem extends SubsystemBase {
     // Camera hysteresis: require N consecutive valid frames before switching to camera tier
     private int camValidFrames = 0;
 
-    // Tunable pose-to-turret offset (default 120° = turret center ~60° faces straight back)
+    // Pose-to-turret offset: poseAngle - offset = turret angle.
+    // Derived from kTurretForwardDegrees (the turret angle that faces robot forward).
     private GenericEntry poseOffsetEntry;
-    private double poseOffsetDegrees = 120.0;
+    private double poseOffsetDegrees = 360.0 - TurretConstants.kTurretForwardDegrees;
 
     public TurretSubsystem(BaseMotor turretMotor) {
         this.turretMotor = turretMotor;
@@ -81,7 +85,7 @@ public class TurretSubsystem extends SubsystemBase {
 
         // Hardware limits: both enabled
         // Reverse limit → encoder = 0.0 (home)
-        // Forward limit → encoder = maxRotations (120°, so PID stays valid)
+        // Forward limit → encoder = maxRotations (kTurretMaxDegrees, so PID stays valid)
         double maxRotations = (TurretConstants.kTurretMaxDegrees / 360.0) * TurretConstants.kTurretGearRatio;
         turretMotor.configureHardLimits(true, true, maxRotations, 0.0);
 
@@ -108,7 +112,7 @@ public class TurretSubsystem extends SubsystemBase {
         advance(pos, cols);
         trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
         advance(pos, cols);
-        poseOffsetEntry = Dash.addTunable("Turret Pose Offset (deg)", 120.0, pos[0], pos[1]);
+        poseOffsetEntry = Dash.addTunable("Turret Pose Offset (deg)", 360.0 - TurretConstants.kTurretForwardDegrees, pos[0], pos[1]);
         advance(pos, cols);
         Dash.add("Forward Limit", ()->turretMotor.getForwardLimitSwitch(), pos[0], pos[1]);
         advance(pos, cols);
@@ -198,7 +202,7 @@ public class TurretSubsystem extends SubsystemBase {
                 trackingToleranceDeg = trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg);
             }
             if (poseOffsetEntry != null) {
-                poseOffsetDegrees = poseOffsetEntry.getDouble(120.0);
+                poseOffsetDegrees = poseOffsetEntry.getDouble(360.0 - TurretConstants.kTurretForwardDegrees);
             }
         }
     }
@@ -281,7 +285,7 @@ public class TurretSubsystem extends SubsystemBase {
      * Converts raw vision angles to an absolute turret position, clamped to [0, kTurretMaxDegrees].
      * Camera angle is a turret-relative offset (add to current heading).
      * Pose angle is a robot-relative bearing (subtract poseOffsetDegrees to convert to turret frame).
-     * The offset is tunable — default 120° accounts for turret zero at limit switch offset from robot forward.
+     * The offset is tunable — derived from kTurretForwardDegrees so turret center faces robot forward.
      */
     private double toAbsoluteTurretAngle(double cameraAngle, boolean cameraHasTarget,
                                           double poseAngle, boolean poseHasTarget) {
@@ -297,37 +301,34 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     /**
-     * Continuously aims turret at the hub using camera and pose vision data.
-     * Three-tier fallback:
-     * 1. Camera or pose visible → track via toAbsoluteTurretAngle (updates lastPoseIdealAngle when pose available)
-     * 2. Both lost → smart scan using lastPoseIdealAngle to aim toward last known hub direction
+     * Continuously aims turret at the hub using camera-only scan-and-track.
+     * TRACKING: camera sees hub → aim directly using camera offset.
+     * SCANNING: camera lost → sweep turret in last-known direction, reversing at limits.
      */
     public Command trackHubCommand(
-            DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle, BooleanSupplier poseHasTarget) {
+            DoubleSupplier cameraAngle,
+            BooleanSupplier cameraHasTarget) {
         return run(() -> {
             boolean camValid = cameraHasTarget.getAsBoolean();
-            boolean poseValid = poseHasTarget.getAsBoolean();
             camValidFrames = camValid ? camValidFrames + 1 : 0;
             boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
 
-            if (useCam || poseValid) {
-                // Tier 1/2: Track using best available source
-                trackingTier = useCam ? 1 : 2;
-                setTurretAngle(toAbsoluteTurretAngle(
-                    cameraAngle.getAsDouble(), useCam,
-                    poseAngle.getAsDouble(), poseValid));
-
-                // Update lastPoseIdealAngle whenever pose data is available
-                if (poseValid) {
-                    lastPoseIdealAngle = poseAngleToTurretAngle(poseAngle.getAsDouble());
-                }
+            if (useCam) {
+                trackingTier = 1;
+                double camAng = cameraAngle.getAsDouble();
+                double target = MathUtil.clamp(
+                    getTurretAngleDegrees() + camAng,
+                    0, TurretConstants.kTurretMaxDegrees);
+                setTurretAngle(target);
+                scanDirection = (camAng >= 0) ? 1 : -1;
             } else {
-                // Tier 3: Both lost — smart scan toward last known hub direction
                 trackingTier = 3;
-                setTurretAngle(smartScanFallback());
+                if (getTurretAngleDegrees() >= TurretConstants.kTurretMaxDegrees - 1.0) scanDirection = -1;
+                else if (getTurretAngleDegrees() <= 1.0) scanDirection = 1;
+                turretMotor.set(scanDirection * TurretTrackingConstants.kScanSpeed);
             }
-        }).withName("Track Hub");
+        }).finallyDo(interrupted -> stopTurret())
+          .withName("Track Hub");
     }
 
     /**
@@ -348,26 +349,21 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     /**
-     * Auto-track with three-tier fallback:
-     * 1. Camera sees hub → track via toAbsoluteTurretAngle (most accurate)
-     * 2. Camera lost, pose available → track via toAbsoluteTurretAngle (updates lastPoseIdealAngle)
-     * 3. Neither available → smart scan using lastPoseIdealAngle to aim toward last known hub direction
-     *
-     * Single run() command — evaluates every cycle with no gaps.
+     * Auto-track with camera-only scan-and-track.
+     * TRACKING: camera sees hub → aim directly using camera offset.
+     * SCANNING: camera lost → sweep turret in last-known direction, reversing at limits.
+     * Respects autoTrackEnabled toggle — holds position when disabled.
      *
      * @param cameraAngle turret-relative offset angle from shooter camera
      * @param cameraHasTarget whether shooter camera sees the hub
-     * @param poseAngle robot-relative bearing from pose estimation
-     * @param poseHasTarget whether pose data is available
      */
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle,
-            BooleanSupplier poseHasTarget) {
+            BooleanSupplier cameraHasTarget) {
         return Commands.runOnce(() -> {
                 holdAngleDegrees = getTurretAngleDegrees();
                 wasAutoTracking = false;
+                camValidFrames = 0;
             }, this)
             .andThen(run(() -> {
                 if (!autoTrackEnabled) {
@@ -382,33 +378,36 @@ public class TurretSubsystem extends SubsystemBase {
                 wasAutoTracking = true;
 
                 boolean camValid = cameraHasTarget.getAsBoolean();
-                boolean poseValid = poseHasTarget.getAsBoolean();
                 camValidFrames = camValid ? camValidFrames + 1 : 0;
                 boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
 
                 if (useCam) {
-                    // Tier 1: Camera sees hub — most accurate
+                    // TRACKING: camera has hub — aim directly
                     trackingTier = 1;
-                    setTurretAngle(toAbsoluteTurretAngle(
-                        cameraAngle.getAsDouble(), true,
-                        poseAngle.getAsDouble(), poseValid));
-                } else if (poseValid) {
-                    // Tier 2: Pose-based fallback — keeps turret roughly aimed
-                    trackingTier = 2;
-                    setTurretAngle(toAbsoluteTurretAngle(
-                        cameraAngle.getAsDouble(), false,
-                        poseAngle.getAsDouble(), true));
+                    double camAng = cameraAngle.getAsDouble();
+                    double target = MathUtil.clamp(
+                        getTurretAngleDegrees() + camAng,
+                        0, TurretConstants.kTurretMaxDegrees);
+                    setTurretAngle(target);
+
+                    // Remember which way hub is for scanning if lost
+                    scanDirection = (camAng >= 0) ? 1 : -1;
                 } else {
-                    // Tier 3: No info — smart scan toward last known hub direction
+                    // SCANNING: sweep to find hub
                     trackingTier = 3;
-                    setTurretAngle(smartScanFallback());
-                }
-                // Always update lastPoseIdealAngle when pose is available (any tier)
-                // so Tier 3 smart scan has fresh data if both sources are lost simultaneously
-                if (poseHasTarget.getAsBoolean()) {
-                    lastPoseIdealAngle = poseAngleToTurretAngle(poseAngle.getAsDouble());
+                    double current = getTurretAngleDegrees();
+
+                    // Reverse at limits
+                    if (current >= TurretConstants.kTurretMaxDegrees - 1.0) {
+                        scanDirection = -1;
+                    } else if (current <= 1.0) {
+                        scanDirection = 1;
+                    }
+
+                    turretMotor.set(scanDirection * TurretTrackingConstants.kScanSpeed);
                 }
             }))
+            .finallyDo(interrupted -> stopTurret())
             .withName("Auto Track Hub");
     }
 

@@ -131,11 +131,10 @@ public class RobotContainer {
             )
         );
 
-        // Turret auto-track: camera → pose fallback → smart scan
+        // Turret auto-track: camera-only scan-and-track
         if (visionSubsystem != null) {
             turret.setDefaultCommand(turret.autoTrackCommand(
-                visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible));
+                visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());
         }

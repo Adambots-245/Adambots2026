@@ -108,17 +108,20 @@ public final class Constants {
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
         // Reference range — not enforced in code (hardware limits protect the mechanism)
-        public static final double kTurretMaxDegrees = 110.0;
+        public static final double kTurretMaxDegrees = 180.0;
+
+        /** Turret angle (degrees) that faces straight ahead on the robot. */
+        public static final double kTurretForwardDegrees = 90.0;
 
         public static final double kTurretManualSpeed = 0.05;
 
         // ==================== Calibration ====================
         /** Duty cycle for slow drive toward reverse limit during calibration */
-        public static final double kCalibrationSpeed = 0.05;
+        public static final double kCalibrationSpeed = 0.08;
         /** Safety timeout for calibration command (seconds) */
         public static final double kCalibrationTimeoutSec = 5.0;
         /** Degrees to move off the reverse limit after zeroing to avoid PID stall whine */
-        public static final double kCalibrationOffsetDegrees = 2.0;
+        public static final double kCalibrationOffsetDegrees = 85.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -131,6 +134,8 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Consecutive frames camera must be valid before switching to camera tier (60ms at 3) */
         public static final int kCamHysteresisFrames = 3;
+        /** Scan speed (duty cycle) when searching for hub. Slow enough for camera to detect. */
+        public static final double kScanSpeed = 0.03;
     }
 
     // ==================== HopperConstants ====================
@@ -285,7 +290,7 @@ public final class Constants {
         public static final double kMaxDistanceMeters = 8.0;
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback) */
-        public static final int kVisionMode = 2;
+        public static final int kVisionMode = 0;
 
         // ==================== Vision Filtering ====================
         /** Median filter window size — rejects outlier spikes. Odd numbers work best. */

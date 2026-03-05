@@ -266,12 +266,13 @@ public class TurretSubsystem extends SubsystemBase {
         )
         .until(turretMotor::getReverseLimitSwitch)
         .withTimeout(TurretConstants.kCalibrationTimeoutSec)
-        .andThen(Commands.runOnce(() -> {
+        .andThen(run(() -> {
             if (isCalibrated) {
-                // Move slightly off the reverse limit to avoid PID fighting the hard stop
                 setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
             }
-        }, this))
+        })
+        .until(() -> isAtTarget(2.0))
+        .withTimeout(3.0))
         .withName("Calibrate Turret");
     }
 

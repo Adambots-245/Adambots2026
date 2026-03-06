@@ -134,10 +134,6 @@ public class RobotContainer {
                 swerve.driveCommand(
                         Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
                         Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)));
-                swerve.driveCommand(
-                        Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                        Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true));
 
         // Turret auto-track: camera-only scan-and-track
@@ -159,15 +155,12 @@ public class RobotContainer {
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
                 () -> intake.stopIntakeCommand()));
-                // () -> intake.stopIntakeCommand()));
+                () -> intake.stopIntakeCommand()));
 
         // Trigger (1): Shoot (full sequence)
         Buttons.JoystickButton1.whileTrue(
                 ShootCommands.shootAtDistanceCommand(
                         shooter, hopper, visionSubsystem::getHubDistance, intake, false));
-
-                ShootCommands.shootAtDistanceCommand(
-                        shooter, hopper, visionSubsystem::getHubDistance, intake, false);
 
         // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
@@ -225,9 +218,9 @@ public class RobotContainer {
 
         // D-pad Left/Right: Manual turret adjust
         Buttons.XboxDPadW.whileTrue(
-                    turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
+                    turret.scanCommand(1.0));
         Buttons.XboxDPadE.whileTrue(
-                    turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
+                    turret.scanCommand(-1.0));
 
         // === Climber ===
         // D-pad Up: Extend elevator (hold to raise hook)
@@ -251,7 +244,6 @@ public class RobotContainer {
                     // ShootCommands.shootCommand(shooter, hopper));
                     ShootCommands.shootAtDistanceCommand(
                                 shooter, hopper, visionSubsystem::getHubDistance));
-        NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
         NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
     }
 

@@ -100,9 +100,9 @@ public final class DashboardSetup {
         Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
         Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
         Dash.addCommand("Turret Left",
-            turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
+            turret.scanCommand(1.0), cc++, cmdRow);
         Dash.addCommand("Turret Right",
-            turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed), cc++, cmdRow);
+            turret.scanCommand(-1.0), cc++, cmdRow);
 
         // Vision tunables row (after commands)
         if (visionSubsystem != null) {
@@ -324,7 +324,7 @@ public final class DashboardSetup {
         if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col, row);
         if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Move Turret", turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed), col, row);
+        Dash.addCommand("Move Turret", turret.scanCommand(1.0), col, row);
         if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col, row);
         if (++col >= sysCols) { col = 0; row++; }

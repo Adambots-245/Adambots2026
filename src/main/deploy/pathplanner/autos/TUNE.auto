@@ -5,21 +5,28 @@
     "data": {
       "commands": [
         {
-          "type": "path",
+          "type": "parallel",
           "data": {
-            "pathName": "1M"
+            "commands": [
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "1M"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "LowerIntakeArm"
+                }
+              }
+            ]
           }
         },
         {
           "type": "named",
           "data": {
             "name": "shoot"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "LowerIntakeArm"
           }
         }
       ]

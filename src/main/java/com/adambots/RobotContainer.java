@@ -186,7 +186,7 @@ public class RobotContainer {
         // Button 7: Bop and run intake
         Buttons.JoystickButton7.whileTrue(intake.bopArmAndRunCommand());
 
-        // Button 14: Lower intake but do not run
+        // Button 12: Lower intake but do not run
         Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the Xbox controller, however we have to many binds on that so we will have to discuss which to drop.
 
         // === Operator (Xbox Controller) ===
@@ -223,11 +223,28 @@ public class RobotContainer {
 
         // === Climber ===
         // D-pad Up: Extend elevator (hold to raise hook)
+        // Bind diagonals too — POV hat wobble between cardinal/diagonal causes stutter
         Buttons.XboxDPadN.whileTrue(climber.extendCommand());
+        Buttons.XboxDPadNE.whileTrue(climber.extendCommand());
+        Buttons.XboxDPadNW.whileTrue(climber.extendCommand());
         // D-pad Down: Climb (hold to retract / pull robot up)
         Buttons.XboxDPadS.whileTrue(climber.climbCommand());
+        Buttons.XboxDPadSE.whileTrue(climber.climbCommand());
+        Buttons.XboxDPadSW.whileTrue(climber.climbCommand());
         // X: Lock climber (stop motor + engage ratchet)
         Buttons.XboxXButton.onTrue(climber.lockCommand());
+
+        // Back: One-press auto-extend — raise elevator to top, then lock
+        Buttons.XboxBackButton.onTrue(
+                    climber.extendCommand()
+                                .until(climber::isAtRaisedLimit)
+                                .andThen(climber.lockCommand()));
+
+        // Start: One-press auto-climb — retract to bottom, then lock
+        Buttons.XboxStartButton.onTrue(
+                    climber.climbCommand()
+                                .until(climber::isAtLoweredLimit)
+                                .andThen(climber.lockCommand()));
     }
 
     // ==================== PATHPLANNER ====================

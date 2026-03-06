@@ -182,12 +182,13 @@ public class TurretSubsystem extends SubsystemBase {
             isCalibrated = true;
         }
 
-        // Dashboard telemetry
-        SmartDashboard.putNumber("Turret/Angle (deg)", getTurretAngleDegrees());
+        // Dashboard telemetry (read angle once to avoid redundant CAN bus reads)
+        double currentAngle = getTurretAngleDegrees();
+        SmartDashboard.putNumber("Turret/Angle (deg)", currentAngle);
         SmartDashboard.putBoolean("Turret/Calibrated", isCalibrated);
         SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
-        SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - getTurretAngleDegrees());
+        SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
         SmartDashboard.putNumber("Turret/TrackingTier", trackingTier);
         // Hot-reload PID from Shuffleboard tunables
         if (turretPEntry != null) {

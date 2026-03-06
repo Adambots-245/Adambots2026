@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = false;
+    public static final boolean TUNING_ENABLED = true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -83,7 +83,7 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 42.0},
+            {2.0, 45.0},
             {2.5, 47.5},
             {3.0, 52.0},
             {4.0, 55.0},
@@ -101,9 +101,9 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID (tested on test board) ====================
-        public static final double kTurretP = 25.0;
+        public static final double kTurretP = 37.0;
         public static final double kTurretI = 0;
-        public static final double kTurretD = 0.01;
+        public static final double kTurretD = 0.05;
         public static final double kTurretFF = 0.0;
 
         // ==================== Motion Magic Profile ====================

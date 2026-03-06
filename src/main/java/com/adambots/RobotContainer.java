@@ -163,6 +163,9 @@ public class RobotContainer {
 
         // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
+        // Button 2: Toggle bop
+        Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
+
         // Button 3: Toggle intake
         Buttons.JoystickButton3.onTrue(
                     // runLowerIntakeArmCommand is runOnce (sets Motion Magic target), so andThen

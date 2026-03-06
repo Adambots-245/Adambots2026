@@ -15,6 +15,12 @@
           "data": {
             "name": "shoot"
           }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "LowerIntakeArm"
+          }
         }
       ]
     }

@@ -74,7 +74,7 @@ public final class Constants {
         public static final double kFlywheelToleranceRPS = 2.0;
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
-        public static final double kLobShotRPS = 55.0;
+        public static final double kLobShotRPS = 49.0;
 
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
@@ -101,9 +101,9 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID (tested on test board) ====================
-        public static final double kTurretP = 37.0;
+        public static final double kTurretP = 35.0;
         public static final double kTurretI = 0;
-        public static final double kTurretD = 0.05;
+        public static final double kTurretD = 0.04;
         public static final double kTurretFF = 0.0;
 
         // ==================== Motion Magic Profile ====================
@@ -344,11 +344,11 @@ public final class Constants {
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
         public static final double kLowSpeed = 0.55;
-        public static final double kHighSpeed = 0.4;
+        public static final double kHighSpeed = 0.3;
 
         public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
         public static final double kArmLoweredPosition = 0.26; // motor rotations when arm is lowered (deployed)
-        public static final double kBopAngle = 0.10;           // motor rotations to bop up from lowered position
+        public static final double kBopAngle = 0.20;           // motor rotations to bop up from lowered position
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)

@@ -177,11 +177,11 @@ public class RobotContainer {
                 intake.runLowerIntakeArmCommand()
                         .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
 
-        // Button 7: Bop intake (up down but do not run)
-        // Buttons.JoystickButton7.whileTrue(IntakeCommands.bopIntakeArmCommand(intake));
+        // Button 7: Bop and run intake
+        Buttons.JoystickButton7.whileTrue(intake.bopArmAndRunCommand());
 
-        // Button 11: Zero Gyro
-        // Buttons.JoystickButton11.onTrue(Commands.run);
+        // Button 14: Lower intake but do not run
+        Buttons.JoystickButton14.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the Xbox controller, however we have to many binds on that so we will have to discuss which to drop.
 
         // === Operator (Xbox Controller) ===
         // Right Trigger: Shoot with throttle-mapped RPS (vision fallback)

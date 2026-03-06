@@ -142,8 +142,9 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Consecutive frames camera must be valid before switching to camera tier (60ms at 3) */
         public static final int kCamHysteresisFrames = 3;
-        /** Scan speed (duty cycle) when searching for hub. Slow enough for camera to detect. */
-        public static final double kScanSpeed = 0.03;
+        /** Scan step size (degrees per cycle) when sweeping to find hub via Motion Magic.
+         *  At 50 Hz, 0.7°/cycle ≈ 35°/sec — fast enough to reacquire, slow enough for camera to detect. */
+        public static final double kScanStepDeg = 0.7;
     }
 
     // ==================== HopperConstants ====================
@@ -303,7 +304,7 @@ public final class Constants {
         /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
         public static final int kMedianFilterSize = 5;
         /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
-        public static final double kLowPassTimeConstant = 0.3;
+        public static final double kLowPassTimeConstant = 0.15;
         /** Robot loop period (seconds) — used for low-pass filter calculation. */
         public static final double kLoopPeriod = 0.02;
     }

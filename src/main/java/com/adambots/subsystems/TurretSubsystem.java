@@ -336,9 +336,10 @@ public class TurretSubsystem extends SubsystemBase {
                 scanDirection = (camAng >= 0) ? 1 : -1;
             } else {
                 trackingTier = 3;
-                if (getTurretAngleDegrees() >= TurretConstants.kTurretMaxDegrees - 1.0) scanDirection = -1;
-                else if (getTurretAngleDegrees() <= 1.0) scanDirection = 1;
-                turretMotor.set(scanDirection * TurretTrackingConstants.kScanSpeed);
+                double current = getTurretAngleDegrees();
+                if (current >= TurretConstants.kTurretMaxDegrees - 1.0) scanDirection = -1;
+                else if (current <= 1.0) scanDirection = 1;
+                setTurretAngle(current + scanDirection * TurretTrackingConstants.kScanStepDeg);
             }
         }).finallyDo(interrupted -> stopTurret())
           .withName("Track Hub");
@@ -409,7 +410,8 @@ public class TurretSubsystem extends SubsystemBase {
                 // Remember which way hub is for scanning if lost
                 scanDirection = (camAng >= 0) ? 1 : -1;
             } else {
-                // SCANNING: sweep to find hub
+                // SCANNING: sweep to find hub using Motion Magic stepping
+                // (avoids jitter from alternating between Motion Magic and raw duty cycle)
                 trackingTier = 3;
                 double current = getTurretAngleDegrees();
 
@@ -420,7 +422,7 @@ public class TurretSubsystem extends SubsystemBase {
                     scanDirection = 1;
                 }
 
-                turretMotor.set(scanDirection * TurretTrackingConstants.kScanSpeed);
+                setTurretAngle(current + scanDirection * TurretTrackingConstants.kScanStepDeg);
             }
         })
         .finallyDo(interrupted -> {

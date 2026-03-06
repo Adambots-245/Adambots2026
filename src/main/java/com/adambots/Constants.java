@@ -121,7 +121,7 @@ public final class Constants {
         /** Turret angle (degrees) that faces straight ahead on the robot. */
         public static final double kTurretForwardDegrees = 90.0;
 
-        public static final double kTurretManualSpeed = 0.05;
+        public static final double kTurretManualStepDeg = 1.8; // ~90°/sec at 50Hz
 
         // ==================== Calibration ====================
         /** Duty cycle for slow drive toward reverse limit during calibration */

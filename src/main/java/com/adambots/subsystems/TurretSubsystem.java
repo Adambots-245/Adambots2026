@@ -228,12 +228,15 @@ public class TurretSubsystem extends SubsystemBase {
             .withName("Aim Turret Dynamic");
     }
 
-    /** Slowly sweeps turret at scan speed. Stops when command ends. */
+    /** Advances turret position via Motion Magic each cycle. Holds final position on release. */
     public Command scanCommand(double speed) {
-        return runEnd(
-            () -> turretMotor.set(speed),
-            this::stopTurret
-        ).withName("Scan Turret");
+        return run(() -> {
+            double current = getTurretAngleDegrees();
+            double step = speed * TurretConstants.kTurretManualStepDeg;
+            setTurretAngle(current + step);
+        }).finallyDo(interrupted -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+        }).withName("Scan Turret");
     }
 
     /** Holds current turret angle. */
@@ -369,55 +372,61 @@ public class TurretSubsystem extends SubsystemBase {
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
             BooleanSupplier cameraHasTarget) {
-        return Commands.runOnce(() -> {
+        boolean[] initialized = {false};
+        return run(() -> {
+            if (!initialized[0]) {
                 holdAngleDegrees = getTurretAngleDegrees();
                 wasAutoTracking = false;
                 camValidFrames = 0;
-            }, this)
-            .andThen(run(() -> {
-                if (!autoTrackEnabled) {
-                    if (wasAutoTracking) {
-                        holdAngleDegrees = getTurretAngleDegrees();
-                        wasAutoTracking = false;
-                    }
-                    trackingTier = 0;
-                    setTurretAngle(holdAngleDegrees);
-                    return;
+                initialized[0] = true;
+            }
+
+            if (!autoTrackEnabled) {
+                if (wasAutoTracking) {
+                    holdAngleDegrees = getTurretAngleDegrees();
+                    wasAutoTracking = false;
                 }
-                wasAutoTracking = true;
+                trackingTier = 0;
+                setTurretAngle(holdAngleDegrees);
+                return;
+            }
+            wasAutoTracking = true;
 
-                boolean camValid = cameraHasTarget.getAsBoolean();
-                camValidFrames = camValid ? camValidFrames + 1 : 0;
-                boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
+            boolean camValid = cameraHasTarget.getAsBoolean();
+            camValidFrames = camValid ? camValidFrames + 1 : 0;
+            boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
 
-                if (useCam) {
-                    // TRACKING: camera has hub — aim directly
-                    trackingTier = 1;
-                    double camAng = cameraAngle.getAsDouble();
-                    double target = MathUtil.clamp(
-                        getTurretAngleDegrees() + camAng,
-                        0, TurretConstants.kTurretMaxDegrees);
-                    setTurretAngle(target);
+            if (useCam) {
+                // TRACKING: camera has hub — aim directly
+                trackingTier = 1;
+                double camAng = cameraAngle.getAsDouble();
+                double target = MathUtil.clamp(
+                    getTurretAngleDegrees() + camAng,
+                    0, TurretConstants.kTurretMaxDegrees);
+                setTurretAngle(target);
 
-                    // Remember which way hub is for scanning if lost
-                    scanDirection = (camAng >= 0) ? 1 : -1;
-                } else {
-                    // SCANNING: sweep to find hub
-                    trackingTier = 3;
-                    double current = getTurretAngleDegrees();
+                // Remember which way hub is for scanning if lost
+                scanDirection = (camAng >= 0) ? 1 : -1;
+            } else {
+                // SCANNING: sweep to find hub
+                trackingTier = 3;
+                double current = getTurretAngleDegrees();
 
-                    // Reverse at limits
-                    if (current >= TurretConstants.kTurretMaxDegrees - 1.0) {
-                        scanDirection = -1;
-                    } else if (current <= 1.0) {
-                        scanDirection = 1;
-                    }
-
-                    turretMotor.set(scanDirection * TurretTrackingConstants.kScanSpeed);
+                // Reverse at limits
+                if (current >= TurretConstants.kTurretMaxDegrees - 1.0) {
+                    scanDirection = -1;
+                } else if (current <= 1.0) {
+                    scanDirection = 1;
                 }
-            }))
-            .finallyDo(interrupted -> stopTurret())
-            .withName("Auto Track Hub");
+
+                turretMotor.set(scanDirection * TurretTrackingConstants.kScanSpeed);
+            }
+        })
+        .finallyDo(interrupted -> {
+            initialized[0] = false;
+            stopTurret();
+        })
+        .withName("Auto Track Hub");
     }
 
     // ==================== Diagnostic Commands ====================

@@ -138,7 +138,7 @@ public class RobotContainer {
                 swerve.driveCommand(
                         Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
                         Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)));
+                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true));
 
         // Turret auto-track: camera-only scan-and-track
         if (visionSubsystem != null) {
@@ -159,7 +159,7 @@ public class RobotContainer {
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
                 () -> intake.stopIntakeCommand()));
-                () -> intake.stopIntakeCommand()));
+                // () -> intake.stopIntakeCommand()));
 
         // Trigger (1): Shoot (full sequence)
         Buttons.JoystickButton1.whileTrue(
@@ -167,7 +167,7 @@ public class RobotContainer {
                         shooter, hopper, visionSubsystem::getHubDistance, intake, false));
 
                 ShootCommands.shootAtDistanceCommand(
-                        shooter, hopper, visionSubsystem::getHubDistance, intake, false));
+                        shooter, hopper, visionSubsystem::getHubDistance, intake, false);
 
         // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
@@ -195,7 +195,7 @@ public class RobotContainer {
         Buttons.JoystickButton7.whileTrue(intake.bopArmAndRunCommand());
 
         // Button 14: Lower intake but do not run
-        Buttons.JoystickButton14.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the Xbox controller, however we have to many binds on that so we will have to discuss which to drop.
+        Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the Xbox controller, however we have to many binds on that so we will have to discuss which to drop.
 
         // === Operator (Xbox Controller) ===
         // Right Trigger: Shoot with throttle-mapped RPS (vision fallback)

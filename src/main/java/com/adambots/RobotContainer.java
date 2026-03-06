@@ -134,7 +134,7 @@ public class RobotContainer {
                 swerve.driveCommand(
                         Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
                         Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true));
+                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)));
 
         // Turret auto-track: camera-only scan-and-track
         if (visionSubsystem != null) {
@@ -154,7 +154,6 @@ public class RobotContainer {
         Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
-                () -> intake.stopIntakeCommand()));
                 () -> intake.stopIntakeCommand()));
 
         // Trigger (1): Shoot (full sequence)

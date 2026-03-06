@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = true;
+    public static final boolean TUNING_ENABLED = false;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -121,7 +121,7 @@ public final class Constants {
         /** Turret angle (degrees) that faces straight ahead on the robot. */
         public static final double kTurretForwardDegrees = 90.0;
 
-        public static final double kTurretManualStepDeg = 1.8; // ~90°/sec at 50Hz
+        public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
         // ==================== Calibration ====================
         /** Duty cycle for slow drive toward reverse limit during calibration */

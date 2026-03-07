@@ -125,16 +125,12 @@ public class RobotContainer {
 
     // ==================== DEFAULT COMMANDS ====================
     private void configureDefaultCommands() {
-        // Swerve drive — negate translation on red so "forward" = away from red driver
-        //
-        // station
-        boolean invertForRed = com.adambots.lib.utils.Utils.isOnRedAlliance();
-
         swerve.setDefaultCommand(
                 swerve.driveCommand(
                         Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
                         Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true)));
+                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
+                        Constants.DriveConstants.kTranslationScale));
 
         // Turret auto-track: camera-only scan-and-track
         if (visionSubsystem != null) {

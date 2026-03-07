@@ -50,6 +50,9 @@ public final class Constants {
         public static final double kAutoRotationP = 0.18;
         public static final double kAutoRotationI = 0.0;
         public static final double kAutoRotationD = 0.0;
+
+        /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
+        public static final double kTranslationScale = 0.8;
     }
 
     // ==================== ShooterConstants ====================

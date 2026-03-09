@@ -12,6 +12,7 @@ import com.adambots.lib.utils.Dash;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.GenericEntry;
@@ -482,5 +483,197 @@ public class TurretSubsystem extends SubsystemBase {
             setTurretAngle(getTurretAngleDegrees());
         })
         .withName("Auto Track Hub");
+    }
+
+    // ==================== Diagnostic Command ====================
+
+    // Stepped diagnostic state (persists across button presses)
+    private int diagStep = 0;
+    private final StringBuilder diagLog = new StringBuilder();
+    private static final int DIAG_TOTAL_STEPS = 6;
+    private String diagInstruction = "Press 'Turret Diag' to start";
+
+    /** Current diagnostic step instruction (for dashboard string widget). */
+    public String getDiagInstruction() { return diagInstruction; }
+
+    /**
+     * Creates a stepped diagnostic command. Each dashboard button press advances
+     * one step. Steps 1-3 jog the turret to known angles so you can observe where
+     * it physically points. Steps 4-5 capture pose/bearing snapshots at positions
+     * you choose. Step 6 captures lead angle data while the robot is moving, then
+     * prints ALL collected results to the console and resets.
+     *
+     * <h3>Steps:</h3>
+     * <ol>
+     *   <li>Jog turret to 0° — observe where the shooter physically points</li>
+     *   <li>Jog turret to 90° — observe where the shooter physically points</li>
+     *   <li>Jog turret to 180° — observe where the shooter physically points</li>
+     *   <li>You position robot so you know where the hub is relative to it. Press button — captures bearing + turretFromPose</li>
+     *   <li>You rotate/reposition robot to a different known orientation. Press button — captures second snapshot</li>
+     *   <li>You strafe the robot sideways. Press button while moving — captures velocity + lead angle, then PRINTS ALL RESULTS and resets</li>
+     * </ol>
+     *
+     * <p>Paste the full output for review. Describe what you physically observed
+     * at each step (where was the turret pointing? where was the hub relative to the robot?).</p>
+     */
+    public Command turretDiagnosticCommand(
+            DoubleSupplier cameraAngle,
+            BooleanSupplier cameraHasTarget,
+            DoubleSupplier poseAngle,
+            BooleanSupplier poseHasTarget,
+            DoubleSupplier robotHeadingRad,
+            DoubleSupplier fieldVxMps,
+            DoubleSupplier fieldVyMps,
+            DoubleSupplier distanceM,
+            Supplier<String> poseStringSupplier) {
+
+        return Commands.runOnce(() -> {
+            diagStep++;
+
+            switch (diagStep) {
+                case 1: // Jog turret to 0°
+                    diagLog.setLength(0); // reset from any previous run
+                    setTurretAngle(0);
+                    diagLog.append("Step 1: Turret jogged to 0 deg\n");
+                    diagLog.append(String.format("  Encoder reads: %.1f deg\n", getTurretAngleDegrees()));
+                    diagInstruction = "1/6: Turret -> 0 deg. Note where shooter points. Press again.";
+                    break;
+
+                case 2: // Jog turret to 90°
+                    diagLog.append(String.format("  Encoder settled: %.1f deg\n\n", getTurretAngleDegrees()));
+                    setTurretAngle(90);
+                    diagLog.append("Step 2: Turret jogged to 90 deg\n");
+                    diagLog.append(String.format("  Encoder reads: %.1f deg\n", getTurretAngleDegrees()));
+                    diagInstruction = "2/6: Turret -> 90 deg. Note where shooter points. Press again.";
+                    break;
+
+                case 3: // Jog turret to 180°
+                    diagLog.append(String.format("  Encoder settled: %.1f deg\n\n", getTurretAngleDegrees()));
+                    setTurretAngle(180);
+                    diagLog.append("Step 3: Turret jogged to 180 deg\n");
+                    diagLog.append(String.format("  Encoder reads: %.1f deg\n", getTurretAngleDegrees()));
+                    diagInstruction = "3/6: Turret -> 180 deg. Observe shooter direction. "
+                        + "Then: point INTAKE at hub. Press when stopped.";
+                    break;
+
+                case 4: // Pose snapshot #1 — intake facing hub
+                    diagLog.append(String.format("  Encoder settled: %.1f deg\n\n", getTurretAngleDegrees()));
+                    setTurretAngle(90); // jog turret to forward so camera faces same way as intake
+                    appendPoseSnapshot(diagLog, "Step 4: Intake facing hub (turret reset to 90)",
+                        poseAngle, poseHasTarget, cameraAngle, cameraHasTarget,
+                        robotHeadingRad, distanceM, poseStringSupplier);
+                    diagLog.append("  EXPECTED: bearing ~ 0 deg, turretFromPose ~ 90 deg\n\n");
+                    diagInstruction = "4/6: Captured. Now rotate robot 90 deg CW (viewed from above). "
+                        + "Press when stopped.";
+                    break;
+
+                case 5: // Pose snapshot #2 — rotated 90° CW from step 4
+                    appendPoseSnapshot(diagLog, "Step 5: After 90 deg CW rotation (hub now to robot left)",
+                        poseAngle, poseHasTarget, cameraAngle, cameraHasTarget,
+                        robotHeadingRad, distanceM, poseStringSupplier);
+                    diagLog.append("  EXPECTED: bearing ~ +90 deg (CCW+), turretFromPose ~ 180 deg\n\n");
+                    diagInstruction = "5/6: Captured. Point intake at hub again. "
+                        + "STRAFE RIGHT with joystick. Press WHILE MOVING.";
+                    break;
+
+                case 6: // Lead angle snapshot — strafing right with intake facing hub
+                    appendLeadSnapshot(diagLog, "Step 6: Strafing RIGHT with intake facing hub",
+                        cameraAngle, cameraHasTarget, poseAngle, poseHasTarget,
+                        robotHeadingRad, fieldVxMps, fieldVyMps, distanceM, poseStringSupplier);
+                    diagLog.append("  EXPECTED: hub is ahead, strafing right = rightward cross-track\n");
+                    diagLog.append("            cross-track < 0, lead angle > 0 (aim left to compensate)\n\n");
+
+                    // Print full results
+                    StringBuilder out = new StringBuilder();
+                    out.append("\n============ TURRET DIAGNOSTIC FULL RESULTS ============\n");
+                    out.append("Paste this output for review.\n");
+                    out.append("========================================================\n\n");
+                    out.append(diagLog);
+                    out.append("=============== EXPECTED vs ACTUAL SUMMARY =============\n");
+                    out.append("Step 1: Turret at 0 deg  = reverse hardware limit\n");
+                    out.append("Step 2: Turret at 90 deg = should point same direction as intake (forward)\n");
+                    out.append("Step 3: Turret at 180 deg = forward hardware limit\n");
+                    out.append("Step 4: Intake facing hub → bearing ~ 0, turretFromPose ~ 90\n");
+                    out.append("Step 5: 90 CW from step 4 → bearing ~ +90, turretFromPose ~ 180\n");
+                    out.append("Step 6: Strafe right, intake at hub → cross-track < 0, lead > 0\n");
+                    out.append("========================================================\n");
+
+                    System.out.println(out.toString());
+
+                    // Reset for next run
+                    diagStep = 0;
+                    diagLog.setLength(0);
+                    diagInstruction = "Done! Paste console output. Press to restart.";
+                    return;
+
+                default:
+                    diagStep = 0;
+                    diagInstruction = "Press 'Turret Diag' to start";
+                    return;
+            }
+        }).withName("Turret Diagnostic");
+    }
+
+    /** Appends a pose/bearing snapshot to the diagnostic log. */
+    private void appendPoseSnapshot(StringBuilder log, String label,
+            DoubleSupplier poseAngle, BooleanSupplier poseHasTarget,
+            DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
+            DoubleSupplier robotHeadingRad, DoubleSupplier distanceM,
+            Supplier<String> poseStringSupplier) {
+        double turretAngle = getTurretAngleDegrees();
+        double bearing = poseAngle.getAsDouble();
+        boolean poseVis = poseHasTarget.getAsBoolean();
+        double turretFromPose = poseVis
+            ? MathUtil.clamp(poseAngleToTurretAngle(bearing), 0, TurretConstants.kTurretMaxDegrees)
+            : Double.NaN;
+
+        log.append(label).append("\n");
+        log.append(String.format("  Robot Pose:        %s\n", poseStringSupplier.get()));
+        log.append(String.format("  Robot Heading:     %.1f deg (field, CCW+)\n",
+            Math.toDegrees(robotHeadingRad.getAsDouble())));
+        log.append(String.format("  Turret Encoder:    %.1f deg\n", turretAngle));
+        log.append(String.format("  Pose Has Target:   %s\n", poseVis));
+        log.append(String.format("  Hub Pose Bearing:  %.1f deg (robot-relative, CCW+)\n", bearing));
+        log.append(String.format("  Turret from Pose:  %.1f deg (after conversion + clamp)\n", turretFromPose));
+        log.append(String.format("  Camera Has Target: %s\n", cameraHasTarget.getAsBoolean()));
+        log.append(String.format("  Camera Yaw:        %.1f deg (offset from turret center)\n",
+            cameraAngle.getAsDouble()));
+        log.append(String.format("  Hub Distance:      %.2f m\n", distanceM.getAsDouble()));
+        log.append("\n");
+    }
+
+    /** Appends a lead-angle snapshot (while robot is moving) to the diagnostic log. */
+    private void appendLeadSnapshot(StringBuilder log, String label,
+            DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
+            DoubleSupplier poseAngle, BooleanSupplier poseHasTarget,
+            DoubleSupplier robotHeadingRad,
+            DoubleSupplier fieldVxMps, DoubleSupplier fieldVyMps,
+            DoubleSupplier distanceM, Supplier<String> poseStringSupplier) {
+        double turretAngle = getTurretAngleDegrees();
+        double heading = Math.toDegrees(robotHeadingRad.getAsDouble());
+        double vx = fieldVxMps.getAsDouble();
+        double vy = fieldVyMps.getAsDouble();
+        double dist = distanceM.getAsDouble();
+
+        double fieldAimDeg = heading + (turretAngle - TurretConstants.kTurretForwardDegrees);
+
+        double leadAngle = TurretTracking.computeLeadAngleDeg(
+            turretAngle, robotHeadingRad.getAsDouble(), vx, vy, dist,
+            TurretTrackingConstants.kBallExitSpeedMps);
+
+        double aimFieldRad = robotHeadingRad.getAsDouble()
+            + Math.toRadians(turretAngle - TurretConstants.kTurretForwardDegrees);
+        double crossTrackVel = -vx * Math.sin(aimFieldRad) + vy * Math.cos(aimFieldRad);
+
+        log.append(label).append("\n");
+        log.append(String.format("  Robot Pose:        %s\n", poseStringSupplier.get()));
+        log.append(String.format("  Robot Heading:     %.1f deg (field, CCW+)\n", heading));
+        log.append(String.format("  Turret Encoder:    %.1f deg\n", turretAngle));
+        log.append(String.format("  Field Aim Dir:     %.1f deg (heading + turret - 90)\n", fieldAimDeg));
+        log.append(String.format("  Hub Distance:      %.2f m\n", dist));
+        log.append(String.format("  Robot Velocity:    vx=%.2f  vy=%.2f m/s (field)\n", vx, vy));
+        log.append(String.format("  Cross-Track Vel:   %.2f m/s (perp to aim dir)\n", crossTrackVel));
+        log.append(String.format("  Lead Angle:        %.2f deg (added to turret target)\n", leadAngle));
+        log.append("\n");
     }
 }

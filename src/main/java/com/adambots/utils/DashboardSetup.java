@@ -237,6 +237,25 @@ public final class DashboardSetup {
             Dash.addCommand("Log Vision", visionSubsystem.logVisionCommand(), col++, row);
         }
 
+        // Diagnostic: stepped wizard that prints turret tracking results to console
+        if (visionSubsystem != null) {
+            col = 0; row++;
+            Dash.add("Diag Step", turret::getDiagInstruction, col++, row);
+            Dash.addCommand("Turret Diag",
+                turret.turretDiagnosticCommand(
+                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
+                    () -> swerve.getHeading().getRadians(),
+                    () -> swerve.getFieldVelocity().vxMetersPerSecond,
+                    () -> swerve.getFieldVelocity().vyMetersPerSecond,
+                    visionSubsystem::getHubDistance,
+                    () -> {
+                        var p = swerve.getPose();
+                        return String.format("(%.2f, %.2f)", p.getX(), p.getY());
+                    })
+                    .withName("Turret Diagnostic"), col++, row);
+        }
+
         Dash.useDefaultTab();
     }
 

@@ -152,7 +152,7 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.10;
+        public static final double kHopperSpeed = 0.13;
         public static final double kUptakeSpeed = 0.5;
         public static final double kDetectionRange = 2.0; // cm
     }

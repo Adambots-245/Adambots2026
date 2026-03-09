@@ -127,8 +127,8 @@ public class RobotContainer {
     private void configureDefaultCommands() {
         swerve.setDefaultCommand(
                 swerve.driveCommand(
-                        Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                        Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
+                        Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
+                        Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Constants.DriveConstants.kTranslationScale));
 
@@ -216,9 +216,9 @@ public class RobotContainer {
 
         // D-pad Left/Right: Manual turret adjust
         Buttons.XboxDPadW.whileTrue(
-                    turret.scanCommand(1.0));
-        Buttons.XboxDPadE.whileTrue(
                     turret.scanCommand(-1.0));
+        Buttons.XboxDPadE.whileTrue(
+                    turret.scanCommand(1.0));
 
         // === Climber ===
         // D-pad Up: Extend elevator (hold to raise hook)

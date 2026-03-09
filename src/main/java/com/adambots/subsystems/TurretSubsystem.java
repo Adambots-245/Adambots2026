@@ -16,6 +16,7 @@ import java.util.function.DoubleSupplier;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.networktables.GenericEntry;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -31,6 +32,9 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  */
 @Logged
 public class TurretSubsystem extends SubsystemBase {
+
+    /** Tracking state for telemetry. */
+    enum TrackingMode { HOLD, CAMERA, POSE, SWEEP }
 
     private final BaseMotor turretMotor;
 
@@ -50,22 +54,20 @@ public class TurretSubsystem extends SubsystemBase {
     // Calibration state
     private boolean isCalibrated = false;
 
-    // Last known pose-based ideal angle for smart scan fallback (default: center of range)
-    private double lastPoseIdealAngle = TurretConstants.kTurretMaxDegrees / 2.0;
-
-    // Scan direction for camera-only tracking: +1 = toward max, -1 = toward 0
-    private int scanDirection = 1;
-
     // Auto-track toggle (driver opts in via Button 5)
     private boolean autoTrackEnabled = false;
     private boolean wasAutoTracking = false;
     private double holdAngleDegrees = 0.0;
 
-    // Tracking tier for diagnostics: 0=idle, 1=camera, 2=pose, 3=smart-scan
-    private int trackingTier = 0;
+    // Current tracking mode for telemetry
+    private TrackingMode trackingMode = TrackingMode.HOLD;
 
     // Camera hysteresis: require N consecutive valid frames before switching to camera tier
     private int camValidFrames = 0;
+
+    // Pose-fallback timer: tracks how long camera has been lost while in pose mode
+    private double cameraLostTimestamp = 0.0;
+    private boolean cameraWasTracking = false;
 
     // Pose-to-turret offset: poseAngle - offset = turret angle.
     // Derived from kTurretForwardDegrees (the turret angle that faces robot forward).
@@ -189,7 +191,7 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
-        SmartDashboard.putNumber("Turret/TrackingTier", trackingTier);
+        SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
         // Hot-reload PID from Shuffleboard tunables
         if (turretPEntry != null) {
             double p = turretPEntry.getDouble(TurretConstants.kTurretP);
@@ -280,279 +282,205 @@ public class TurretSubsystem extends SubsystemBase {
         .withName("Calibrate Turret");
     }
 
-    // ==================== Vision Tracking Commands ====================
+    // ==================== Vision Tracking ====================
 
-    /**
-     * Converts a robot-relative pose bearing to an unclamped turret angle.
-     * Uses centered inputModulus so that bearings outside the turret's arc
-     * map to the nearest limit (0° or kTurretMaxDegrees) after clamping,
-     * rather than always wrapping to the far limit.
-     */
     private double poseAngleToTurretAngle(double poseAngle) {
-        double turretCenterBearing = poseOffsetDegrees + TurretConstants.kTurretMaxDegrees / 2.0;
-        return MathUtil.inputModulus(poseAngle - turretCenterBearing, -180, 180)
-               + TurretConstants.kTurretMaxDegrees / 2.0;
+        return TurretTracking.poseAngleToTurretAngle(poseAngle, poseOffsetDegrees);
     }
 
     /**
-     * Converts raw vision angles to an absolute turret position, clamped to [0, kTurretMaxDegrees].
-     * Camera angle is a turret-relative offset (add to current heading).
-     * Pose angle is a robot-relative bearing (subtract poseOffsetDegrees to convert to turret frame).
-     * The offset is tunable — derived from kTurretForwardDegrees so turret center faces robot forward.
-     */
-    private double toAbsoluteTurretAngle(double cameraAngle, boolean cameraHasTarget,
-                                          double poseAngle, boolean poseHasTarget) {
-        double target;
-        if (cameraHasTarget) {
-            target = getTurretAngleDegrees() + cameraAngle;
-        } else if (poseHasTarget) {
-            target = poseAngleToTurretAngle(poseAngle);
-        } else {
-            return getTurretAngleDegrees(); // hold position
-        }
-        return MathUtil.clamp(target, 0, TurretConstants.kTurretMaxDegrees);
-    }
-
-    /**
-     * Continuously aims turret at the hub using camera-only scan-and-track.
-     * TRACKING: camera sees hub → aim directly using camera offset.
-     * SCANNING: camera lost → sweep turret in last-known direction, reversing at limits.
-     */
-    public Command trackHubCommand(
-            DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget) {
-        return run(() -> {
-            boolean camValid = cameraHasTarget.getAsBoolean();
-            camValidFrames = camValid ? camValidFrames + 1 : 0;
-            boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
-
-            if (useCam) {
-                trackingTier = 1;
-                double camAng = cameraAngle.getAsDouble();
-                double target = MathUtil.clamp(
-                    getTurretAngleDegrees() + camAng,
-                    0, TurretConstants.kTurretMaxDegrees);
-                setTurretAngle(target);
-                scanDirection = (camAng >= 0) ? 1 : -1;
-            } else {
-                trackingTier = 3;
-                double current = getTurretAngleDegrees();
-                if (current >= TurretConstants.kTurretMaxDegrees - 1.0) scanDirection = -1;
-                else if (current <= 1.0) scanDirection = 1;
-                setTurretAngle(current + scanDirection * TurretTrackingConstants.kScanStepDeg);
-            }
-        }).finallyDo(interrupted -> stopTurret())
-          .withName("Track Hub");
-    }
-
-    /**
-     * Uses lastPoseIdealAngle to determine where to aim when both camera and pose are lost.
-     * lastPoseIdealAngle is an unclamped turret angle from poseAngleToTurretAngle():
-     * - [0, kTurretMaxDegrees]: hub is within turret range → aim directly
-     * - > kTurretMaxDegrees: hub is past max limit → park at max
-     * - < 0: hub is past min limit → park at 0
-     */
-    private double smartScanFallback() {
-        if (lastPoseIdealAngle >= 0 && lastPoseIdealAngle <= TurretConstants.kTurretMaxDegrees) {
-            return lastPoseIdealAngle;
-        } else if (lastPoseIdealAngle > TurretConstants.kTurretMaxDegrees) {
-            return TurretConstants.kTurretMaxDegrees;
-        } else {
-            return 0;
-        }
-    }
-
-    /**
-     * Auto-track with camera-only scan-and-track.
-     * TRACKING: camera sees hub → aim directly using camera offset.
-     * SCANNING: camera lost → sweep turret in last-known direction, reversing at limits.
-     * Respects autoTrackEnabled toggle — holds position when disabled.
+     * Unified auto-track command: keeps the turret aimed at the hub using the best
+     * available sensor data, with lead angle compensation for shooting while moving.
      *
-     * @param cameraAngle turret-relative offset angle from shooter camera
-     * @param cameraHasTarget whether shooter camera sees the hub
+     * <h3>How it works (priority order):</h3>
+     * <ol>
+     *   <li><b>CAMERA</b> — Camera sees the hub? Aim directly using the camera's
+     *       reported offset from turret center. This is the most accurate source
+     *       because it measures the actual hub position, not an estimate.</li>
+     *   <li><b>POSE</b> — Camera lost but odometry knows where we are? Compute
+     *       the bearing to the hub from our pose and convert it to a turret angle.
+     *       Less accurate (odometry drifts), but keeps us close.</li>
+     *   <li><b>SWEEP</b> — Camera has been lost for more than 2 seconds and we're
+     *       still on pose? The pose estimate might be wrong, so oscillate ±15°
+     *       around the pose target to help the camera re-acquire the hub.</li>
+     *   <li><b>HOLD</b> — Nothing available (no camera, no pose), or the driver
+     *       has disabled auto-tracking (Button 5). Just hold the current angle.</li>
+     * </ol>
+     *
+     * <h3>Lead angle compensation (shooting while moving):</h3>
+     * When the robot is driving, the ball inherits the robot's sideways velocity.
+     * Without compensation, a ball aimed directly at the hub will miss because it
+     * drifts during flight. We compute a small angular offset that aims the turret
+     * slightly "into" the robot's motion to cancel this drift.
+     * See {@link TurretTracking#computeLeadAngleDeg} for the math.
+     *
+     * <h3>Camera hysteresis:</h3>
+     * The camera must report a valid target for 3 consecutive frames (60ms) before
+     * we trust it. This prevents single-frame false positives from jerking the turret.
+     *
+     * <h3>All moves use Motion Magic</h3>
+     * Every setTurretAngle() call goes through the motor controller's Motion Magic
+     * profile (trapezoidal velocity). This keeps motion smooth even when switching
+     * between tracking modes — no sudden jerks or oscillations.
+     *
+     * @param cameraAngle    turret-relative offset angle from the shooter camera (degrees).
+     *                       Positive = hub is to the right of turret center.
+     * @param cameraHasTarget whether the shooter camera currently sees the hub
+     * @param poseAngle      robot-relative bearing to the hub from pose estimation (degrees)
+     * @param poseHasTarget  whether pose estimation has a valid hub bearing
+     * @param robotHeadingRad robot heading in field frame (radians, CCW positive) for lead angle
+     * @param fieldVxMps     robot X velocity in field frame (m/s) for lead angle
+     * @param fieldVyMps     robot Y velocity in field frame (m/s) for lead angle
+     * @param distanceM      distance to hub (meters) for lead angle
      */
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget) {
-        boolean[] initialized = {false};
-        return run(() -> {
-            if (!initialized[0]) {
-                holdAngleDegrees = getTurretAngleDegrees();
-                wasAutoTracking = false;
-                camValidFrames = 0;
-                initialized[0] = true;
-            }
+            BooleanSupplier cameraHasTarget,
+            DoubleSupplier poseAngle,
+            BooleanSupplier poseHasTarget,
+            DoubleSupplier robotHeadingRad,
+            DoubleSupplier fieldVxMps,
+            DoubleSupplier fieldVyMps,
+            DoubleSupplier distanceM) {
 
+        // ---------------------------------------------------------------
+        // Command structure: runOnce(init) → run(execute) → finallyDo(end)
+        //
+        // We use Commands.runOnce().andThen(run()) instead of a boolean[]
+        // flag because Java lambdas can only capture effectively-final
+        // local variables. This pattern gives us a clean "initialize once"
+        // step without needing a mutable boolean hack.
+        // ---------------------------------------------------------------
+
+        return Commands.runOnce(() -> {
+            // === INITIALIZATION (runs once when command starts) ===
+            // Capture the turret's current position as the "hold" angle.
+            // If auto-track is disabled, we'll hold here until the driver
+            // re-enables it.
+            holdAngleDegrees = getTurretAngleDegrees();
+            wasAutoTracking = false;
+            camValidFrames = 0;
+            cameraWasTracking = false;
+            cameraLostTimestamp = 0.0;
+        }, this)
+        .andThen(run(() -> {
+            // === EXECUTE (runs every 20ms cycle) ===
+
+            // ------ Auto-track toggle (Button 5) ------
+            // If the driver has disabled auto-tracking, just hold position.
+            // When they disable it, we capture the current angle so the turret
+            // doesn't snap to some stale target when re-enabled.
             if (!autoTrackEnabled) {
                 if (wasAutoTracking) {
+                    // Driver just toggled off — freeze at current position
                     holdAngleDegrees = getTurretAngleDegrees();
                     wasAutoTracking = false;
                 }
-                trackingTier = 0;
+                trackingMode = TrackingMode.HOLD;
                 setTurretAngle(holdAngleDegrees);
                 return;
             }
             wasAutoTracking = true;
 
+            // ------ Camera hysteresis ------
+            // Count consecutive frames where the camera reports a valid target.
+            // Only trust the camera after kCamHysteresisFrames (3) in a row.
+            // This prevents single-frame false positives from causing jitter.
             boolean camValid = cameraHasTarget.getAsBoolean();
             camValidFrames = camValid ? camValidFrames + 1 : 0;
             boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
+            boolean poseValid = poseHasTarget.getAsBoolean();
+
+            // ------ Lead angle compensation ------
+            // Compute how many degrees to offset the turret aim to account for
+            // the robot's lateral motion. This is applied to ALL tracking modes
+            // (camera, pose, sweep) because the ball always inherits the robot's
+            // velocity regardless of how we determined the aim direction.
+            double currentAngle = getTurretAngleDegrees();
+            double leadAngle = TurretTracking.computeLeadAngleDeg(
+                currentAngle,
+                robotHeadingRad.getAsDouble(),
+                fieldVxMps.getAsDouble(),
+                fieldVyMps.getAsDouble(),
+                distanceM.getAsDouble(),
+                TurretTrackingConstants.kBallExitSpeedMps);
 
             if (useCam) {
-                // TRACKING: camera has hub — aim directly
-                trackingTier = 1;
-                double camAng = cameraAngle.getAsDouble();
+                // ------ CAMERA MODE (highest priority) ------
+                // The camera directly measures the hub's position relative to the
+                // turret. We add the camera offset to our current angle to get the
+                // absolute target. This is the most accurate tracking mode.
+                trackingMode = TrackingMode.CAMERA;
                 double target = MathUtil.clamp(
-                    getTurretAngleDegrees() + camAng,
+                    currentAngle + cameraAngle.getAsDouble() + leadAngle,
                     0, TurretConstants.kTurretMaxDegrees);
                 setTurretAngle(target);
 
-                // Remember which way hub is for scanning if lost
-                scanDirection = (camAng >= 0) ? 1 : -1;
-            } else {
-                // SCANNING: sweep to find hub using Motion Magic stepping
-                // (avoids jitter from alternating between Motion Magic and raw duty cycle)
-                trackingTier = 3;
-                double current = getTurretAngleDegrees();
+                // Reset the pose-fallback timer because the camera is healthy.
+                // If we lose the camera later, the timer starts from zero.
+                cameraWasTracking = true;
+                cameraLostTimestamp = 0.0;
 
-                // Reverse at limits
-                if (current >= TurretConstants.kTurretMaxDegrees - 1.0) {
-                    scanDirection = -1;
-                } else if (current <= 1.0) {
-                    scanDirection = 1;
+            } else if (poseValid) {
+                // ------ POSE / SWEEP MODE (camera lost, odometry available) ------
+                // Compute where the hub should be based on our odometry pose.
+                // poseAngleToTurretAngle() converts the robot-relative bearing
+                // into turret coordinates.
+                double poseTarget = MathUtil.clamp(
+                    poseAngleToTurretAngle(poseAngle.getAsDouble()) + leadAngle,
+                    0, TurretConstants.kTurretMaxDegrees);
+
+                // Track how long the camera has been lost. If the camera was
+                // working and just went away, record the timestamp.
+                double now = Timer.getFPGATimestamp();
+                if (cameraWasTracking) {
+                    cameraLostTimestamp = now;
+                    cameraWasTracking = false;
                 }
 
-                setTurretAngle(current + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                double cameraLostDuration = (cameraLostTimestamp > 0)
+                    ? (now - cameraLostTimestamp) : 0.0;
+
+                if (cameraLostDuration > TurretTrackingConstants.kPoseFallbackSweepTimeSec) {
+                    // --- SWEEP: camera lost for too long, help it re-acquire ---
+                    // Odometry might have drifted, so the pose target could be
+                    // slightly off. We oscillate ±15° around the pose target
+                    // using a sine wave, which sweeps the camera's FOV across
+                    // a wider area to find the hub.
+                    trackingMode = TrackingMode.SWEEP;
+                    double period = 2.0; // seconds for one full left-right cycle
+                    double sweep = TurretTrackingConstants.kPoseFallbackSweepAmplitudeDeg
+                        * Math.sin(2.0 * Math.PI * now / period);
+                    double target = MathUtil.clamp(
+                        poseTarget + sweep, 0, TurretConstants.kTurretMaxDegrees);
+                    setTurretAngle(target);
+                } else {
+                    // --- POSE: camera recently lost, trust odometry ---
+                    // The pose estimate is usually still accurate shortly after
+                    // losing the camera. Aim directly at the computed target
+                    // and wait for the camera to re-acquire.
+                    trackingMode = TrackingMode.POSE;
+                    setTurretAngle(poseTarget);
+                }
+
+            } else {
+                // ------ HOLD MODE (nothing available) ------
+                // No camera, no pose — we have no idea where the hub is.
+                // Hold the turret at its current position to avoid random motion.
+                // The driver can use D-pad manual scan to find the hub.
+                trackingMode = TrackingMode.HOLD;
+                setTurretAngle(currentAngle);
             }
-        })
+        }))
         .finallyDo(interrupted -> {
-            initialized[0] = false;
-            stopTurret();
+            // === CLEANUP (runs when command ends or is interrupted) ===
+            // Hold at current position rather than stopTurret() (duty cycle 0).
+            // This keeps Motion Magic PID active so the turret doesn't coast/drift
+            // during the ~20ms gap before the default command restarts.
+            // When used inside autoShootCommand (not as default), this also prevents
+            // the turret from going limp between sequence steps.
+            setTurretAngle(getTurretAngleDegrees());
         })
         .withName("Auto Track Hub");
-    }
-
-    // ==================== Diagnostic Commands ====================
-
-    /**
-     * Diagnostic: one-shot align to hub with dense logging.
-     * Logs at 5 Hz showing every step of the angle computation.
-     * Runs until turret is on-target (within tolerance) or 8-second timeout.
-     * Use: point camera roughly at hub, press button, copy RioLog output.
-     */
-    public Command diagAlignCommand(
-            DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle, BooleanSupplier poseHasTarget,
-            DoubleSupplier hubDistance) {
-        final double[] logTimer = {0};
-        final boolean[] hasExecuted = {false};
-        return Commands.runOnce(() -> {
-                logTimer[0] = 0;
-                hasExecuted[0] = false;
-                System.out.println("[DiagAlign] === START === turret=" + String.format("%.1f", getTurretAngleDegrees())
-                    + "° poseOffset=" + String.format("%.1f", poseOffsetDegrees) + "°");
-            }, this)
-            .andThen(run(() -> {
-                boolean camValid = cameraHasTarget.getAsBoolean();
-                boolean poseValid = poseHasTarget.getAsBoolean();
-                double camAng = cameraAngle.getAsDouble();
-                double poseAng = poseAngle.getAsDouble();
-                double dist = hubDistance.getAsDouble();
-                double currentAngle = getTurretAngleDegrees();
-
-                double targetAngle = toAbsoluteTurretAngle(camAng, camValid, poseAng, poseValid);
-                setTurretAngle(targetAngle);
-                hasExecuted[0] = true;
-
-                // Log at 5 Hz (every 0.2s)
-                logTimer[0] += 0.02;
-                if (logTimer[0] >= 0.2) {
-                    logTimer[0] = 0;
-                    String src = camValid ? "CAM" : poseValid ? "POSE" : "NONE";
-                    double rawInput = camValid ? camAng : poseAng;
-                    System.out.printf(
-                        "[DiagAlign] src=%s rawAng=%.1f camAng=%.1f poseAng=%.1f turret=%.1f→%.1f err=%.1f dist=%.2f%n",
-                        src, rawInput, camAng, poseAng, currentAngle, targetAngle,
-                        targetAngle - currentAngle, dist);
-                }
-            }))
-            .until(() -> hasExecuted[0] && isAtTarget(trackingToleranceDeg))
-            .withTimeout(8.0)
-            .finallyDo(interrupted -> {
-                System.out.printf("[DiagAlign] === %s === turret=%.1f° setpoint=%.1f° err=%.1f°%n",
-                    interrupted ? "TIMEOUT" : "ALIGNED",
-                    getTurretAngleDegrees(), lastSetpointDegrees,
-                    lastSetpointDegrees - getTurretAngleDegrees());
-            })
-            .withName("Diag: Align");
-    }
-
-    /**
-     * Diagnostic: continuous auto-track with dense logging.
-     * Logs at 4 Hz showing tier transitions, angle sources, and turret movement.
-     * Hold the button / run command while moving the robot around, then release.
-     * Copy RioLog output for analysis.
-     */
-    public Command diagAutoTrackCommand(
-            DoubleSupplier cameraAngle, BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle, BooleanSupplier poseHasTarget,
-            DoubleSupplier hubDistance) {
-        final double[] logTimer = {0};
-        final int[] prevTier = {-1};
-        return Commands.runOnce(() -> {
-                logTimer[0] = 0;
-                prevTier[0] = -1;
-                System.out.println("[DiagTrack] === START === turret=" + String.format("%.1f", getTurretAngleDegrees())
-                    + "° poseOffset=" + String.format("%.1f", poseOffsetDegrees) + "°");
-            }, this)
-            .andThen(run(() -> {
-                boolean camValid = cameraHasTarget.getAsBoolean();
-                boolean poseValid = poseHasTarget.getAsBoolean();
-                camValidFrames = camValid ? camValidFrames + 1 : 0;
-                boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
-                double camAng = cameraAngle.getAsDouble();
-                double poseAng = poseAngle.getAsDouble();
-                double dist = hubDistance.getAsDouble();
-                double currentAngle = getTurretAngleDegrees();
-
-                int tier;
-                double targetAngle;
-                if (useCam) {
-                    tier = 1;
-                    targetAngle = toAbsoluteTurretAngle(camAng, true, poseAng, poseValid);
-                } else if (poseValid) {
-                    tier = 2;
-                    targetAngle = toAbsoluteTurretAngle(camAng, false, poseAng, true);
-                    lastPoseIdealAngle = poseAngleToTurretAngle(poseAng);
-                } else {
-                    tier = 3;
-                    targetAngle = smartScanFallback();
-                }
-                trackingTier = tier;
-                setTurretAngle(targetAngle);
-
-                // Log tier transitions immediately
-                if (tier != prevTier[0]) {
-                    System.out.printf("[DiagTrack] TIER %d→%d turret=%.1f° target=%.1f°%n",
-                        prevTier[0], tier, currentAngle, targetAngle);
-                    prevTier[0] = tier;
-                }
-
-                // Regular log at 4 Hz (every 0.25s)
-                logTimer[0] += 0.02;
-                if (logTimer[0] >= 0.25) {
-                    logTimer[0] = 0;
-                    String src = tier == 1 ? "CAM" : tier == 2 ? "POSE" : "SCAN";
-                    System.out.printf(
-                        "[DiagTrack] t=%s camAng=%.1f poseAng=%.1f turret=%.1f→%.1f err=%.1f dist=%.2f%n",
-                        src, camAng, poseAng, currentAngle, targetAngle,
-                        targetAngle - currentAngle, dist);
-                }
-            }))
-            .finallyDo(interrupted -> {
-                System.out.printf("[DiagTrack] === STOP === turret=%.1f° lastTier=%d%n",
-                    getTurretAngleDegrees(), trackingTier);
-            })
-            .withName("Diag: Auto Track");
     }
 }

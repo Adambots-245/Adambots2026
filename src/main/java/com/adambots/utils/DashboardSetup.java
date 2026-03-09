@@ -211,10 +211,15 @@ public final class DashboardSetup {
         Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), col++, row);
         Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
         if (visionSubsystem != null) {
-            Dash.addCommand("Track Hub",
-                turret.trackHubCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible)
-                    .withName("Track Hub"), col++, row);
+            Dash.addCommand("Auto Track",
+                turret.autoTrackCommand(
+                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
+                    () -> swerve.getHeading().getRadians(),
+                    () -> swerve.getFieldVelocity().vxMetersPerSecond,
+                    () -> swerve.getFieldVelocity().vyMetersPerSecond,
+                    visionSubsystem::getHubDistance)
+                    .withName("Auto Track"), col++, row);
         }
 
         // Climber commands
@@ -230,23 +235,6 @@ public final class DashboardSetup {
         Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
         if (visionSubsystem != null) {
             Dash.addCommand("Log Vision", visionSubsystem.logVisionCommand(), col++, row);
-        }
-
-        // Diagnostic commands row (for troubleshooting turret + vision alignment)
-        if (visionSubsystem != null) {
-            col = 0; row++;
-            Dash.addCommand("Diag: Align",
-                turret.diagAlignCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                    visionSubsystem::getHubDistance)
-                    .withName("Diag: Align"), col++, row);
-            Dash.addCommand("Diag: Auto Track",
-                turret.diagAutoTrackCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                    visionSubsystem::getHubDistance)
-                    .withName("Diag: Auto Track"), col++, row);
         }
 
         Dash.useDefaultTab();

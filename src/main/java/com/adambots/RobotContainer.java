@@ -132,10 +132,15 @@ public class RobotContainer {
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Constants.DriveConstants.kTranslationScale));
 
-        // Turret auto-track: camera-only scan-and-track
+        // Turret auto-track: camera → pose → sweep → hold, with lead angle compensation
         if (visionSubsystem != null) {
             turret.setDefaultCommand(turret.autoTrackCommand(
-                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
+                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
+                        visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
+                        () -> swerve.getHeading().getRadians(),
+                        () -> swerve.getFieldVelocity().vxMetersPerSecond,
+                        () -> swerve.getFieldVelocity().vyMetersPerSecond,
+                        visionSubsystem::getHubDistance));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());
         }

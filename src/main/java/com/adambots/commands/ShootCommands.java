@@ -123,17 +123,24 @@ public final class ShootCommands {
             HopperSubsystem hopper,
             DoubleSupplier cameraAngle,
             BooleanSupplier cameraHasTarget,
+            DoubleSupplier poseAngle,
+            BooleanSupplier poseHasTarget,
+            DoubleSupplier robotHeadingRad,
+            DoubleSupplier fieldVxMps,
+            DoubleSupplier fieldVyMps,
             DoubleSupplier visionDist) {
         return Commands.sequence(
             // Track and spin up simultaneously
             Commands.parallel(
-                turret.trackHubCommand(cameraAngle, cameraHasTarget),
+                turret.autoTrackCommand(cameraAngle, cameraHasTarget, poseAngle, poseHasTarget,
+                    robotHeadingRad, fieldVxMps, fieldVyMps, visionDist),
                 shooter.spinForDistanceCommand(visionDist)
             ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
              .withTimeout(kSpinUpTimeoutSeconds),
             // Keep spinning + tracking while feeding
             Commands.parallel(
-                turret.trackHubCommand(cameraAngle, cameraHasTarget),
+                turret.autoTrackCommand(cameraAngle, cameraHasTarget, poseAngle, poseHasTarget,
+                    robotHeadingRad, fieldVxMps, fieldVyMps, visionDist),
                 shooter.spinForDistanceCommand(visionDist),
                 hopper.feedCommand()
             ).withTimeout(kShootDurationSeconds),

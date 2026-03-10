@@ -1,0 +1,8 @@
+strategy:
+ - decide which autons we want to do/be able to do
+ - do we climb?
+paths:
+ - replace short segments with longer, smoother ones
+ - make the ones which we decided on in strategy
+autons:
+ - make the autons from the paths as defined in strategy

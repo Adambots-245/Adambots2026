@@ -363,6 +363,38 @@ public class IntakeSubsystem extends SubsystemBase {
         ).withName("Bop Arm");
     }
 
+        /**
+     * Command to bop the intake arm — oscillates slightly up and down from the
+     * lowered position to nudge balls toward the hopper while shooting.
+     * Hold to keep bopping; releases back to lowered on end.
+     */
+    public Command bopArmAndRunCommand() {
+        // Track which phase we're in (up vs down)
+        boolean[] bopUp = {true};
+        double[] switchTime = {0};
+        return runEnd(
+            () -> {
+                double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+                double lowered = armLoweredPosition;
+                double raised = lowered - bopAngle;  // negative = up
+                // Switch direction based on elapsed time since last switch
+                if (now - switchTime[0] > 0.35) {
+                    bopUp[0] = !bopUp[0];
+                    switchTime[0] = now;
+                }
+                targetPosition = bopUp[0] ? raised : lowered;
+                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+                // TODO(vx-clutch): factor out the duplicated logic from the regular bop and just add this
+                intakeMotor.set(IntakeConstants.kHighSpeed);
+            },
+            () -> {
+                bopUp[0] = true;
+                lowerIntakeArm();
+            }
+        ).withName("Bop Arm and Run");
+    }
+
+
     /**
      * Command to reset all tunable PID/feedforward gains back to code constants.
      */

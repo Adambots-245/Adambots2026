@@ -382,6 +382,7 @@ public class VisionSubsystem extends SubsystemBase {
         if (cam == null) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
+                camDistMedian.reset();
                 camAngleMedian.reset();
                 camAngleLowPass.reset();
             }
@@ -396,6 +397,7 @@ public class VisionSubsystem extends SubsystemBase {
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
+                camDistMedian.reset();
                 camAngleMedian.reset();
                 camAngleLowPass.reset();
             }
@@ -451,6 +453,7 @@ public class VisionSubsystem extends SubsystemBase {
         if (count == 0) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
+                camDistMedian.reset();
                 camAngleMedian.reset();
                 camAngleLowPass.reset();
             }

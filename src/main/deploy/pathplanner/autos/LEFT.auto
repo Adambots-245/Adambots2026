@@ -17,7 +17,7 @@
               {
                 "type": "named",
                 "data": {
-                  "name": "LowerIntakeArm"
+                  "name": "intake"
                 }
               }
             ]
@@ -43,9 +43,22 @@
           }
         },
         {
-          "type": "path",
+          "type": "parallel",
           "data": {
-            "pathName": "Copy of 1M after"
+            "commands": [
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "Copy of 1M after"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "intake"
+                }
+              }
+            ]
           }
         }
       ]

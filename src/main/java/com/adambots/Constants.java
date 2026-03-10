@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = true;
+    public static final boolean TUNING_ENABLED = false;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -50,6 +50,9 @@ public final class Constants {
         public static final double kAutoRotationP = 0.18;
         public static final double kAutoRotationI = 0.0;
         public static final double kAutoRotationD = 0.0;
+
+        /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
+        public static final double kTranslationScale = 0.8;
     }
 
     // ==================== ShooterConstants ====================
@@ -74,7 +77,7 @@ public final class Constants {
         public static final double kFlywheelToleranceRPS = 2.0;
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
-        public static final double kLobShotRPS = 55.0;
+        public static final double kLobShotRPS = 49.0;
 
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
@@ -83,7 +86,7 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 42.0},
+            {2.0, 45.0},
             {2.5, 47.5},
             {3.0, 52.0},
             {4.0, 55.0},
@@ -101,9 +104,9 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID (tested on test board) ====================
-        public static final double kTurretP = 25.0;
+        public static final double kTurretP = 35.0;
         public static final double kTurretI = 0;
-        public static final double kTurretD = 0.01;
+        public static final double kTurretD = 0.04;
         public static final double kTurretFF = 0.0;
 
         // ==================== Motion Magic Profile ====================
@@ -121,7 +124,7 @@ public final class Constants {
         /** Turret angle (degrees) that faces straight ahead on the robot. */
         public static final double kTurretForwardDegrees = 90.0;
 
-        public static final double kTurretManualSpeed = 0.05;
+        public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
         // ==================== Calibration ====================
         /** Duty cycle for slow drive toward reverse limit during calibration */
@@ -142,13 +145,14 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Consecutive frames camera must be valid before switching to camera tier (60ms at 3) */
         public static final int kCamHysteresisFrames = 3;
-        /** Scan speed (duty cycle) when searching for hub. Slow enough for camera to detect. */
-        public static final double kScanSpeed = 0.03;
+        /** Scan step size (degrees per cycle) when sweeping to find hub via Motion Magic.
+         *  At 50 Hz, 0.7°/cycle ≈ 35°/sec — fast enough to reacquire, slow enough for camera to detect. */
+        public static final double kScanStepDeg = 0.7;
     }
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.10;
+        public static final double kHopperSpeed = 0.13;
         public static final double kUptakeSpeed = 0.5;
         public static final double kDetectionRange = 2.0; // cm
     }
@@ -303,7 +307,7 @@ public final class Constants {
         /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
         public static final int kMedianFilterSize = 5;
         /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
-        public static final double kLowPassTimeConstant = 0.3;
+        public static final double kLowPassTimeConstant = 0.15;
         /** Robot loop period (seconds) — used for low-pass filter calculation. */
         public static final double kLoopPeriod = 0.02;
     }
@@ -344,11 +348,11 @@ public final class Constants {
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
         public static final double kLowSpeed = 0.55;
-        public static final double kHighSpeed = 0.4;
+        public static final double kHighSpeed = 0.3;
 
         public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
         public static final double kArmLoweredPosition = 0.26; // motor rotations when arm is lowered (deployed)
-        public static final double kBopAngle = 0.10;           // motor rotations to bop up from lowered position
+        public static final double kBopAngle = 0.20;           // motor rotations to bop up from lowered position
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)

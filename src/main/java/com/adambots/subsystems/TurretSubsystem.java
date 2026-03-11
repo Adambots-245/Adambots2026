@@ -3,18 +3,15 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 
-import com.adambots.Constants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
-import com.adambots.lib.utils.Dash;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.networktables.GenericEntry;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -34,14 +31,6 @@ public class TurretSubsystem extends SubsystemBase {
 
     private final BaseMotor turretMotor;
 
-    // Tunable PID entries
-    private GenericEntry turretPEntry;
-    private GenericEntry turretIEntry;
-    private GenericEntry turretDEntry;
-    private GenericEntry turretFFEntry;
-    private GenericEntry trackingToleranceEntry;
-    private double lastTurretP, lastTurretI, lastTurretD;
-    private double lastTurretFF = TurretConstants.kTurretFF;
     private double trackingToleranceDeg = TurretTrackingConstants.kTrackingToleranceDeg;
 
     // Track last setpoint for isAtTarget()
@@ -69,7 +58,6 @@ public class TurretSubsystem extends SubsystemBase {
 
     // Pose-to-turret offset: poseAngle - offset = turret angle.
     // Derived from kTurretForwardDegrees (the turret angle that faces robot forward).
-    private GenericEntry poseOffsetEntry;
     private double poseOffsetDegrees = 360.0 - TurretConstants.kTurretForwardDegrees;
 
     public TurretSubsystem(BaseMotor turretMotor) {
@@ -95,44 +83,28 @@ public class TurretSubsystem extends SubsystemBase {
         // Forward limit → encoder = maxRotations (kTurretMaxDegrees, so PID stays valid)
         double maxRotations = (TurretConstants.kTurretMaxDegrees / 360.0) * TurretConstants.kTurretGearRatio;
         turretMotor.configureHardLimits(true, true, maxRotations, 0.0);
-
-        lastTurretP = TurretConstants.kTurretP;
-        lastTurretI = TurretConstants.kTurretI;
-        lastTurretD = TurretConstants.kTurretD;
     }
 
-    // ==================== Tunable Setup ====================
+    // ==================== Tuning Setters (called by TuningManager) ====================
 
-    /**
-     * Registers turret tunable GenericEntry fields on the current Dash tab.
-     * Call after Dash.useTab() in RobotContainer.
-     */
-    public void setupTurretTunables(int[] pos, int cols) {
-        if (!Constants.SHOOTER_TAB) return;
-        turretPEntry = Dash.addTunable("Turret kP", TurretConstants.kTurretP, pos[0], pos[1]);
-        advance(pos, cols);
-        turretIEntry = Dash.addTunable("Turret kI", TurretConstants.kTurretI, pos[0], pos[1]);
-        advance(pos, cols);
-        turretDEntry = Dash.addTunable("Turret kD", TurretConstants.kTurretD, pos[0], pos[1]);
-        advance(pos, cols);
-        turretFFEntry = Dash.addTunable("Turret kF", TurretConstants.kTurretFF, pos[0], pos[1]);
-        advance(pos, cols);
-        trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
-        advance(pos, cols);
-        poseOffsetEntry = Dash.addTunable("Turret Pose Offset (deg)", 360.0 - TurretConstants.kTurretForwardDegrees, pos[0], pos[1]);
-        advance(pos, cols);
-        Dash.add("Forward Limit", ()->turretMotor.getForwardLimitSwitch(), pos[0], pos[1]);
-        advance(pos, cols);
-        Dash.add("Reverse Limit", ()->turretMotor.getReverseLimitSwitch(), pos[0], pos[1]);
-        advance(pos, cols);
+    public void setTurretPID(double p, double i, double d, double ff) {
+        turretMotor.setPID(0, p, i, d, ff);
     }
 
-    private static void advance(int[] pos, int cols) {
-        pos[0]++;
-        if (pos[0] >= cols) {
-            pos[0] = 0;
-            pos[1]++;
-        }
+    public void setTrackingTolerance(double deg) {
+        trackingToleranceDeg = deg;
+    }
+
+    public void setPoseOffset(double deg) {
+        poseOffsetDegrees = deg;
+    }
+
+    public boolean getForwardLimitSwitch() {
+        return turretMotor.getForwardLimitSwitch();
+    }
+
+    public boolean getReverseLimitSwitch() {
+        return turretMotor.getReverseLimitSwitch();
     }
 
     // ==================== Turret Control ====================
@@ -190,30 +162,6 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
         SmartDashboard.putNumber("Turret/TrackingTier", trackingTier);
-        // Hot-reload PID from Shuffleboard tunables
-        if (turretPEntry != null) {
-            double p = turretPEntry.getDouble(TurretConstants.kTurretP);
-            double i = turretIEntry.getDouble(TurretConstants.kTurretI);
-            double d = turretDEntry.getDouble(TurretConstants.kTurretD);
-
-            double f = turretFFEntry != null
-                ? turretFFEntry.getDouble(TurretConstants.kTurretFF) : TurretConstants.kTurretFF;
-
-            if (p != lastTurretP || i != lastTurretI || d != lastTurretD || f != lastTurretFF) {
-                turretMotor.setPID(0, p, i, d, f);
-                lastTurretP = p;
-                lastTurretI = i;
-                lastTurretD = d;
-                lastTurretFF = f;
-            }
-
-            if (trackingToleranceEntry != null) {
-                trackingToleranceDeg = trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg);
-            }
-            if (poseOffsetEntry != null) {
-                poseOffsetDegrees = poseOffsetEntry.getDouble(360.0 - TurretConstants.kTurretForwardDegrees);
-            }
-        }
     }
 
     // ==================== Command Factories ====================

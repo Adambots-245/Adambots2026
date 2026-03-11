@@ -13,7 +13,6 @@ import com.adambots.lib.utils.Dash;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
@@ -46,26 +45,14 @@ public class IntakeSubsystem extends SubsystemBase {
     private double simMotorVoltage;
     private double simArmAngleDeg;
 
-    // Tunable PID entries
-    private GenericEntry intakeArmPEntry;
-    private GenericEntry intakeArmIEntry;
-    private GenericEntry intakeArmDEntry;
-    private GenericEntry intakeArmKGEntry;
-    private GenericEntry intakeArmKSEntry;
-    private GenericEntry intakeArmKVEntry;
-    private GenericEntry intakeArmKAEntry;
-
-    // Tunable motion/position entries (row 3)
-    private GenericEntry cruiseVelocityEntry;
-    private GenericEntry accelerationEntry;
-    private GenericEntry loweredPositionEntry;
-    private GenericEntry bopAngleEntry;
-
     private double bopAngle = IntakeConstants.kBopAngle;
-
-    private double lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
-    private double lastAcceleration = IntakeConstants.kArmAcceleration;
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+
+    // Cached PID gains for simulation voltage computation (updated by setArmPID)
+    private double simP = IntakeConstants.kArmP;
+    private double simD = IntakeConstants.kArmD;
+    private double simKG = IntakeConstants.kArmKG;
+    private double simKS = IntakeConstants.kArmKS;
 
     /**
      * Returns true when the intake roller is running (velocity above threshold).
@@ -73,14 +60,6 @@ public class IntakeSubsystem extends SubsystemBase {
     public Trigger isRunningTrigger() {
         return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
     }
-
-    private double lastP = IntakeConstants.kArmP;
-    private double lastI = IntakeConstants.kArmI;
-    private double lastD = IntakeConstants.kArmD;
-    private double lastKG = IntakeConstants.kArmKG;
-    private double lastKS = IntakeConstants.kArmKS;
-    private double lastKV = IntakeConstants.kArmKV;
-    private double lastKA = IntakeConstants.kArmKA;
 
     private double targetPosition = IntakeConstants.kArmLoweredPosition;
 
@@ -91,7 +70,6 @@ public class IntakeSubsystem extends SubsystemBase {
         configureMotors();
         if (Constants.INTAKE_TAB) {
             setupDash();
-            setupTunables();
         }
         // intakeArmMotor.setPosition(0);
 
@@ -159,61 +137,29 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.useDefaultTab();
     }
 
-    public void setupTunables() {
-        Dash.useTab("Intake");
+    // ==================== Tuning Setters (called by TuningManager) ====================
 
-        // Row 2: Tunable PID / feedforward gains
-        intakeArmPEntry = Dash.addTunable("kP", IntakeConstants.kArmP, 0, 2);
-        intakeArmIEntry = Dash.addTunable("kI", IntakeConstants.kArmI, 1, 2);
-        intakeArmDEntry = Dash.addTunable("kD", IntakeConstants.kArmD, 2, 2);
-        intakeArmKGEntry = Dash.addTunable("kG", IntakeConstants.kArmKG, 3, 2);
-        intakeArmKSEntry = Dash.addTunable("kS", IntakeConstants.kArmKS, 4, 2);
-        intakeArmKVEntry = Dash.addTunable("kV", IntakeConstants.kArmKV, 5, 2);
-        intakeArmKAEntry = Dash.addTunable("kA", IntakeConstants.kArmKA, 6, 2);
-        Dash.addCommand("Zero Tunables", zeroTunablesCommand(), 7, 2);
-        Dash.addCommand("Reset Tunables", resetTunablesCommand(), 8, 2);
-
-        // Row 3: Motion Magic / position tunables
-        cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
-        accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
-        loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
-        bopAngleEntry = Dash.addTunable("Bop Angle (rot)", IntakeConstants.kBopAngle, 3, 3);
-
-        Dash.useDefaultTab();
-
-        // Force-write code constants to Shuffleboard so displayed values always
-        // match what's in use (overrides stale cache from previous sessions)
-        intakeArmPEntry.setDouble(IntakeConstants.kArmP);
-        intakeArmIEntry.setDouble(IntakeConstants.kArmI);
-        intakeArmDEntry.setDouble(IntakeConstants.kArmD);
-        intakeArmKGEntry.setDouble(IntakeConstants.kArmKG);
-        intakeArmKSEntry.setDouble(IntakeConstants.kArmKS);
-        intakeArmKVEntry.setDouble(IntakeConstants.kArmKV);
-        intakeArmKAEntry.setDouble(IntakeConstants.kArmKA);
-
-        lastP = IntakeConstants.kArmP;
-        lastI = IntakeConstants.kArmI;
-        lastD = IntakeConstants.kArmD;
-        lastKG = IntakeConstants.kArmKG;
-        lastKS = IntakeConstants.kArmKS;
-        lastKV = IntakeConstants.kArmKV;
-        lastKA = IntakeConstants.kArmKA;
-
-        cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
-        accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
-        loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-        bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
-        lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
-        lastAcceleration = IntakeConstants.kArmAcceleration;
-        armLoweredPosition = IntakeConstants.kArmLoweredPosition;
-        bopAngle = IntakeConstants.kBopAngle;
-
-        // Apply to motor controller (for real hardware)
-        intakeArmMotor.setPID(0,
-                IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
-                IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
-                IntakeConstants.kArmKG);
+    public void setArmPID(double p, double i, double d, double kG, double kS, double kV, double kA) {
+        intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
         intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+        simP = p; simD = d; simKG = kG; simKS = kS;
+    }
+
+    public void setMotionMagic(double cruiseVel, double accel) {
+        intakeArmMotor.configure()
+            .motionMagic(
+                RotationsPerSecond.of(cruiseVel),
+                RotationsPerSecondPerSecond.of(accel),
+                IntakeConstants.kArmJerk)
+            .apply();
+    }
+
+    public void setArmLoweredPosition(double pos) {
+        armLoweredPosition = pos;
+    }
+
+    public void setBopAngle(double angle) {
+        bopAngle = angle;
     }
 
     /**
@@ -395,72 +341,6 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
 
-    /**
-     * Command to reset all tunable PID/feedforward gains back to code constants.
-     */
-    public Command resetTunablesCommand() {
-        return runOnce(() -> {
-            intakeArmPEntry.setDouble(IntakeConstants.kArmP);
-            intakeArmIEntry.setDouble(IntakeConstants.kArmI);
-            intakeArmDEntry.setDouble(IntakeConstants.kArmD);
-            intakeArmKGEntry.setDouble(IntakeConstants.kArmKG);
-            intakeArmKSEntry.setDouble(IntakeConstants.kArmKS);
-            intakeArmKVEntry.setDouble(IntakeConstants.kArmKV);
-            intakeArmKAEntry.setDouble(IntakeConstants.kArmKA);
-
-            intakeArmMotor.setPID(0,
-                    IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
-                    IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
-                    IntakeConstants.kArmKG);
-            intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-
-            lastP = IntakeConstants.kArmP;
-            lastI = IntakeConstants.kArmI;
-            lastD = IntakeConstants.kArmD;
-            lastKG = IntakeConstants.kArmKG;
-            lastKS = IntakeConstants.kArmKS;
-            lastKV = IntakeConstants.kArmKV;
-            lastKA = IntakeConstants.kArmKA;
-
-            if (cruiseVelocityEntry != null) {
-                cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
-                accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
-                loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-                bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
-                lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
-                lastAcceleration = IntakeConstants.kArmAcceleration;
-                armLoweredPosition = IntakeConstants.kArmLoweredPosition;
-                bopAngle = IntakeConstants.kBopAngle;
-            }
-        }).withName("Reset Tunables");
-    }
-
-    /**
-     * Command to zero all tunable PID/feedforward gains (for tuning from scratch).
-     */
-    public Command zeroTunablesCommand() {
-        return runOnce(() -> {
-            intakeArmPEntry.setDouble(0);
-            intakeArmIEntry.setDouble(0);
-            intakeArmDEntry.setDouble(0);
-            intakeArmKGEntry.setDouble(0);
-            intakeArmKSEntry.setDouble(0);
-            intakeArmKVEntry.setDouble(0);
-            intakeArmKAEntry.setDouble(0);
-
-            intakeArmMotor.setPID(0, 0, 0, 0, 0, 0, 0, 0);
-            intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-
-            lastP = 0;
-            lastI = 0;
-            lastD = 0;
-            lastKG = 0;
-            lastKS = 0;
-            lastKV = 0;
-            lastKA = 0;
-        }).withName("Zero Tunables");
-    }
-
     private void setupSimulation() {
         // Kraken X60 as Minion approximation (no DCMotor.getMinion() in WPILib)
         armSim = new SingleJointedArmSim(
@@ -511,10 +391,10 @@ public class IntakeSubsystem extends SubsystemBase {
         // Compute voltage using tunable gains
         // Scale position/velocity terms by gear ratio so CTRE gain values produce
         // equivalent torque (CTRE PID operates in motor rotations = mech * gearRatio)
-        double voltage = lastP * errorMechRot * SimConstants.kSimGearRatio
-                + lastKG * Math.cos(currentAngleRad)
-                + lastKS * Math.signum(errorMechRot)
-                - lastD * velocityMechRPS * SimConstants.kSimGearRatio;
+        double voltage = simP * errorMechRot * SimConstants.kSimGearRatio
+                + simKG * Math.cos(currentAngleRad)
+                + simKS * Math.signum(errorMechRot)
+                - simD * velocityMechRPS * SimConstants.kSimGearRatio;
 
         // Clamp to battery voltage
         double batteryVoltage = RobotController.getBatteryVoltage();
@@ -548,52 +428,5 @@ public class IntakeSubsystem extends SubsystemBase {
             intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, 0);
         }
 
-        // No PID loop here - the motor controller handles everything at 1kHz.
-        // We only check for tunable gain updates from Shuffleboard.
-
-        if (intakeArmPEntry != null) {
-            double p = intakeArmPEntry.getDouble(IntakeConstants.kArmP);
-            double i = intakeArmIEntry.getDouble(IntakeConstants.kArmI);
-            double d = intakeArmDEntry.getDouble(IntakeConstants.kArmD);
-            double kG = intakeArmKGEntry.getDouble(IntakeConstants.kArmKG);
-            double kS = intakeArmKSEntry.getDouble(IntakeConstants.kArmKS);
-            double kV = intakeArmKVEntry.getDouble(IntakeConstants.kArmKV);
-            double kA = intakeArmKAEntry.getDouble(IntakeConstants.kArmKA);
-
-            if (p != lastP || i != lastI || d != lastD ||
-                    kG != lastKG || kS != lastKS || kV != lastKV || kA != lastKA) {
-
-                intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
-                intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-
-                lastP = p;
-                lastI = i;
-                lastD = d;
-                lastKG = kG;
-                lastKS = kS;
-                lastKV = kV;
-                lastKA = kA;
-            }
-        }
-
-        // Hot-reload Motion Magic cruise velocity and acceleration
-        if (cruiseVelocityEntry != null) {
-            double cruiseVel = cruiseVelocityEntry.getDouble(IntakeConstants.kArmCruiseVelocity);
-            double accel = accelerationEntry.getDouble(IntakeConstants.kArmAcceleration);
-
-            if (cruiseVel != lastCruiseVelocity || accel != lastAcceleration) {
-                intakeArmMotor.configure()
-                    .motionMagic(
-                        RotationsPerSecond.of(cruiseVel),
-                        RotationsPerSecondPerSecond.of(accel),
-                        IntakeConstants.kArmJerk)
-                    .apply();
-                lastCruiseVelocity = cruiseVel;
-                lastAcceleration = accel;
-            }
-
-            armLoweredPosition = loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition);
-            bopAngle = bopAngleEntry.getDouble(IntakeConstants.kBopAngle);
-        }
     }
 }

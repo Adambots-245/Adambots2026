@@ -6,6 +6,7 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
@@ -14,6 +15,7 @@ import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
 import com.adambots.lib.utils.Dash;
+import com.adambots.utils.HubActivation;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.utils.DashboardSetup;
 import com.adambots.subsystems.ClimberSubsystem;
@@ -52,6 +54,7 @@ public class RobotContainer {
     private VisionSystem vision;
 
     private SendableChooser<Command> autoChooser;
+    private Runnable tuningPeriodic;
 
     public RobotContainer() {
         // 1. Swerve config for PathPlanner
@@ -76,9 +79,8 @@ public class RobotContainer {
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                     RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
         leds = RobotMap.LEDS_ENABLED
-                    ? new CANdleSubsystem(RobotMap.kCANdlePort)
-               
-                : null;
+                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, false)
+                    : null;
 
         // 3. Vision
         configureVision();
@@ -105,7 +107,6 @@ public class RobotContainer {
     // ==================== VISION ====================
     private void configureVision() {
         if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED)
-           
             return;
 
         visionSubsystem = new VisionSubsystem(
@@ -118,9 +119,19 @@ public class RobotContainer {
     // ==================== LEDS ====================
     private void configureLEDs() {
         if (leds == null)
-           
+
             return;
-        leds.setDefaultCommand(leds.allianceColorCommand());
+
+        // Default: show hub state (green when active, red→green countdown when inactive)
+        leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
+
+        // Flash green when hub becomes active
+        HubActivation.ourHubActiveTrigger()
+            .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
+
+        // Warning strobe 5s before shift change
+        HubActivation.shiftChangeSoonTrigger(5.0)
+            .onTrue(LEDCommands.hubWarningCommand(leds));
     }
 
     // ==================== DEFAULT COMMANDS ====================
@@ -278,7 +289,13 @@ public class RobotContainer {
 
     // ==================== DASHBOARD ====================
     private void configureDashboard() {
-        DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        Runnable tuning = DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        tuningPeriodic = tuning != null ? tuning : () -> {};
+    }
+
+    /** Returns the tuning periodic callback. Safe to call every cycle (no-op when tuning disabled). */
+    public Runnable getTuningPeriodic() {
+        return tuningPeriodic;
     }
 
     public void onTeleopInit(boolean noAutoRan) {

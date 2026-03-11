@@ -54,6 +54,7 @@ public class RobotContainer {
     private VisionSystem vision;
 
     private SendableChooser<Command> autoChooser;
+    private Runnable tuningPeriodic;
 
     public RobotContainer() {
         // 1. Swerve config for PathPlanner
@@ -78,9 +79,8 @@ public class RobotContainer {
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                     RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
         leds = RobotMap.LEDS_ENABLED
-                    ? new CANdleSubsystem(RobotMap.kCANdlePort)
-               
-                : null;
+                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, false)
+                    : null;
 
         // 3. Vision
         configureVision();
@@ -107,7 +107,6 @@ public class RobotContainer {
     // ==================== VISION ====================
     private void configureVision() {
         if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED)
-           
             return;
 
         visionSubsystem = new VisionSubsystem(
@@ -290,7 +289,13 @@ public class RobotContainer {
 
     // ==================== DASHBOARD ====================
     private void configureDashboard() {
-        DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        Runnable tuning = DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        tuningPeriodic = tuning != null ? tuning : () -> {};
+    }
+
+    /** Returns the tuning periodic callback. Safe to call every cycle (no-op when tuning disabled). */
+    public Runnable getTuningPeriodic() {
+        return tuningPeriodic;
     }
 
     public void onTeleopInit(boolean noAutoRan) {

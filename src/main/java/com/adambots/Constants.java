@@ -31,6 +31,11 @@ public final class Constants {
     public static final int kShuffleboardCols = 10;
     public static final int kShuffleboardRows = 5;
 
+    /** LED strip configuration — update kLEDStripLength once strip is wired. */
+    public static final int kLEDStripLength = 100;
+    public static final int kProgressStartIndex = 8;    // first external LED (after 8 onboard)
+    public static final int kProgressLEDCount = 100;    // LEDs used for the progress bar
+
     // ==================== DriveConstants ====================
     /**
      * Constants for the swerve drive system.
@@ -155,6 +160,10 @@ public final class Constants {
         public static final double kHopperSpeed = 0.13;
         public static final double kUptakeSpeed = 0.5;
         public static final double kDetectionRange = 2.0; // cm
+
+        // Current limits
+        public static final double kHopperSupplyCurrentLimit = 20.0;
+        public static final double kUptakeSupplyCurrentLimit = 40.0;
     }
 
     // ==================== VisionConstants ====================

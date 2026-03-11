@@ -115,6 +115,7 @@ public class Robot extends LoggedRobot {
         // and running subsystem periodic() methods. This must be called from the robot's periodic
         // block in order for anything in the Command-based framework to work.
         CommandScheduler.getInstance().run();
+        container.getTuningPeriodic().run();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
         // Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);

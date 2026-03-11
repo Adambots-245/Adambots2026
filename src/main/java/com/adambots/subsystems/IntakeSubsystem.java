@@ -85,7 +85,8 @@ public class IntakeSubsystem extends SubsystemBase {
     private void configureMotors() {
         intakeMotor.configure()
                 .brakeMode(false)
-                .currentLimits(IntakeConstants.kRollerStatorCurrentLimit, IntakeConstants.kRollerSupplyCurrentLimit, 3500)
+                .currentLimits(IntakeConstants.kRollerStatorCurrentLimit, IntakeConstants.kRollerSupplyCurrentLimit,
+                        3500)
                 .apply();
 
         // Configure arm motor: brake mode + current limits + gear ratio
@@ -99,7 +100,7 @@ public class IntakeSubsystem extends SubsystemBase {
                         RotationsPerSecondPerSecond.of(IntakeConstants.kArmAcceleration),
                         IntakeConstants.kArmJerk)
                 .apply();
-        
+
         intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
         // Set extended PID with feedforward gains (kV, kS, kA, kG)
@@ -141,21 +142,25 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.useDefaultTab();
     }
 
-    // ==================== Tuning Setters (called by TuningManager) ====================
+    // ==================== Tuning Setters (called by TuningManager)
+    // ====================
 
     public void setArmPID(double p, double i, double d, double kG, double kS, double kV, double kA) {
         intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
         intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-        simP = p; simD = d; simKG = kG; simKS = kS;
+        simP = p;
+        simD = d;
+        simKG = kG;
+        simKS = kS;
     }
 
     public void setMotionMagic(double cruiseVel, double accel) {
         intakeArmMotor.configure()
-            .motionMagic(
-                RotationsPerSecond.of(cruiseVel),
-                RotationsPerSecondPerSecond.of(accel),
-                IntakeConstants.kArmJerk)
-            .apply();
+                .motionMagic(
+                        RotationsPerSecond.of(cruiseVel),
+                        RotationsPerSecondPerSecond.of(accel),
+                        IntakeConstants.kArmJerk)
+                .apply();
     }
 
     public void setArmLoweredPosition(double pos) {
@@ -291,59 +296,57 @@ public class IntakeSubsystem extends SubsystemBase {
      */
     public Command bopArmCommand() {
         // Track which phase we're in (up vs down)
-        boolean[] bopUp = {true};
-        double[] switchTime = {0};
+        boolean[] bopUp = { true };
+        double[] switchTime = { 0 };
         return runEnd(
-            () -> {
-                double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = armLoweredPosition;
-                double raised = lowered - bopAngle;  // negative = up
-                // Switch direction based on elapsed time since last switch
-                if (now - switchTime[0] > 0.35) {
-                    bopUp[0] = !bopUp[0];
-                    switchTime[0] = now;
-                }
-                targetPosition = bopUp[0] ? raised : lowered;
-                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-            },
-            () -> {
-                bopUp[0] = true;
-                lowerIntakeArm();
-            }
-        ).withName("Bop Arm");
+                () -> {
+                    double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+                    double lowered = armLoweredPosition;
+                    double raised = lowered - bopAngle; // negative = up
+                    // Switch direction based on elapsed time since last switch
+                    if (now - switchTime[0] > 0.35) {
+                        bopUp[0] = !bopUp[0];
+                        switchTime[0] = now;
+                    }
+                    targetPosition = bopUp[0] ? raised : lowered;
+                    intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+                },
+                () -> {
+                    bopUp[0] = true;
+                    lowerIntakeArm();
+                }).withName("Bop Arm");
     }
 
-        /**
+    /**
      * Command to bop the intake arm — oscillates slightly up and down from the
      * lowered position to nudge balls toward the hopper while shooting.
      * Hold to keep bopping; releases back to lowered on end.
      */
     public Command bopArmAndRunCommand() {
         // Track which phase we're in (up vs down)
-        boolean[] bopUp = {true};
-        double[] switchTime = {0};
+        boolean[] bopUp = { true };
+        double[] switchTime = { 0 };
         return runEnd(
-            () -> {
-                double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = armLoweredPosition;
-                double raised = lowered - bopAngle;  // negative = up
-                // Switch direction based on elapsed time since last switch
-                if (now - switchTime[0] > 0.35) {
-                    bopUp[0] = !bopUp[0];
-                    switchTime[0] = now;
-                }
-                targetPosition = bopUp[0] ? raised : lowered;
-                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-                // TODO(vx-clutch): factor out the duplicated logic from the regular bop and just add this
-                intakeMotor.set(IntakeConstants.kHighSpeed);
-            },
-            () -> {
-                bopUp[0] = true;
-                lowerIntakeArm();
-            }
-        ).withName("Bop Arm and Run");
+                () -> {
+                    double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+                    double lowered = armLoweredPosition;
+                    double raised = lowered - bopAngle; // negative = up
+                    // Switch direction based on elapsed time since last switch
+                    if (now - switchTime[0] > 0.35) {
+                        bopUp[0] = !bopUp[0];
+                        switchTime[0] = now;
+                    }
+                    targetPosition = bopUp[0] ? raised : lowered;
+                    intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+                    // TODO(vx-clutch): factor out the duplicated logic from the regular bop and
+                    // just add this
+                    intakeMotor.set(IntakeConstants.kHighSpeed);
+                },
+                () -> {
+                    bopUp[0] = true;
+                    lowerIntakeArm();
+                }).withName("Bop Arm and Run");
     }
-
 
     private void setupSimulation() {
         // Kraken X60 as Minion approximation (no DCMotor.getMinion() in WPILib)

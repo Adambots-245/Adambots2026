@@ -37,7 +37,7 @@ public class RobotMap {
     public static final boolean SHOOTER_ENABLED = true;
     public static final boolean TURRET_ENABLED = true;
     public static final boolean CLIMBER_ENABLED = true;
-    public static final boolean LEDS_ENABLED = false;
+    public static final boolean LEDS_ENABLED = true;
     public static final boolean BACK_CAMERAS_ENABLED = true;
     public static final boolean SHOOTER_CAMERA_ENABLED = true;
 

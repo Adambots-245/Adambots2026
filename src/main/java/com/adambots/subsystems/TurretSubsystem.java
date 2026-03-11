@@ -70,6 +70,9 @@ public class TurretSubsystem extends SubsystemBase {
     private double cameraLostTimestamp = 0.0;
     private boolean cameraWasTracking = false;
 
+    // Sweep bounce direction (true = sweeping toward +amplitude)
+    private boolean sweepGoingRight = true;
+
     // Pose-to-turret offset: poseAngle - offset = turret angle.
     // Derived from kTurretForwardDegrees (the turret angle that faces robot forward).
     private GenericEntry poseOffsetEntry;
@@ -221,11 +224,6 @@ public class TurretSubsystem extends SubsystemBase {
 
     // ==================== Command Factories ====================
 
-    public Command aimTurretCommand(double degrees) {
-        return Commands.runOnce(() -> setTurretAngle(degrees))
-            .withName("Turret " + degrees + " deg");
-    }
-
     /** Continuously aims turret at angle from supplier (for vision tracking). */
     public Command aimTurretCommand(DoubleSupplier angleSupplier) {
         return run(() -> setTurretAngle(angleSupplier.getAsDouble()))
@@ -363,6 +361,7 @@ public class TurretSubsystem extends SubsystemBase {
             camValidFrames = 0;
             cameraWasTracking = false;
             cameraLostTimestamp = 0.0;
+            sweepGoingRight = true;
         }, this)
         .andThen(run(() -> {
             // === EXECUTE (runs every 20ms cycle) ===
@@ -444,17 +443,22 @@ public class TurretSubsystem extends SubsystemBase {
 
                 if (cameraLostDuration > TurretTrackingConstants.kPoseFallbackSweepTimeSec) {
                     // --- SWEEP: camera lost for too long, help it re-acquire ---
-                    // Odometry might have drifted, so the pose target could be
-                    // slightly off. We oscillate ±15° around the pose target
-                    // using a sine wave, which sweeps the camera's FOV across
-                    // a wider area to find the hub.
+                    // Bounce between two Motion Magic endpoints around the pose
+                    // target. Each endpoint gets a full trapezoidal profile, so
+                    // the motor controller handles all the acceleration smoothly.
                     trackingMode = TrackingMode.SWEEP;
-                    double period = 2.0; // seconds for one full left-right cycle
-                    double sweep = TurretTrackingConstants.kPoseFallbackSweepAmplitudeDeg
-                        * Math.sin(2.0 * Math.PI * now / period);
-                    double target = MathUtil.clamp(
-                        poseTarget + sweep, 0, TurretConstants.kTurretMaxDegrees);
-                    setTurretAngle(target);
+                    double amplitude = TurretTrackingConstants.kPoseFallbackSweepAmplitudeDeg;
+                    double sweepTarget = MathUtil.clamp(
+                        poseTarget + (sweepGoingRight ? amplitude : -amplitude),
+                        0, TurretConstants.kTurretMaxDegrees);
+                    if (Math.abs(currentAngle - sweepTarget)
+                            < TurretTrackingConstants.kSweepArrivalToleranceDeg) {
+                        sweepGoingRight = !sweepGoingRight;
+                        sweepTarget = MathUtil.clamp(
+                            poseTarget + (sweepGoingRight ? amplitude : -amplitude),
+                            0, TurretConstants.kTurretMaxDegrees);
+                    }
+                    setTurretAngle(sweepTarget);
                 } else {
                     // --- POSE: camera recently lost, trust odometry ---
                     // The pose estimate is usually still accurate shortly after

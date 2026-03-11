@@ -152,6 +152,8 @@ public final class Constants {
         public static final double kPoseFallbackSweepTimeSec = 2.0;
         /** ±degrees of oscillation around pose target during sweep */
         public static final double kPoseFallbackSweepAmplitudeDeg = 15.0;
+        /** Degrees from sweep endpoint before flipping direction */
+        public static final double kSweepArrivalToleranceDeg = 2.0;
         /** Approximate ball exit speed (m/s) for lead angle calculation.
          *  Derived from: ~3600 RPM flywheel × 2in wheel ≈ 19 m/s surface speed,
          *  reduced for ball compression and slip. Tune on the field. */

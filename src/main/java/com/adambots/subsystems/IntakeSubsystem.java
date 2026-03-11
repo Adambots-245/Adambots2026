@@ -1,5 +1,6 @@
 package com.adambots.subsystems;
 
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.RPM;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
@@ -9,8 +10,10 @@ import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
 import com.adambots.Robot;
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import com.adambots.lib.utils.Dash;
 
+import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotController;
@@ -21,7 +24,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -37,6 +39,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private final BaseMotor intakeMotor;
     private final BaseMotor intakeArmMotor;
+    private final BaseAbsoluteEncoder intakeEncoder;
 
     // Simulation
     private SingleJointedArmSim armSim;
@@ -63,9 +66,10 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private double targetPosition = IntakeConstants.kArmLoweredPosition;
 
-    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor) {
+    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, BaseAbsoluteEncoder intakeEncoder) {
         this.intakeMotor = intakeMotor;
         this.intakeArmMotor = intakeArmMotor;
+        this.intakeEncoder = intakeEncoder;
 
         configureMotors();
         if (Constants.INTAKE_TAB) {
@@ -114,9 +118,9 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // Row 0: Telemetry
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
-        Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
+        Dash.add("Roller Position", () -> intakeEncoder.getPosition().in(Degrees), 1, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
-        Dash.add("Arm Position", () -> intakeArmMotor.getPosition(), 3, 0);
+        Dash.add("Arm Position", () -> intakeEncoder.getPosition().in(Degrees), 3, 0);
         Dash.add("Arm Target", () -> targetPosition, 4, 0);
         Dash.add("Raised Position", () -> IntakeConstants.kArmRaisedPosition, 5, 0);
 
@@ -219,7 +223,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Get the intake arm motor position.
      */
     public double getIntakeArmPosition() {
-        return intakeArmMotor.getPosition();
+        return intakeEncoder.getPosition().in(Degrees);
     }
 
     // ==================== Command Factory Methods ====================
@@ -420,13 +424,5 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // When the reverse limit switch is active and we're targeting the raised position,
-        // snap the target to 0 so the motor stops pushing against the hard stop.
-        // The hardware limit already auto-reset the encoder to 0.
-        if (intakeArmMotor.getReverseLimitSwitch() && targetPosition < 0) {
-            targetPosition = 0;
-            intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, 0);
-        }
-
     }
 }

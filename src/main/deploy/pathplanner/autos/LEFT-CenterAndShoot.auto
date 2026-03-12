@@ -5,34 +5,40 @@
     "data": {
       "commands": [
         {
-          "type": "deadline",
+          "type": "named",
+          "data": {
+            "name": "shoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "S4-C2"
+          }
+        },
+        {
+          "type": "parallel",
           "data": {
             "commands": [
               {
                 "type": "path",
                 "data": {
-                  "pathName": "B.S1-M1"
+                  "pathName": "C2-C"
                 }
               },
               {
                 "type": "named",
                 "data": {
-                  "name": "spinUp"
+                  "name": "intake"
                 }
               }
             ]
           }
         },
         {
-          "type": "named",
-          "data": {
-            "name": "intake"
-          }
-        },
-        {
           "type": "path",
           "data": {
-            "pathName": "B.M1-T1"
+            "pathName": "C-S4"
           }
         },
         {

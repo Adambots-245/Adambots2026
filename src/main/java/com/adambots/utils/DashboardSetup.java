@@ -15,7 +15,6 @@ import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj2.command.Commands;
 import swervelib.SwerveModule;
 
@@ -26,7 +25,11 @@ import swervelib.SwerveModule;
 public final class DashboardSetup {
     private DashboardSetup() {}
 
-    public static void configure(
+    /**
+     * Configures all dashboard tabs and returns a tuning poll Runnable.
+     * @return a Runnable to call each cycle for tuning reads, or null if TUNING_ENABLED is false
+     */
+    public static Runnable configure(
             SwerveSubsystem swerve,
             IntakeSubsystem intake,
             ShooterSubsystem shooter,
@@ -35,12 +38,22 @@ public final class DashboardSetup {
             ClimberSubsystem climber,
             VisionSubsystem visionSubsystem) {
 
-        if (Constants.SHOOTER_TAB)  configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem);
+        TuningManager tuningManager = null;
+
+        if (Constants.TUNING_ENABLED) {
+            tuningManager = new TuningManager(shooter, turret, intake, hopper, visionSubsystem);
+        }
+
+        if (Constants.SHOOTER_TAB)  configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem, tuningManager);
         if (Constants.CLIMBER_TAB)  configureClimberTab(climber);
         if (Constants.SWERVE_TAB)   configureSwerveTab(swerve);
         if (Constants.COMMANDS_TAB) configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        if (Constants.INTAKE_TAB && tuningManager != null)  tuningManager.setupIntakeTunables();
+        if (Constants.HOPPER_TAB && tuningManager != null)  tuningManager.setupHopperTunables();
 
         configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
+
+        return tuningManager != null ? tuningManager::periodic : null;
     }
 
     // ==================== SHOOTER TUNING TAB ====================
@@ -49,19 +62,20 @@ public final class DashboardSetup {
             TurretSubsystem turret,
             HopperSubsystem hopper,
             IntakeSubsystem intake,
-            VisionSubsystem visionSubsystem) {
+            VisionSubsystem visionSubsystem,
+            TuningManager tuningManager) {
 
         Dash.useTab("Shooter");
         int[] pos = {0, 0};
         int cols = Constants.kShuffleboardCols;
 
-        // Row 0: Flywheel PID tunables (cols 0-4)
-        shooter.setupFlywheelTunables(pos, cols);
+        // Tunable entries (delegated to TuningManager)
+        if (tuningManager != null) {
+            tuningManager.setupShooterTunables(pos, cols);
+            tuningManager.setupTurretTunables(pos, cols);
+        }
 
-        // Row 2 (continued): Turret PID tunables after Lob Shot
-        turret.setupTurretTunables(pos, cols);
-
-        // Row 3: Live telemetry
+        // Live telemetry row
         if (pos[0] != 0) { pos[0] = 0; pos[1]++; }
         int telemetryRow = pos[1];
 
@@ -84,7 +98,7 @@ public final class DashboardSetup {
         int cmdRow = telemetryRow + 1;
         int cc = 0;
         if (visionSubsystem != null) {
-            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceCommand(
+            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceTimerCommand(
                 shooter, hopper, visionSubsystem::getHubDistance), cc++, cmdRow);
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), cc++, cmdRow);
@@ -108,13 +122,11 @@ public final class DashboardSetup {
         if (visionSubsystem != null) {
             int visionRow = cmdRow + 1;
             int vc = 0;
-            GenericEntry visionModeEntry = Dash.addTunable("Vision Mode (0=Cam,1=Pose,2=Hybrid)",
-                (double) Constants.VisionConstants.kVisionMode, vc++, visionRow);
-            visionSubsystem.setVisionModeEntry(visionModeEntry);
 
-            GenericEntry ambiguityEntry = Dash.addTunable("Ambiguity Threshold",
-                Constants.VisionConstants.kAmbiguityThreshold, vc++, visionRow);
-            visionSubsystem.setAmbiguityEntry(ambiguityEntry);
+            if (tuningManager != null) {
+                tuningManager.setupVisionTunables(vc, visionRow);
+                vc += 2;
+            }
 
             Dash.addCommand("Log Vision", visionSubsystem.logVisionCommand(), vc++, visionRow);
 
@@ -181,7 +193,7 @@ public final class DashboardSetup {
 
         // Driver commands
         if (visionSubsystem != null) {
-            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
+            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), col++, row);
         }
@@ -199,7 +211,7 @@ public final class DashboardSetup {
                 .withName("Lob Shot"), col++, row);
         if (visionSubsystem != null) {
             Dash.addCommand("Shoot + Bop", Commands.parallel(
-                ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance),
+                ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, visionSubsystem::getHubDistance),
                 intake.bopArmCommand()
             ).withName("Shoot + Bop"), col++, row);
         }

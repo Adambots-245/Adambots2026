@@ -86,6 +86,9 @@ test {
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
 }
 
+// Don't run tests as part of 'build' — run them on demand with './gradlew test'
+test.onlyIf { gradle.startParameter.taskNames.any { it.contains('test') } }
+
 // Simulation configuration (e.g. environment variables).
 wpi.sim.addGui().defaultEnabled = true
 wpi.sim.addDriverstation()

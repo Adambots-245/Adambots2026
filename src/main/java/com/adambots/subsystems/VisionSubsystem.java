@@ -23,7 +23,6 @@ import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -100,11 +99,9 @@ public class VisionSubsystem extends SubsystemBase {
         VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
 
     // Runtime vision mode (editable from Shuffleboard): 0=Camera-only, 1=Pose-only, 2=Hybrid
-    private GenericEntry visionModeEntry;
     private int visionMode = VisionConstants.kVisionMode;
 
-    // Tunable ambiguity threshold (default from constants, overridable via DashboardSetup)
-    private GenericEntry ambiguityEntry;
+    // Tunable ambiguity threshold (default from constants, overridable via TuningManager)
     private double runtimeAmbiguityThreshold = VisionConstants.kAmbiguityThreshold;
 
     // Diagnostic counters for camera-only target processing
@@ -266,16 +263,14 @@ public class VisionSubsystem extends SubsystemBase {
         Dash.useDefaultTab();
     }
 
-    // ==================== Tunable Setters (called by DashboardSetup) ====================
+    // ==================== Tuning Setters (called by TuningManager) ====================
 
-    /** Sets the vision mode GenericEntry (created by DashboardSetup behind TUNING_ENABLED). */
-    public void setVisionModeEntry(GenericEntry entry) {
-        this.visionModeEntry = entry;
+    public void setVisionMode(int mode) {
+        visionMode = hasShooterCamera ? mode : 1;
     }
 
-    /** Sets the ambiguity threshold GenericEntry (created by DashboardSetup behind TUNING_ENABLED). */
-    public void setAmbiguityEntry(GenericEntry entry) {
-        this.ambiguityEntry = entry;
+    public void setAmbiguityThreshold(double threshold) {
+        runtimeAmbiguityThreshold = threshold;
     }
 
     // Raw value getters for DashboardSetup to display behind TUNING_ENABLED
@@ -286,18 +281,7 @@ public class VisionSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Read runtime vision mode from Shuffleboard (force pose-only if no shooter cam)
-        if (visionModeEntry != null) {
-            visionMode = hasShooterCamera
-                ? (int) visionModeEntry.getDouble(VisionConstants.kVisionMode)
-                : 1;
-        }
         SmartDashboard.putNumber("Vision/Mode", visionMode);
-
-        // Read runtime ambiguity threshold from Shuffleboard
-        if (ambiguityEntry != null) {
-            runtimeAmbiguityThreshold = ambiguityEntry.getDouble(VisionConstants.kAmbiguityThreshold);
-        }
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache

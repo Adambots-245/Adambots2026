@@ -79,7 +79,7 @@ public class RobotContainer {
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                     RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
         leds = RobotMap.LEDS_ENABLED
-                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, false)
+                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, true)
                     : null;
 
         // 3. Vision

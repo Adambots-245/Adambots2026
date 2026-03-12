@@ -98,7 +98,7 @@ public final class DashboardSetup {
         int cmdRow = telemetryRow + 1;
         int cc = 0;
         if (visionSubsystem != null) {
-            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceCommand(
+            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceTimerCommand(
                 shooter, hopper, visionSubsystem::getHubDistance), cc++, cmdRow);
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), cc++, cmdRow);
@@ -193,7 +193,7 @@ public final class DashboardSetup {
 
         // Driver commands
         if (visionSubsystem != null) {
-            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
+            Dash.addCommand("Shoot (Dist)", ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, visionSubsystem::getHubDistance), col++, row);
         } else {
             Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper), col++, row);
         }
@@ -211,7 +211,7 @@ public final class DashboardSetup {
                 .withName("Lob Shot"), col++, row);
         if (visionSubsystem != null) {
             Dash.addCommand("Shoot + Bop", Commands.parallel(
-                ShootCommands.shootAtDistanceCommand(shooter, hopper, visionSubsystem::getHubDistance),
+                ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, visionSubsystem::getHubDistance),
                 intake.bopArmCommand()
             ).withName("Shoot + Bop"), col++, row);
         }

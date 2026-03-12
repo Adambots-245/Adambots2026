@@ -163,12 +163,10 @@ public class RobotContainer {
         Buttons.XboxAButton.onTrue(Commands.runOnce(
                 () -> intake.stopIntakeCommand()));
 
-        // Trigger (1): Shoot (full sequence)
+        // Trigger (1): Hold-to-shoot at vision distance (no timer)
         Buttons.JoystickButton1.whileTrue(
-                ShootCommands.shootAtDistanceCommand(
-                        shooter, hopper, visionSubsystem::getHubDistance, intake, false));
-
-        // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
+                ShootCommands.holdShootAtDistanceCommand(
+                        shooter, hopper, visionSubsystem::getHubDistance));
 
         // Button 2: Toggle bop
         Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
@@ -268,8 +266,11 @@ public class RobotContainer {
                                 .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
                     // ShootCommands.shootCommand(shooter, hopper));
-                    ShootCommands.shootAtDistanceCommand(
+                    ShootCommands.shootAtDistanceTimerCommand(
                                 shooter, hopper, visionSubsystem::getHubDistance));
+        NamedCommands.registerCommand("shootWithBop",
+                    ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, visionSubsystem::getHubDistance));
         NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
     }
 

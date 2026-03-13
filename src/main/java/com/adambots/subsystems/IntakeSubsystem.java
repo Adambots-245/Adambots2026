@@ -9,7 +9,10 @@ import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
 import com.adambots.Robot;
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import com.adambots.lib.utils.Dash;
+
+import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
@@ -37,6 +40,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private final BaseMotor intakeMotor;
     private final BaseMotor intakeArmMotor;
+    private final BaseAbsoluteEncoder armEncoder;
 
     // Simulation
     private SingleJointedArmSim armSim;
@@ -61,17 +65,23 @@ public class IntakeSubsystem extends SubsystemBase {
         return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
     }
 
-    private double targetPosition = IntakeConstants.kArmLoweredPosition;
+    private double targetPosition = 0;
 
-    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor) {
+    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, BaseAbsoluteEncoder armEncoder) {
         this.intakeMotor = intakeMotor;
         this.intakeArmMotor = intakeArmMotor;
+        this.armEncoder = armEncoder;
 
         configureMotors();
+
+        // Seed motor encoder from throughbore absolute position so Motion Magic targets are correct
+        double absoluteDeg = armEncoder.getPosition().in(Degrees);
+        intakeArmMotor.setPosition(degreesToMotorRotations(absoluteDeg));
+        targetPosition = degreesToMotorRotations(absoluteDeg);
+
         if (Constants.INTAKE_TAB) {
             setupDash();
         }
-        // intakeArmMotor.setPosition(0);
 
         if (Robot.isSimulation()) {
             setupSimulation();
@@ -116,9 +126,9 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
         Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
-        Dash.add("Arm Position", () -> intakeArmMotor.getPosition(), 3, 0);
-        Dash.add("Arm Target", () -> targetPosition, 4, 0);
-        Dash.add("Raised Position", () -> IntakeConstants.kArmRaisedPosition, 5, 0);
+        Dash.add("Arm Encoder (deg)", () -> armEncoder.getPosition().in(Degrees), 3, 0);
+        Dash.add("Arm Motor Pos", () -> intakeArmMotor.getPosition(), 4, 0);
+        Dash.add("Arm Target", () -> targetPosition, 5, 0);
 
         // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
         Dash.add("Sim Voltage", () -> simMotorVoltage, 6, 0);
@@ -131,8 +141,7 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.addCommand("Lower Arm", runLowerIntakeArmCommand(), 3, 1);
         Dash.addCommand("Raise Arm", runRaiseIntakeArmCommand(), 4, 1);
         Dash.addCommand("Stop Arm", stopIntakeArmCommand(), 5, 1);
-        Dash.addCommand("Reset Position", resetIntakeArmPosition(), 6, 1);
-        Dash.addCommand("Bop Arm", bopArmCommand(), 7, 1);
+        Dash.addCommand("Bop Arm", bopArmCommand(), 6, 1);
 
         Dash.useDefaultTab();
     }
@@ -187,7 +196,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Lower the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void lowerIntakeArm() {
-        targetPosition = armLoweredPosition;
+        targetPosition = degreesToMotorRotations(armLoweredPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -195,7 +204,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Raise the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void raiseIntakeArm() {
-        targetPosition = IntakeConstants.kArmRaisedPosition;
+        targetPosition = degreesToMotorRotations(IntakeConstants.kArmRaisedPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -204,7 +213,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Uses Motion Magic to maintain gravity compensation.
      */
     public void stopIntakeArm() {
-        targetPosition = intakeArmMotor.getPosition();
+        targetPosition = degreesToMotorRotations(armEncoder.getPosition().in(Degrees));
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -216,10 +225,17 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Get the intake arm motor position.
+     * Get the intake arm position in degrees from the throughbore encoder.
      */
     public double getIntakeArmPosition() {
-        return intakeArmMotor.getPosition();
+        return armEncoder.getPosition().in(Degrees);
+    }
+
+    /**
+     * Convert a throughbore angle (degrees) to motor rotations for Motion Magic.
+     */
+    private double degreesToMotorRotations(double degrees) {
+        return (degrees / 360.0) * IntakeConstants.kArmTotalGearRatio;
     }
 
     // ==================== Command Factory Methods ====================
@@ -230,14 +246,6 @@ public class IntakeSubsystem extends SubsystemBase {
     public Command runIntakeCommand() {
         return runEnd(this::runIntake, this::stopIntake)
                 .withName("Run Intake");
-    }
-
-    /**
-     * Reset arm position encoder to 0.
-     */
-    public Command resetIntakeArmPosition() {
-        return runOnce(() -> intakeArmMotor.setPosition(0))
-                .withName("Reset Intake Position");
     }
 
     /**
@@ -292,8 +300,8 @@ public class IntakeSubsystem extends SubsystemBase {
         return runEnd(
             () -> {
                 double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = armLoweredPosition;
-                double raised = lowered - bopAngle;  // negative = up
+                double lowered = degreesToMotorRotations(armLoweredPosition);
+                double raised = degreesToMotorRotations(armLoweredPosition - bopAngle);
                 // Switch direction based on elapsed time since last switch
                 if (now - switchTime[0] > 0.35) {
                     bopUp[0] = !bopUp[0];
@@ -309,9 +317,8 @@ public class IntakeSubsystem extends SubsystemBase {
         ).withName("Bop Arm");
     }
 
-        /**
-     * Command to bop the intake arm — oscillates slightly up and down from the
-     * lowered position to nudge balls toward the hopper while shooting.
+    /**
+     * Command to bop the intake arm while running intake rollers.
      * Hold to keep bopping; releases back to lowered on end.
      */
     public Command bopArmAndRunCommand() {
@@ -321,8 +328,8 @@ public class IntakeSubsystem extends SubsystemBase {
         return runEnd(
             () -> {
                 double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = armLoweredPosition;
-                double raised = lowered - bopAngle;  // negative = up
+                double lowered = degreesToMotorRotations(armLoweredPosition);
+                double raised = degreesToMotorRotations(armLoweredPosition - bopAngle);
                 // Switch direction based on elapsed time since last switch
                 if (now - switchTime[0] > 0.35) {
                     bopUp[0] = !bopUp[0];
@@ -330,7 +337,6 @@ public class IntakeSubsystem extends SubsystemBase {
                 }
                 targetPosition = bopUp[0] ? raised : lowered;
                 intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-                // TODO(vx-clutch): factor out the duplicated logic from the regular bop and just add this
                 intakeMotor.set(IntakeConstants.kHighSpeed);
             },
             () -> {
@@ -420,13 +426,5 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // When the reverse limit switch is active and we're targeting the raised position,
-        // snap the target to 0 so the motor stops pushing against the hard stop.
-        // The hardware limit already auto-reset the encoder to 0.
-        if (intakeArmMotor.getReverseLimitSwitch() && targetPosition < 0) {
-            targetPosition = 0;
-            intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, 0);
-        }
-
     }
 }

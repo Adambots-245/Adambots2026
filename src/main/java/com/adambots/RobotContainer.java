@@ -14,16 +14,15 @@ import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
-import com.adambots.lib.utils.Dash;
-import com.adambots.utils.HubActivation;
 import com.adambots.lib.vision.VisionSystem;
-import com.adambots.utils.DashboardSetup;
 import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
+import com.adambots.utils.DashboardSetup;
+import com.adambots.utils.HubActivation;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
@@ -272,7 +271,7 @@ public class RobotContainer {
                     ShootCommands.shootAtDistanceTimerWithBopCommand(
                                 shooter, hopper, intake, visionSubsystem::getHubDistance));
         NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
-        NamedCommands.registerCommand("intakeLob", ShootCommands.autonLobCommand(shooter, turret));
+        NamedCommands.registerCommand("intakeLob", ShootCommands.autonLobCommand(shooter, turret, hopper, intake));
     }
 
     // ==================== AUTO CHOOSER ====================

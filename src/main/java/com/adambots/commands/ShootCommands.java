@@ -282,10 +282,10 @@ public final class ShootCommands {
     /**
      * AUTON ONLY: Lob fuel from the center
      */
-    public static Command autonLobCommand(ShooterSubsystem shooter, TurretSubsystem turret) {
+    public static Command autonLobCommand(ShooterSubsystem shooter, TurretSubsystem turret, HopperSubsystem hopper, IntakeSubsystem intake) {
         return Commands.parallel(
             turret.aimTurretCommand(90),
-            autoShootCommand(shooter, turret, null, null, null, null)
+            lobShotCommand(shooter, hopper, intake)
         ).withName("autonLob");
     }
 }

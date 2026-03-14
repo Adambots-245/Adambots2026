@@ -278,4 +278,14 @@ public final class ShootCommands {
             hopper.stopCommand()
         ).withName("Stop All");
     }
+
+    /**
+     * AUTON ONLY: Lob fuel from the center
+     */
+    public static Command autonLobCommand(ShooterSubsystem shooter, TurretSubsystem turret) {
+        return Commands.parallel(
+            turret.aimTurretCommand(90),
+            autoShootCommand(shooter, turret, null, null, null, null)
+        ).withName("autonLob");
+    }
 }

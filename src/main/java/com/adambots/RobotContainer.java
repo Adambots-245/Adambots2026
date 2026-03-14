@@ -272,6 +272,7 @@ public class RobotContainer {
                     ShootCommands.shootAtDistanceTimerWithBopCommand(
                                 shooter, hopper, intake, visionSubsystem::getHubDistance));
         NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
+        NamedCommands.registerCommand("intakeLob", ShootCommands.autonLobCommand(shooter, turret));
     }
 
     // ==================== AUTO CHOOSER ====================

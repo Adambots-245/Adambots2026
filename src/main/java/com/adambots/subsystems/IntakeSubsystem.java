@@ -98,6 +98,7 @@ public class IntakeSubsystem extends SubsystemBase {
         // Configure arm motor: brake mode + current limits + gear ratio
         intakeArmMotor.configure()
                 .brakeMode(true)
+                .inverted(true)
                 .currentLimits(IntakeConstants.kArmStatorCurrentLimit, IntakeConstants.kArmSupplyCurrentLimit, 2500)
                 .gravity(BaseMotor.GravityType.ARM_COSINE)
                 .sensorToMechanismRatio(IntakeConstants.kArmTotalGearRatio)
@@ -107,7 +108,7 @@ public class IntakeSubsystem extends SubsystemBase {
                         IntakeConstants.kArmJerk)
                 .apply();
         
-        intakeArmMotor.configureHardLimits(false, true, 0, 0);
+        // intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
         // Set extended PID with feedforward gains (kV, kS, kA, kG)
         intakeArmMotor.setPID(0,

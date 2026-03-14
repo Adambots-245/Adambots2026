@@ -19,12 +19,12 @@ public final class Constants {
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
-    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && false;
+    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
@@ -124,7 +124,7 @@ public final class Constants {
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
         // Reference range — software-limited via pot + clamp in setTurretAngle()
-        public static final double kTurretMaxDegrees = 180.0;
+        public static final double kTurretMaxDegrees = 260.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
         public static final double kTurretForwardDegrees = 90.0;
@@ -135,7 +135,7 @@ public final class Constants {
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
         public static final double kTurretPotAtZeroDeg = 0.0;
         /** Pot reading (degrees) when turret is at 180° — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 180.0;
+        public static final double kTurretPotAtMaxDeg = 2889.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;

@@ -108,11 +108,14 @@ public final class Constants {
      * Tested PID values from Subsystem/Shooter branch test board.
      */
     public static final class TurretConstants {
-        // ==================== Turret PID (tested on test board) ====================
-        public static final double kTurretP = 35.0;
+        // ==================== Turret PID ====================
+        // kV = 12V / 88.8 RPS (Minion free speed) ≈ 0.135
+        // kP: 20 × 0.031 rot/deg = 0.62V per degree error — enough to correct without overshoot
+        // kD: kept low — Minion velocity signal is noisy, high D goes berserk
+        public static final double kTurretP = 20.0;
         public static final double kTurretI = 0;
-        public static final double kTurretD = 0.04;
-        public static final double kTurretFF = 0.0;
+        public static final double kTurretD = 0.05;
+        public static final double kTurretFF = 0.135;
 
         // ==================== Motion Magic Profile ====================
         public static final double kTurretCruiseVelocity = 2.0;   // RPS at motor

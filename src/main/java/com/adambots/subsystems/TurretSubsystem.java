@@ -157,16 +157,8 @@ public class TurretSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Re-sync motor encoder from potentiometer when turret has settled
-        // Only re-sync if pot and motor disagree by more than 2° to avoid oscillation
-        if (isAtTarget(2.0) && Math.abs(turretMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
-            double absoluteDeg = getPotAngleDegrees();
-            double motorDeg = getTurretAngleDegrees();
-            if (Math.abs(absoluteDeg - motorDeg) > 2.0) {
-                double rotations = (absoluteDeg / 360.0) * TurretConstants.kTurretGearRatio;
-                turretMotor.setPosition(rotations);
-            }
-        }
+        // Pot seeds motor encoder on construction — no continuous re-sync needed.
+        // Continuous re-sync fights the PID controller and causes oscillation.
 
         // Dashboard telemetry (read angle once to avoid redundant CAN bus reads)
         double currentAngle = getTurretAngleDegrees();

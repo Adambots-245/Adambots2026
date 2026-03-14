@@ -74,7 +74,7 @@ public class RobotContainer {
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
         intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
         shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
-        turret = new TurretSubsystem(RobotMap.turretMotor);
+        turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                     RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
@@ -300,7 +300,6 @@ public class RobotContainer {
     }
 
     public void onTeleopInit(boolean noAutoRan) {
-        // turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

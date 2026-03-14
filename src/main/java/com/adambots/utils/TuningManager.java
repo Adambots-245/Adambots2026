@@ -48,6 +48,7 @@ public class TuningManager {
     private GenericEntry turretPEntry, turretIEntry, turretDEntry, turretFFEntry;
     private GenericEntry trackingToleranceEntry;
     private GenericEntry poseOffsetEntry;
+    private GenericEntry potAtZeroEntry, potAtMaxEntry;
 
     private double lastTurretP = TurretConstants.kTurretP;
     private double lastTurretI = TurretConstants.kTurretI;
@@ -138,9 +139,11 @@ public class TuningManager {
         advance(pos, cols);
         poseOffsetEntry = Dash.addTunable("Turret Pose Offset (deg)", 360.0 - TurretConstants.kTurretForwardDegrees, pos[0], pos[1]);
         advance(pos, cols);
-        Dash.add("Forward Limit", turret::getForwardLimitSwitch, pos[0], pos[1]);
+        potAtZeroEntry = Dash.addTunable("Pot at 0°", TurretConstants.kTurretPotAtZeroDeg, pos[0], pos[1]);
         advance(pos, cols);
-        Dash.add("Reverse Limit", turret::getReverseLimitSwitch, pos[0], pos[1]);
+        potAtMaxEntry = Dash.addTunable("Pot at 180°", TurretConstants.kTurretPotAtMaxDeg, pos[0], pos[1]);
+        advance(pos, cols);
+        Dash.add("Pot Raw (deg)", turret::getRawPotDegrees, pos[0], pos[1]);
         advance(pos, cols);
     }
 
@@ -292,6 +295,8 @@ public class TuningManager {
 
         turret.setTrackingTolerance(trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg));
         turret.setPoseOffset(poseOffsetEntry.getDouble(360.0 - TurretConstants.kTurretForwardDegrees));
+        turret.setPotAtZeroDeg(potAtZeroEntry.getDouble(TurretConstants.kTurretPotAtZeroDeg));
+        turret.setPotAtMaxDeg(potAtMaxEntry.getDouble(TurretConstants.kTurretPotAtMaxDeg));
     }
 
     private void applyIntakeTunables() {

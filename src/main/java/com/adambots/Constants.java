@@ -19,11 +19,11 @@ public final class Constants {
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
-    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
+    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && false;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
-    public static final boolean VISION_TAB   = TUNING_ENABLED && true;
+    public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
@@ -123,7 +123,7 @@ public final class Constants {
         // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
-        // Reference range — not enforced in code (hardware limits protect the mechanism)
+        // Reference range — software-limited via pot + clamp in setTurretAngle()
         public static final double kTurretMaxDegrees = 180.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
@@ -131,13 +131,11 @@ public final class Constants {
 
         public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
-        // ==================== Calibration ====================
-        /** Duty cycle for slow drive toward reverse limit during calibration */
-        public static final double kCalibrationSpeed = 0.08;
-        /** Safety timeout for calibration command (seconds) */
-        public static final double kCalibrationTimeoutSec = 5.0;
-        /** Degrees to move off the reverse limit after zeroing to avoid PID stall whine */
-        public static final double kCalibrationOffsetDegrees = 85.0;
+        // ==================== Potentiometer Calibration ====================
+        /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
+        public static final double kTurretPotAtZeroDeg = 0.0;
+        /** Pot reading (degrees) when turret is at 180° — determine empirically via dashboard */
+        public static final double kTurretPotAtMaxDeg = 180.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;

@@ -88,7 +88,6 @@ public final class DashboardSetup {
         Dash.add("Right RPS", shooter::getRightRPS, tc++, telemetryRow);
         Dash.add("At Speed", shooter::isAtSpeed, tc++, telemetryRow);
         Dash.add("Turret Angle", turret::getTurretAngleDegrees, tc++, telemetryRow);
-        Dash.add("Calibrated", turret::isCalibrated, tc++, telemetryRow);
         if (visionSubsystem != null) {
             Dash.add("Hub Visible", visionSubsystem::isHubVisible, tc++, telemetryRow);
             Dash.add("Alliance", visionSubsystem::getAllianceColor, tc++, telemetryRow);
@@ -112,7 +111,6 @@ public final class DashboardSetup {
                 .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
                 .withName("Lob Shot"), cc++, cmdRow);
         Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
         Dash.addCommand("Turret Left",
             turret.scanCommand(1.0), cc++, cmdRow);
         Dash.addCommand("Turret Right",
@@ -237,7 +235,6 @@ public final class DashboardSetup {
         Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
 
         // Utility
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
         Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
         Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
         if (visionSubsystem != null) {
@@ -339,8 +336,6 @@ public final class DashboardSetup {
         Dash.addCommand("Move Turret", turret.scanCommand(1.0), col, row);
         if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col, row);
         if (++col >= sysCols) { col = 0; row++; }
 
         // Hopper + climber

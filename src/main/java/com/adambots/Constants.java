@@ -118,8 +118,8 @@ public final class Constants {
         public static final double kTurretFF = 0.135;
 
         // ==================== Motion Magic Profile ====================
-        public static final double kTurretCruiseVelocity = 2.0;   // RPS at motor
-        public static final double kTurretAcceleration = 4.0;      // RPS/s at motor
+        public static final double kTurretCruiseVelocity = 12.0;   // RPS at motor
+        public static final double kTurretAcceleration = 24.0;      // RPS/s at motor
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================

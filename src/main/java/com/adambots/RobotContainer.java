@@ -300,7 +300,7 @@ public class RobotContainer {
     }
 
     public void onTeleopInit(boolean noAutoRan) {
-        turret.calibrateCommand().schedule();
+        // turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

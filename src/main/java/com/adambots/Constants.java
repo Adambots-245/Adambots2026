@@ -359,8 +359,8 @@ public final class Constants {
         public static final double kLowSpeed = 0.55;
         public static final double kHighSpeed = 0.3;
 
-        public static final double kArmRaisedPosition = 10.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 90.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 15.0;           // degrees to bop up from lowered position — CALIBRATE
 
         // Roller motor current limits

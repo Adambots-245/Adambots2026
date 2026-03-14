@@ -65,6 +65,11 @@ public class IntakeSubsystem extends SubsystemBase {
         return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
     }
 
+    // Sign that maps encoder-increasing direction to motor direction.
+    // Lowered > Raised → encoder increases as arm lowers → motor needs negative direction.
+    private static final int kArmDirection =
+        (IntakeConstants.kArmLoweredPosition - IntakeConstants.kArmRaisedPosition) < 0 ? 1 : -1;
+
     private double targetPosition = 0;
 
     public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, BaseAbsoluteEncoder armEncoder) {
@@ -128,7 +133,8 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
         Dash.add("Arm Encoder (deg)", () -> armEncoder.getPosition().in(Degrees), 3, 0);
         Dash.add("Arm Motor Pos", () -> intakeArmMotor.getPosition(), 4, 0);
-        Dash.add("Arm Target", () -> targetPosition, 5, 0);
+        Dash.add("Arm Target (motor rot)", () -> targetPosition, 5, 0);
+        Dash.add("Arm Direction", () -> kArmDirection, 8, 0);
 
         // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
         Dash.add("Sim Voltage", () -> simMotorVoltage, 6, 0);
@@ -235,7 +241,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Convert a throughbore angle (degrees) to motor rotations for Motion Magic.
      */
     private double degreesToMotorRotations(double degrees) {
-        return (degrees / 360.0) * IntakeConstants.kArmTotalGearRatio;
+        return kArmDirection * (degrees / 360.0) * IntakeConstants.kArmTotalGearRatio;
     }
 
     // ==================== Command Factory Methods ====================

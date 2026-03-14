@@ -117,7 +117,7 @@ public final class DashboardSetup {
         Dash.addCommand("Turret Right",
             turret.scanCommand(-1.0), cc++, cmdRow);
         Dash.addCommand("Turret Forward",
-            turret.aimTurretCommand(TurretConstants.kTurretForwardDegrees), cc++, cmdRow);
+            turret.aimTurretCommand(()->TurretConstants.kTurretForwardDegrees), cc++, cmdRow);
 
         // Vision tunables row (after commands)
         if (visionSubsystem != null) {

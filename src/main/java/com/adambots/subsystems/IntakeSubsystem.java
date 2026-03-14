@@ -1,9 +1,5 @@
 package com.adambots.subsystems;
 
-import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
-
 import com.adambots.Constants;
 import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
@@ -81,8 +77,8 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // Seed motor encoder from throughbore absolute position so Motion Magic targets are correct
         double absoluteDeg = armEncoder.getPosition().in(Degrees);
-        intakeArmMotor.setPosition(degreesToMotorRotations(absoluteDeg));
-        targetPosition = degreesToMotorRotations(absoluteDeg);
+        intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
+        targetPosition = degreesToMechanismRotations(absoluteDeg);
 
         if (Constants.INTAKE_TAB) {
             setupDash();
@@ -132,9 +128,10 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
         Dash.add("Arm Encoder (deg)", () -> armEncoder.getPosition().in(Degrees), 3, 0);
-        Dash.add("Arm Motor Pos", () -> intakeArmMotor.getPosition(), 4, 0);
-        Dash.add("Arm Target (motor rot)", () -> targetPosition, 5, 0);
+        Dash.add("Arm Mech Pos (rot)", () -> intakeArmMotor.getPosition(), 4, 0);
+        Dash.add("Arm Target (mech rot)", () -> targetPosition, 5, 0);
         Dash.add("Arm Direction", () -> kArmDirection, 8, 0);
+        Dash.add("Target (deg)", () -> targetPosition / kArmDirection * 360.0, 9, 0);
 
         // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
         Dash.add("Sim Voltage", () -> simMotorVoltage, 6, 0);
@@ -181,14 +178,14 @@ public class IntakeSubsystem extends SubsystemBase {
      * Run the intake roller at the configured speed.
      */
     public void runIntake() {
-        intakeMotor.set(IntakeConstants.kLowSpeed);
+        intakeMotor.set(IntakeConstants.kIntakeSpeed);
     }
 
     /**
      * Run the intake roller in reverse.
      */
     public void reverseIntake() {
-        intakeMotor.set(-IntakeConstants.kLowSpeed);
+        intakeMotor.set(-IntakeConstants.kIntakeSpeed);
     }
 
     /**
@@ -202,7 +199,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Lower the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void lowerIntakeArm() {
-        targetPosition = degreesToMotorRotations(armLoweredPosition);
+        targetPosition = degreesToMechanismRotations(armLoweredPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -210,7 +207,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Raise the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void raiseIntakeArm() {
-        targetPosition = degreesToMotorRotations(IntakeConstants.kArmRaisedPosition);
+        targetPosition = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -219,7 +216,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Uses Motion Magic to maintain gravity compensation.
      */
     public void stopIntakeArm() {
-        targetPosition = degreesToMotorRotations(armEncoder.getPosition().in(Degrees));
+        targetPosition = degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -238,10 +235,12 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Convert a throughbore angle (degrees) to motor rotations for Motion Magic.
+     * Convert a throughbore angle (degrees) to mechanism rotations for Motion Magic.
+     * With sensorToMechanismRatio configured, all motor position methods operate
+     * in mechanism rotations — no gear ratio multiplication needed here.
      */
-    private double degreesToMotorRotations(double degrees) {
-        return kArmDirection * (degrees / 360.0) * IntakeConstants.kArmTotalGearRatio;
+    private double degreesToMechanismRotations(double degrees) {
+        return kArmDirection * (degrees / 360.0);
     }
 
     // ==================== Command Factory Methods ====================
@@ -295,32 +294,42 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Command to bop the intake arm — oscillates slightly up and down from the
-     * lowered position to nudge balls toward the hopper while shooting.
-     * Hold to keep bopping; releases back to lowered on end.
+     * Shared bop oscillation state machine. Oscillates the arm between lowered
+     * and (lowered - bopAngle) positions. Returns a runEnd command base.
+     *
+     * @param runExtra extra action to run each execute cycle (e.g. run intake motor), or null
      */
-    public Command bopArmCommand() {
-        // Track which phase we're in (up vs down)
-        boolean[] bopUp = {true};
+    private Command bopCommandBase(Runnable runExtra, String name) {
+        boolean[] bopUp = {false};
         double[] switchTime = {0};
         return runEnd(
             () -> {
                 double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = degreesToMotorRotations(armLoweredPosition);
-                double raised = degreesToMotorRotations(armLoweredPosition - bopAngle);
-                // Switch direction based on elapsed time since last switch
+                if (switchTime[0] == 0) switchTime[0] = now;
+                double lowered = degreesToMechanismRotations(armLoweredPosition);
+                double raised = degreesToMechanismRotations(armLoweredPosition - bopAngle);
                 if (now - switchTime[0] > 0.35) {
                     bopUp[0] = !bopUp[0];
                     switchTime[0] = now;
                 }
                 targetPosition = bopUp[0] ? raised : lowered;
                 intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+                if (runExtra != null) runExtra.run();
             },
             () -> {
-                bopUp[0] = true;
+                bopUp[0] = false;
                 lowerIntakeArm();
             }
-        ).withName("Bop Arm");
+        ).withName(name);
+    }
+
+    /**
+     * Command to bop the intake arm — oscillates slightly up and down from the
+     * lowered position to nudge balls toward the hopper while shooting.
+     * Hold to keep bopping; releases back to lowered on end.
+     */
+    public Command bopArmCommand() {
+        return bopCommandBase(null, "Bop Arm");
     }
 
     /**
@@ -328,28 +337,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Hold to keep bopping; releases back to lowered on end.
      */
     public Command bopArmAndRunCommand() {
-        // Track which phase we're in (up vs down)
-        boolean[] bopUp = {true};
-        double[] switchTime = {0};
-        return runEnd(
-            () -> {
-                double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = degreesToMotorRotations(armLoweredPosition);
-                double raised = degreesToMotorRotations(armLoweredPosition - bopAngle);
-                // Switch direction based on elapsed time since last switch
-                if (now - switchTime[0] > 0.35) {
-                    bopUp[0] = !bopUp[0];
-                    switchTime[0] = now;
-                }
-                targetPosition = bopUp[0] ? raised : lowered;
-                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-                intakeMotor.set(IntakeConstants.kHighSpeed);
-            },
-            () -> {
-                bopUp[0] = true;
-                lowerIntakeArm();
-            }
-        ).withName("Bop Arm and Run");
+        return bopCommandBase(() -> intakeMotor.set(IntakeConstants.kIntakeSpeed), "Bop Arm and Run");
     }
 
 
@@ -390,23 +378,20 @@ public class IntakeSubsystem extends SubsystemBase {
         double currentAngleRad = armSim.getAngleRads();
         double velocityRadPerSec = armSim.getVelocityRadPerSec();
 
-        // Convert target from motor rotations to arm angle (radians)
-        // Motor negative = arm up, so negate. Divide by gear ratio to get mechanism
-        // rotations.
-        double targetAngleRad = -targetPosition / SimConstants.kSimGearRatio * 2 * Math.PI;
+        // Convert target to arm angle (radians).
+        // Motor negative = arm up, so negate. targetPosition is in mechanism rotations.
+        double targetAngleRad = -targetPosition * 2 * Math.PI;
 
         // Error in mechanism rotations (matches CTRE's gain units when scaled by gear
         // ratio)
         double errorMechRot = Units.radiansToRotations(targetAngleRad - currentAngleRad);
         double velocityMechRPS = Units.radiansToRotations(velocityRadPerSec);
 
-        // Compute voltage using tunable gains
-        // Scale position/velocity terms by gear ratio so CTRE gain values produce
-        // equivalent torque (CTRE PID operates in motor rotations = mech * gearRatio)
-        double voltage = simP * errorMechRot * SimConstants.kSimGearRatio
+        // Compute voltage using tunable gains (gains are in mechanism units)
+        double voltage = simP * errorMechRot
                 + simKG * Math.cos(currentAngleRad)
                 + simKS * Math.signum(errorMechRot)
-                - simD * velocityMechRPS * SimConstants.kSimGearRatio;
+                - simD * velocityMechRPS;
 
         // Clamp to battery voltage
         double batteryVoltage = RobotController.getBatteryVoltage();
@@ -422,15 +407,44 @@ public class IntakeSubsystem extends SubsystemBase {
         double mechRotations = Units.radiansToRotations(armSim.getAngleRads());
         double mechRPS = Units.radiansToRotations(armSim.getVelocityRadPerSec());
         intakeArmMotor.setSimSupplyVoltage(batteryVoltage);
-        intakeArmMotor.setSimPosition(-mechRotations * SimConstants.kSimGearRatio);
-        intakeArmMotor.setSimVelocity(-mechRPS * SimConstants.kSimGearRatio);
+        intakeArmMotor.setSimPosition(-mechRotations * IntakeConstants.kArmTotalGearRatio);
+        intakeArmMotor.setSimVelocity(-mechRPS * IntakeConstants.kArmTotalGearRatio);
 
         // Update Mechanism2d visualization
         simArmAngleDeg = Math.toDegrees(armSim.getAngleRads());
         armLigament.setAngle(simArmAngleDeg);
     }
 
+    /**
+     * Check if the arm's throughbore encoder is within tolerance of the current target.
+     */
+    private boolean isArmAtTarget() {
+        double currentDeg = armEncoder.getPosition().in(Degrees);
+        double targetDeg = targetPosition / kArmDirection * 360.0;
+        return Math.abs(currentDeg - targetDeg) < IntakeConstants.kArmAtTargetThreshold;
+    }
+
+    /**
+     * Check if the target is one of the two known setpoints (raised or lowered).
+     * Used to guard re-sync so it doesn't fire during bop oscillation.
+     */
+    private boolean isAtKnownSetpoint() {
+        double raisedTarget = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
+        double loweredTarget = degreesToMechanismRotations(armLoweredPosition);
+        double tolerance = 0.01; // mechanism rotations
+        return Math.abs(targetPosition - raisedTarget) < tolerance
+            || Math.abs(targetPosition - loweredTarget) < tolerance;
+    }
+
     @Override
     public void periodic() {
+        // Re-sync motor encoder from throughbore when arm has settled at a known setpoint.
+        // Only re-sync when velocity is near zero and at raised/lowered position,
+        // not during bop oscillation where it could cause position jumps.
+        if (isArmAtTarget() && isAtKnownSetpoint()
+                && Math.abs(intakeArmMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
+            double absoluteDeg = armEncoder.getPosition().in(Degrees);
+            intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
+        }
     }
 }

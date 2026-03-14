@@ -356,12 +356,12 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kLowSpeed = 0.55;
-        public static final double kHighSpeed = 0.3;
+        public static final double kIntakeSpeed = 0.55;
 
         public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 15.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)

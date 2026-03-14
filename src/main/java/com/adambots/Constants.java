@@ -127,7 +127,7 @@ public final class Constants {
         public static final double kTurretMaxDegrees = 260.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
-        public static final double kTurretForwardDegrees = 90.0;
+        public static final double kTurretForwardDegrees = 170.0;
 
         public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 

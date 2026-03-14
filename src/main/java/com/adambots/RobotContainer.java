@@ -72,14 +72,14 @@ public class RobotContainer {
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
-        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm);
+        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
         shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
         turret = new TurretSubsystem(RobotMap.turretMotor);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                     RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
         leds = RobotMap.LEDS_ENABLED
-                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, false)
+                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, true)
                     : null;
 
         // 3. Vision
@@ -163,12 +163,10 @@ public class RobotContainer {
         Buttons.XboxAButton.onTrue(Commands.runOnce(
                 () -> intake.stopIntakeCommand()));
 
-        // Trigger (1): Shoot (full sequence)
+        // Trigger (1): Hold-to-shoot at vision distance (no timer)
         Buttons.JoystickButton1.whileTrue(
-                ShootCommands.shootAtDistanceCommand(
-                        shooter, hopper, visionSubsystem::getHubDistance, intake, false));
-
-        // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
+                ShootCommands.holdShootAtDistanceCommand(
+                        shooter, hopper, visionSubsystem::getHubDistance));
 
         // Button 2: Toggle bop
         Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
@@ -268,8 +266,11 @@ public class RobotContainer {
                                 .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
                     // ShootCommands.shootCommand(shooter, hopper));
-                    ShootCommands.shootAtDistanceCommand(
+                    ShootCommands.shootAtDistanceTimerCommand(
                                 shooter, hopper, visionSubsystem::getHubDistance));
+        NamedCommands.registerCommand("shootWithBop",
+                    ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, visionSubsystem::getHubDistance));
         NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
     }
 
@@ -299,7 +300,7 @@ public class RobotContainer {
     }
 
     public void onTeleopInit(boolean noAutoRan) {
-        turret.calibrateCommand().schedule();
+        // turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

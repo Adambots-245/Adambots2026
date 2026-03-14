@@ -81,18 +81,18 @@ public final class ShootCommands {
     /**
      * Spin for vision distance → once at speed (or timeout), keep spinning + feed → stop all.
      */
-    public static Command shootAtDistanceCommand(
+    public static Command shootAtDistanceTimerCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
             DoubleSupplier distanceSupplier) {
-        return shootAtDistanceCommand(shooter, hopper, distanceSupplier, null, false);
+        return shootAtDistanceTimerCommand(shooter, hopper, distanceSupplier, null, false);
     }
 
     /**
      * Spin for vision distance → once at speed (or timeout), keep spinning + feed → stop all.
      * Optionally lowers the intake arm (without running rollers) at the start of the sequence.
      */
-    public static Command shootAtDistanceCommand(
+    public static Command shootAtDistanceTimerCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
             DoubleSupplier distanceSupplier,
@@ -139,6 +139,107 @@ public final class ShootCommands {
             ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
         ).withName("Auto Shoot");
+    }
+
+    // ==================== HOLD-TO-SHOOT (no timer) ====================
+
+    /**
+     * Hold-to-shoot: spin up → wait for speed → spin + feed until released.
+     * No timeouts — runs entirely while the trigger is held.
+     */
+    public static Command holdShootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper) {
+        return holdShootCommand(shooter, hopper, (DoubleSupplier) null);
+    }
+
+    /**
+     * Hold-to-shoot with dynamic RPS: spin up → wait for speed → spin + feed until released.
+     * No timeouts — runs entirely while the trigger is held.
+     */
+    public static Command holdShootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            DoubleSupplier rpsSupplier) {
+        Command spinUp = rpsSupplier != null
+            ? shooter.spinUpCommand(rpsSupplier)
+            : shooter.spinUpCommand();
+        Command spinUpFeed = rpsSupplier != null
+            ? shooter.spinUpCommand(rpsSupplier)
+            : shooter.spinUpCommand();
+
+        return Commands.sequence(
+            spinUp.until(shooter.isAtSpeedTrigger()),
+            Commands.parallel(spinUpFeed, hopper.feedCommand())
+        ).finallyDo(() -> {
+            shooter.stopFlywheel();
+        }).withName("Hold Shoot");
+    }
+
+    /**
+     * Hold-to-shoot at vision distance: spin for distance → wait for speed → spin + feed until released.
+     * No timeouts — runs entirely while the trigger is held.
+     */
+    public static Command holdShootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            DoubleSupplier distanceSupplier) {
+        return Commands.sequence(
+            shooter.spinForDistanceCommand(distanceSupplier)
+                .until(shooter.isAtSpeedTrigger()),
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier),
+                hopper.feedCommand())
+        ).finallyDo(() -> {
+            shooter.stopFlywheel();
+        }).withName("Hold Shoot At Distance");
+    }
+
+    /**
+     * Hold-to-shoot at vision distance while bopping the intake arm to shake balls
+     * toward the hopper. No timeouts — runs entirely while the trigger is held.
+     */
+    public static Command holdShootAtDistanceWithBopCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            DoubleSupplier distanceSupplier) {
+        return Commands.sequence(
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier)
+                    .until(shooter.isAtSpeedTrigger()),
+                intake.bopArmCommand()),
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier),
+                hopper.feedCommand(),
+                intake.bopArmCommand())
+        ).finallyDo(() -> {
+            shooter.stopFlywheel();
+        }).withName("Hold Shoot At Distance With Bop");
+    }
+
+    /**
+     * Timer-based shoot at distance with bop: spin for distance + bop → once at speed (or timeout),
+     * keep spinning + feed + bop → stop all. For autonomous / PathPlanner use.
+     */
+    public static Command shootAtDistanceTimerWithBopCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            DoubleSupplier distanceSupplier) {
+        return Commands.sequence(
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier)
+                    .until(shooter.isAtSpeedTrigger())
+                    .withTimeout(kSpinUpTimeoutSeconds),
+                intake.bopArmCommand()),
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier),
+                hopper.feedCommand(),
+                intake.bopArmCommand()
+            ).withTimeout(kShootDurationSeconds),
+            stopAllCommand(shooter, hopper)
+        ).withName("Shoot At Distance With Bop");
     }
 
     /**

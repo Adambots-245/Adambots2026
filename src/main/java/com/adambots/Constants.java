@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = false;
+    public static final boolean TUNING_ENABLED = true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
     public static final boolean VISION_TAB   = TUNING_ENABLED && true;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
@@ -359,9 +359,9 @@ public final class Constants {
         public static final double kLowSpeed = 0.55;
         public static final double kHighSpeed = 0.3;
 
-        public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
-        public static final double kArmLoweredPosition = 0.26; // motor rotations when arm is lowered (deployed)
-        public static final double kBopAngle = 0.20;           // motor rotations to bop up from lowered position
+        public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kBopAngle = 15.0;           // degrees to bop up from lowered position — CALIBRATE
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)

@@ -3,10 +3,13 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 
+import static edu.wpi.first.units.Units.Degrees;
+
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
+import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
@@ -24,9 +27,8 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
  * Turret subsystem with position-controlled PID via onboard motor controller.
- * Hardware limit switches are hardwired to the TalonFXS (Minion motor).
- * The reverse limit auto-zeros the encoder — pre-place turret against it before each match.
- * Forward limit records the discovered max range dynamically.
+ * Uses a 10-turn potentiometer for absolute position sensing — no calibration needed.
+ * The pot seeds the motor encoder on construction and re-syncs periodically.
  */
 @Logged
 public class TurretSubsystem extends SubsystemBase {
@@ -35,14 +37,16 @@ public class TurretSubsystem extends SubsystemBase {
     enum TrackingMode { HOLD, CAMERA, POSE, SWEEP }
 
     private final BaseMotor turretMotor;
+    private final BaseAbsoluteEncoder turretPot;
 
     private double trackingToleranceDeg = TurretTrackingConstants.kTrackingToleranceDeg;
 
     // Track last setpoint for isAtTarget()
     private double lastSetpointDegrees = 0;
 
-    // Calibration state
-    private boolean isCalibrated = false;
+    // Potentiometer calibration: pot reading at turret 0° and 180° (tunable via dashboard)
+    private double potAtZeroDeg = TurretConstants.kTurretPotAtZeroDeg;
+    private double potAtMaxDeg = TurretConstants.kTurretPotAtMaxDeg;
 
     // Auto-track toggle (driver opts in via Button 5)
     private boolean autoTrackEnabled = false;
@@ -66,9 +70,15 @@ public class TurretSubsystem extends SubsystemBase {
     // Derived from kTurretForwardDegrees (the turret angle that faces robot forward).
     private double poseOffsetDegrees = 360.0 - TurretConstants.kTurretForwardDegrees;
 
-    public TurretSubsystem(BaseMotor turretMotor) {
+    public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
         this.turretMotor = turretMotor;
+        this.turretPot = turretPot;
         configureMotors();
+
+        // Seed motor encoder from potentiometer absolute position
+        double absoluteDeg = getPotAngleDegrees();
+        double rotations = (absoluteDeg / 360.0) * TurretConstants.kTurretGearRatio;
+        turretMotor.setPosition(rotations);
     }
 
     private void configureMotors() {
@@ -83,12 +93,6 @@ public class TurretSubsystem extends SubsystemBase {
                 RotationsPerSecondPerSecond.of(TurretConstants.kTurretAcceleration),
                 TurretConstants.kTurretJerk)
             .apply();
-
-        // Hardware limits: both enabled
-        // Reverse limit → encoder = 0.0 (home)
-        // Forward limit → encoder = maxRotations (kTurretMaxDegrees, so PID stays valid)
-        double maxRotations = (TurretConstants.kTurretMaxDegrees / 360.0) * TurretConstants.kTurretGearRatio;
-        turretMotor.configureHardLimits(true, true, maxRotations, 0.0);
     }
 
     // ==================== Tuning Setters (called by TuningManager) ====================
@@ -105,18 +109,17 @@ public class TurretSubsystem extends SubsystemBase {
         poseOffsetDegrees = deg;
     }
 
-    public boolean getForwardLimitSwitch() {
-        return turretMotor.getForwardLimitSwitch();
+    public void setPotAtZeroDeg(double deg) {
+        potAtZeroDeg = deg;
     }
 
-    public boolean getReverseLimitSwitch() {
-        return turretMotor.getReverseLimitSwitch();
+    public void setPotAtMaxDeg(double deg) {
+        potAtMaxDeg = deg;
     }
 
     // ==================== Turret Control ====================
 
     public void setTurretAngle(double degrees) {
-        if (!isCalibrated) return;
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
@@ -135,14 +138,19 @@ public class TurretSubsystem extends SubsystemBase {
         return Math.abs(getTurretAngleDegrees() - lastSetpointDegrees) < toleranceDeg;
     }
 
-    // ==================== Calibration State ====================
+    // ==================== Potentiometer ====================
 
-    public boolean isCalibrated() {
-        return isCalibrated;
+    /** Returns the raw pot reading in degrees (0-3600 for a 10-turn pot). */
+    public double getRawPotDegrees() {
+        return turretPot.getPosition().in(Degrees);
     }
 
-    public Trigger isCalibratedTrigger() {
-        return new Trigger(this::isCalibrated);
+    /** Converts raw pot reading to turret angle in degrees [0, kTurretMaxDegrees]. */
+    public double getPotAngleDegrees() {
+        double range = potAtMaxDeg - potAtZeroDeg;
+        if (range == 0) return 0.0;
+        double rawDeg = getRawPotDegrees();
+        return (rawDeg - potAtZeroDeg) / range * TurretConstants.kTurretMaxDegrees;
     }
 
     // ==================== Triggers ====================
@@ -155,15 +163,18 @@ public class TurretSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Check hardware limit switches for calibration
-        if (turretMotor.getReverseLimitSwitch()) {
-            isCalibrated = true;
+        // Re-sync motor encoder from potentiometer when turret has settled
+        if (isAtTarget(2.0) && Math.abs(turretMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
+            double absoluteDeg = getPotAngleDegrees();
+            double rotations = (absoluteDeg / 360.0) * TurretConstants.kTurretGearRatio;
+            turretMotor.setPosition(rotations);
         }
 
         // Dashboard telemetry (read angle once to avoid redundant CAN bus reads)
         double currentAngle = getTurretAngleDegrees();
         SmartDashboard.putNumber("Turret/Angle (deg)", currentAngle);
-        SmartDashboard.putBoolean("Turret/Calibrated", isCalibrated);
+        SmartDashboard.putNumber("Turret/Pot Raw (deg)", getRawPotDegrees());
+        SmartDashboard.putNumber("Turret/Pot Turret (deg)", getPotAngleDegrees());
         SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
@@ -205,31 +216,7 @@ public class TurretSubsystem extends SubsystemBase {
             .withName("Toggle Auto-Track");
     }
 
-    // ==================== Calibration Command ====================
-
-    /**
-     * Backup calibration: slowly drives toward reverse limit.
-     * Hardware auto-zeros encoder when reverse limit is hit.
-     * Not wired by default — use if pre-placing isn't reliable.
-     */
-    public Command calibrateCommand() {
-        return runEnd(
-            () -> turretMotor.set(-TurretConstants.kCalibrationSpeed),
-            this::stopTurret
-        )
-        .until(turretMotor::getReverseLimitSwitch)
-        .withTimeout(TurretConstants.kCalibrationTimeoutSec)
-        .andThen(run(() -> {
-            if (isCalibrated) {
-                setTurretAngle(TurretConstants.kCalibrationOffsetDegrees);
-            }
-        })
-        .until(() -> isAtTarget(2.0))
-        .withTimeout(3.0))
-        .withName("Calibrate Turret");
-    }
-
-    // ==================== Vision Tracking ====================
+    // ==================== Vision Tracking Commands ====================
 
     private double poseAngleToTurretAngle(double poseAngle) {
         return TurretTracking.poseAngleToTurretAngle(poseAngle, poseOffsetDegrees);
@@ -442,7 +429,6 @@ public class TurretSubsystem extends SubsystemBase {
     // Stepped diagnostic state (persists across button presses)
     private int diagStep = 0;
     private final StringBuilder diagLog = new StringBuilder();
-    private static final int DIAG_TOTAL_STEPS = 6;
     private String diagInstruction = "Press 'Turret Diag' to start";
 
     /** Current diagnostic step instruction (for dashboard string widget). */

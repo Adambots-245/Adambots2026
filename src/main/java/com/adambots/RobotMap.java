@@ -14,6 +14,11 @@ import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.sensors.DummyDistanceSensor;
 
+import com.adambots.lib.sensors.BaseAbsoluteEncoder;
+import com.adambots.lib.sensors.DummyAbsoluteEncoder;
+import com.adambots.lib.sensors.Potentiometer;
+import com.adambots.lib.sensors.ThroughBoreEncoder;
+
 import edu.wpi.first.wpilibj.DigitalInput;
 
 /**
@@ -53,6 +58,7 @@ public class RobotMap {
     // Port assignments - on CANivore
     private static final int kIntakeMotorPort = 33;
     private static final int kIntakeMotorArmPort = 32;
+    private static final int kIntakeArmEncoderPort = 0;  // DIO - throughbore absolute encoder
 
     // Hardware devices
     // TalonFXMotor(canId, isOnCANivore, isKraken) — supply current is configured in subsystem
@@ -60,6 +66,8 @@ public class RobotMap {
         ? new TalonFXMotor(kIntakeMotorPort, true, true) : new DummyMotor();
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
         ? new MinionMotor(kIntakeMotorArmPort, true) : new DummyMotor();
+    public static final BaseAbsoluteEncoder kIntakeArmEncoder = INTAKE_ENABLED
+        ? new ThroughBoreEncoder(kIntakeArmEncoderPort) : new DummyAbsoluteEncoder();
 
     // ==================== SHOOTER ====================
     // Port assignments - on CANivore
@@ -75,9 +83,13 @@ public class RobotMap {
     // ==================== TURRET ====================
     // Port assignments - on CANivore
     private static final int kTurretPort = 35;        // Minion (WCP GreyT Turret)
+    private static final int kTurretPotPort = 0;      // Analog input - 10-turn potentiometer
+    private static final double kTurretPotFullRange = 3600.0; // 10-turn pot: 0-3600°
 
     public static final BaseMotor turretMotor = TURRET_ENABLED
         ? new MinionMotor(kTurretPort, true) : new DummyMotor();
+    public static final BaseAbsoluteEncoder kTurretPotentiometer = TURRET_ENABLED
+        ? new Potentiometer(kTurretPotPort, kTurretPotFullRange) : new DummyAbsoluteEncoder();
 
     // ==================== HOPPER (includes uptake motor) ====================
     // Port assignments - on CANivore

@@ -15,16 +15,16 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = false;
+    public static final boolean TUNING_ENABLED = true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
-    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
+    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && false;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
-    public static final boolean VISION_TAB   = TUNING_ENABLED && true;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean VISION_TAB   = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
@@ -123,7 +123,7 @@ public final class Constants {
         // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
-        // Reference range — not enforced in code (hardware limits protect the mechanism)
+        // Reference range — software-limited via pot + clamp in setTurretAngle()
         public static final double kTurretMaxDegrees = 180.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
@@ -131,13 +131,11 @@ public final class Constants {
 
         public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
-        // ==================== Calibration ====================
-        /** Duty cycle for slow drive toward reverse limit during calibration */
-        public static final double kCalibrationSpeed = 0.08;
-        /** Safety timeout for calibration command (seconds) */
-        public static final double kCalibrationTimeoutSec = 5.0;
-        /** Degrees to move off the reverse limit after zeroing to avoid PID stall whine */
-        public static final double kCalibrationOffsetDegrees = 85.0;
+        // ==================== Potentiometer Calibration ====================
+        /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
+        public static final double kTurretPotAtZeroDeg = 0.0;
+        /** Pot reading (degrees) when turret is at 180° — determine empirically via dashboard */
+        public static final double kTurretPotAtMaxDeg = 180.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -366,12 +364,12 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kLowSpeed = 0.55;
-        public static final double kHighSpeed = 0.3;
+        public static final double kIntakeSpeed = 0.55;
 
-        public static final double kArmRaisedPosition = -0.1;   // motor rotations when arm is raised (retracted, home)
-        public static final double kArmLoweredPosition = 0.26; // motor rotations when arm is lowered (deployed)
-        public static final double kBopAngle = 0.20;           // motor rotations to bop up from lowered position
+        public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kBopAngle = 15.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)

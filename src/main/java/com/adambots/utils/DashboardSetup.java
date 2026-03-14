@@ -3,6 +3,7 @@ package com.adambots.utils;
 import static edu.wpi.first.units.Units.Centimeters;
 
 import com.adambots.Constants;
+import com.adambots.Constants.TurretConstants;
 import com.adambots.RobotMap;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.SystemCheckCommand;
@@ -115,6 +116,8 @@ public final class DashboardSetup {
             turret.scanCommand(1.0), cc++, cmdRow);
         Dash.addCommand("Turret Right",
             turret.scanCommand(-1.0), cc++, cmdRow);
+        Dash.addCommand("Turret Forward",
+            turret.aimTurretCommand(TurretConstants.kTurretForwardDegrees), cc++, cmdRow);
 
         // Vision tunables row (after commands)
         if (visionSubsystem != null) {

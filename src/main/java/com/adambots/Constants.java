@@ -112,9 +112,9 @@ public final class Constants {
         // kV = 12V / 88.8 RPS (Minion free speed) ≈ 0.135
         // kP: 20 × 0.031 rot/deg = 0.62V per degree error — enough to correct without overshoot
         // kD: kept low — Minion velocity signal is noisy, high D goes berserk
-        public static final double kTurretP = 20.0;
+        public static final double kTurretP = 15.0;
         public static final double kTurretI = 0;
-        public static final double kTurretD = 0.05;
+        public static final double kTurretD = 0.1;
         public static final double kTurretFF = 0.135;
 
         // ==================== Motion Magic Profile ====================

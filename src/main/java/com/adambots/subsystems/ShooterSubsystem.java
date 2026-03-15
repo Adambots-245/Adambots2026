@@ -135,15 +135,16 @@ public class ShooterSubsystem extends SubsystemBase {
     // ==================== Field Zone ====================
 
     /**
-     * Returns true when the robot is on its own alliance's side of mid-field
-     * (the side with the hub we're shooting at).
+     * Returns true when the robot is between its alliance wall and the hub.
+     * Once the robot passes the hub (toward mid-field), tracking stops.
+     * Hub X positions from 2026 AprilTag field layout.
      */
     public boolean isInShootingZone() {
         double robotX = robotPose.get().getX();
-        double midX = 16.54 / 2.0; // field midpoint
         boolean isRed = DriverStation.getAlliance()
             .orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Red;
-        return isRed ? robotX > midX : robotX < midX;
+        // Red hub at x≈12.0 (Red wall at x=16.54), Blue hub at x≈4.54 (Blue wall at x=0)
+        return isRed ? robotX > 12.0 : robotX < 4.54;
     }
 
     // ==================== Triggers ====================

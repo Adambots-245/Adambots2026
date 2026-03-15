@@ -54,11 +54,13 @@ public class TurretSubsystem extends SubsystemBase {
     // Current tracking mode for telemetry
     private TrackingMode trackingMode = TrackingMode.HOLD;
 
-    // Camera hysteresis: require N consecutive valid frames before switching to camera tier
-    private int camValidFrames = 0;
+    // Camera hysteresis: charge/decay counter. Charges per valid frame, drains -1 per lost frame.
+    private static final int CAM_COUNTER_MAX = TurretTrackingConstants.kCamCounterMax;
+    private int camCounter = 0;
 
-    // Sweep bounce direction (true = sweeping toward max degrees)
-    private boolean sweepGoingRight = true;
+    // Search state: step through discrete angles, dwell at each to let camera detect
+    private double searchAngleDeg = 0;
+    private int searchDwellFrames = 0;
 
     public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
         this.turretMotor = turretMotor;
@@ -161,6 +163,9 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
         SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
+        SmartDashboard.putNumber("Turret/CamCounter", camCounter);
+        SmartDashboard.putNumber("Turret/SearchAngle", searchAngleDeg);
+        SmartDashboard.putNumber("Turret/SearchDwell", searchDwellFrames);
     }
 
     // ==================== Command Factories ====================
@@ -201,19 +206,14 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Vision Tracking Commands ====================
 
     /**
-     * Simplified auto-track command: two-mode system.
+     * Auto-track command: search-then-lock system.
      * <ol>
-     *   <li><b>CAMERA</b> — Camera sees the hub (with 3-frame hysteresis) →
-     *       aim using camera offset from turret center.</li>
-     *   <li><b>SWEEP</b> — Camera doesn't see the hub → bounce between 0° and 260°
-     *       (full turret range) to help the camera re-acquire.</li>
-     *   <li><b>HOLD</b> — Auto-track disabled (Button 5) → hold current angle.
-     *       Not in shooting zone → hold at kTurretForwardDegrees (170°).</li>
+     *   <li><b>SWEEP</b> — Steps to discrete angles (0°, 30°, 60°, …), dwelling at each
+     *       to give the camera time to detect hub tags.</li>
+     *   <li><b>CAMERA</b> — Hub tags found → track using camera yaw offset, with
+     *       charge/decay hysteresis to ride through brief dropouts.</li>
+     *   <li><b>HOLD</b> — Auto-track disabled or not in shooting zone.</li>
      * </ol>
-     *
-     * @param cameraAngle    turret-relative offset angle from the shooter camera (degrees)
-     * @param cameraHasTarget whether the shooter camera currently sees the hub
-     * @param inShootingZone  whether the robot is on its own alliance's side of mid-field
      */
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
@@ -223,8 +223,9 @@ public class TurretSubsystem extends SubsystemBase {
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
             wasAutoTracking = false;
-            camValidFrames = 0;
-            sweepGoingRight = true;
+            camCounter = 0;
+            searchAngleDeg = TurretConstants.kTurretForwardDegrees;
+            searchDwellFrames = 0;
         }, this)
         .andThen(run(() -> {
             // Auto-track toggle (Button 5)
@@ -246,30 +247,54 @@ public class TurretSubsystem extends SubsystemBase {
                 return;
             }
 
-            // Camera hysteresis
+            // Charge/decay hysteresis: +kCamChargeRate per valid frame, -1 per lost frame
             boolean camValid = cameraHasTarget.getAsBoolean();
-            camValidFrames = camValid ? camValidFrames + 1 : 0;
-            boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
+            camCounter = camValid
+                ? Math.min(camCounter + TurretTrackingConstants.kCamChargeRate, CAM_COUNTER_MAX)
+                : Math.max(camCounter - 1, 0);
 
+            boolean useCam = camCounter >= TurretTrackingConstants.kCamHysteresisFrames;
             double currentAngle = getTurretAngleDegrees();
 
             if (useCam) {
-                // CAMERA MODE
+                // CAMERA MODE — locked on hub
                 trackingMode = TrackingMode.CAMERA;
-                double target = MathUtil.clamp(
-                    currentAngle + cameraAngle.getAsDouble(),
-                    0, TurretConstants.kTurretMaxDegrees);
-                setTurretAngle(target);
-            } else {
-                // SWEEP MODE — bounce between 0° and kTurretMaxDegrees
-                trackingMode = TrackingMode.SWEEP;
-                double sweepTarget = sweepGoingRight ? TurretConstants.kTurretMaxDegrees : 0.0;
-                if (Math.abs(currentAngle - sweepTarget)
-                        < TurretTrackingConstants.kSweepArrivalToleranceDeg) {
-                    sweepGoingRight = !sweepGoingRight;
-                    sweepTarget = sweepGoingRight ? TurretConstants.kTurretMaxDegrees : 0.0;
+                searchDwellFrames = 0;
+                // Keep search position near current angle for quick re-acquisition
+                searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
+                    * TurretTrackingConstants.kSearchStepDeg;
+                if (camValid) {
+                    // Compute where the hub actually is, then smoothly move setpoint toward it
+                    double fullTarget = MathUtil.clamp(
+                        currentAngle + cameraAngle.getAsDouble(),
+                        0, TurretConstants.kTurretMaxDegrees);
+                    // Exponential smoothing: move setpoint 30% of remaining distance each cycle
+                    double smoothed = lastSetpointDegrees
+                        + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
+                    setTurretAngle(smoothed);
+                } else {
+                    // Brief dropout — hold last setpoint while counter drains
+                    setTurretAngle(lastSetpointDegrees);
                 }
-                setTurretAngle(sweepTarget);
+            } else if (camCounter > 0) {
+                // NEAR-LOCK — tags recently seen but below threshold.
+                // Hold last known position instead of snapping to search grid.
+                trackingMode = TrackingMode.CAMERA;
+                setTurretAngle(lastSetpointDegrees);
+            } else {
+                // SEARCH MODE — no recent detections, step through positions
+                trackingMode = TrackingMode.SWEEP;
+                if (isAtTarget(5.0)) {
+                    searchDwellFrames++;
+                    if (searchDwellFrames >= TurretTrackingConstants.kManualAlignDwellFrames) {
+                        searchAngleDeg += TurretTrackingConstants.kSearchStepDeg;
+                        if (searchAngleDeg > TurretConstants.kTurretMaxDegrees) {
+                            searchAngleDeg = 0;
+                        }
+                        searchDwellFrames = 0;
+                    }
+                }
+                setTurretAngle(searchAngleDeg);
             }
         }))
         .finallyDo(interrupted -> {
@@ -290,31 +315,50 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier cameraHasTarget) {
 
         return Commands.runOnce(() -> {
-            camValidFrames = 0;
-            sweepGoingRight = true;
+            camCounter = 0;
+            searchAngleDeg = TurretConstants.kTurretForwardDegrees; // start from forward — hub is most likely ahead
+            searchDwellFrames = 0;
         }, this)
         .andThen(run(() -> {
             boolean camValid = cameraHasTarget.getAsBoolean();
-            camValidFrames = camValid ? camValidFrames + 1 : 0;
-            boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
+            camCounter = camValid
+                ? Math.min(camCounter + TurretTrackingConstants.kCamChargeRate, CAM_COUNTER_MAX)
+                : Math.max(camCounter - 1, 0);
 
+            boolean useCam = camCounter >= TurretTrackingConstants.kCamHysteresisFrames;
             double currentAngle = getTurretAngleDegrees();
 
             if (useCam) {
                 trackingMode = TrackingMode.CAMERA;
-                double target = MathUtil.clamp(
-                    currentAngle + cameraAngle.getAsDouble(),
-                    0, TurretConstants.kTurretMaxDegrees);
-                setTurretAngle(target);
+                searchDwellFrames = 0;
+                searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
+                    * TurretTrackingConstants.kSearchStepDeg;
+                if (camValid) {
+                    double fullTarget = MathUtil.clamp(
+                        currentAngle + cameraAngle.getAsDouble(),
+                        0, TurretConstants.kTurretMaxDegrees);
+                    double smoothed = lastSetpointDegrees
+                        + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
+                    setTurretAngle(smoothed);
+                } else {
+                    setTurretAngle(lastSetpointDegrees);
+                }
+            } else if (camCounter > 0) {
+                trackingMode = TrackingMode.CAMERA;
+                setTurretAngle(lastSetpointDegrees);
             } else {
                 trackingMode = TrackingMode.SWEEP;
-                double sweepTarget = sweepGoingRight ? TurretConstants.kTurretMaxDegrees : 0.0;
-                if (Math.abs(currentAngle - sweepTarget)
-                        < TurretTrackingConstants.kSweepArrivalToleranceDeg) {
-                    sweepGoingRight = !sweepGoingRight;
-                    sweepTarget = sweepGoingRight ? TurretConstants.kTurretMaxDegrees : 0.0;
+                if (isAtTarget(5.0)) {
+                    searchDwellFrames++;
+                    if (searchDwellFrames >= TurretTrackingConstants.kManualAlignDwellFrames) {
+                        searchAngleDeg += TurretTrackingConstants.kSearchStepDeg;
+                        if (searchAngleDeg > TurretConstants.kTurretMaxDegrees) {
+                            searchAngleDeg = 0;
+                        }
+                        searchDwellFrames = 0;
+                    }
                 }
-                setTurretAngle(sweepTarget);
+                setTurretAngle(searchAngleDeg);
             }
         }))
         .finallyDo(interrupted -> {

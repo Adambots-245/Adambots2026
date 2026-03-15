@@ -225,11 +225,7 @@ public final class DashboardSetup {
         Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
         if (visionSubsystem != null) {
             Dash.addCommand("Auto Track",
-                turret.autoTrackCommand(
-                    visionSubsystem::getHubCamAngle,
-                    visionSubsystem::isHubCamVisible,
-                    shooter::isInShootingZone)
-                    .withName("Auto Track"), col++, row);
+                turret.toggleAutoTrackCommand(), col++, row);
             Dash.addCommand("Manual Align",
                 turret.manualAlignCommand(
                     visionSubsystem::getHubCamAngle,

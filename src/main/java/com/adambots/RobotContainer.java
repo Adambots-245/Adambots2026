@@ -73,7 +73,7 @@ public class RobotContainer {
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
         intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
-        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
+        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
         turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
@@ -143,15 +143,12 @@ public class RobotContainer {
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Constants.DriveConstants.kTranslationScale));
 
-        // Turret auto-track: camera → pose → sweep → hold, with lead angle compensation
+        // Turret auto-track: camera → sweep → hold (simplified two-mode tracking)
         if (visionSubsystem != null) {
             turret.setDefaultCommand(turret.autoTrackCommand(
-                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                        visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                        () -> swerve.getHeading().getRadians(),
-                        () -> swerve.getFieldVelocity().vxMetersPerSecond,
-                        () -> swerve.getFieldVelocity().vyMetersPerSecond,
-                        visionSubsystem::getHubDistance));
+                        visionSubsystem::getHubCamAngle,
+                        visionSubsystem::isHubCamVisible,
+                        shooter::isInShootingZone));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());
         }

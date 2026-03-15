@@ -1,6 +1,5 @@
 package com.adambots.commands;
 
-import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 import com.adambots.subsystems.HopperSubsystem;
@@ -121,26 +120,14 @@ public final class ShootCommands {
             ShooterSubsystem shooter,
             TurretSubsystem turret,
             HopperSubsystem hopper,
-            DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget,
-            DoubleSupplier poseAngle,
-            BooleanSupplier poseHasTarget,
-            DoubleSupplier robotHeadingRad,
-            DoubleSupplier fieldVxMps,
-            DoubleSupplier fieldVyMps,
             DoubleSupplier visionDist) {
         return Commands.sequence(
-            // Track and spin up simultaneously
+            // Track and spin up simultaneously (turret uses default command for tracking)
+            shooter.spinForDistanceCommand(visionDist)
+                .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
+                .withTimeout(kSpinUpTimeoutSeconds),
+            // Keep spinning while feeding
             Commands.parallel(
-                turret.autoTrackCommand(cameraAngle, cameraHasTarget, poseAngle, poseHasTarget,
-                    robotHeadingRad, fieldVxMps, fieldVyMps, visionDist),
-                shooter.spinForDistanceCommand(visionDist)
-            ).until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
-             .withTimeout(kSpinUpTimeoutSeconds),
-            // Keep spinning + tracking while feeding
-            Commands.parallel(
-                turret.autoTrackCommand(cameraAngle, cameraHasTarget, poseAngle, poseHasTarget,
-                    robotHeadingRad, fieldVxMps, fieldVyMps, visionDist),
                 shooter.spinForDistanceCommand(visionDist),
                 hopper.feedCommand()
             ).withTimeout(kShootDurationSeconds),

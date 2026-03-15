@@ -151,21 +151,8 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Consecutive frames camera must be valid before switching to camera tier (60ms at 3) */
         public static final int kCamHysteresisFrames = 3;
-        /** Scan step size (degrees per cycle) when sweeping to find hub via Motion Magic.
-         *  At 50 Hz, 0.7°/cycle ≈ 35°/sec — fast enough to reacquire, slow enough for camera to detect. */
-        public static final double kScanStepDeg = 0.7;
-        /** Seconds without camera before pose-fallback sweep begins */
-        public static final double kPoseFallbackSweepTimeSec = 2.0;
-        /** ±degrees of oscillation around pose target during sweep */
-        public static final double kPoseFallbackSweepAmplitudeDeg = 15.0;
         /** Degrees from sweep endpoint before flipping direction */
         public static final double kSweepArrivalToleranceDeg = 2.0;
-        /** Approximate ball exit speed (m/s) for lead angle calculation.
-         *  Derived from: ~3600 RPM flywheel × 2in wheel ≈ 19 m/s surface speed,
-         *  reduced for ball compression and slip. Tune on the field. */
-        public static final double kBallExitSpeedMps = 15.0;
-        /** Sign multiplier for camera angle. Flip to -1.0 via dashboard if camera tracks wrong way. */
-        public static final double kCameraAngleSign = 1.0;
     }
 
     // ==================== HopperConstants ====================

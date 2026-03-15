@@ -226,13 +226,15 @@ public final class DashboardSetup {
         if (visionSubsystem != null) {
             Dash.addCommand("Auto Track",
                 turret.autoTrackCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                    () -> swerve.getHeading().getRadians(),
-                    () -> swerve.getFieldVelocity().vxMetersPerSecond,
-                    () -> swerve.getFieldVelocity().vyMetersPerSecond,
-                    visionSubsystem::getHubDistance)
+                    visionSubsystem::getHubCamAngle,
+                    visionSubsystem::isHubCamVisible,
+                    shooter::isInShootingZone)
                     .withName("Auto Track"), col++, row);
+            Dash.addCommand("Manual Align",
+                turret.manualAlignCommand(
+                    visionSubsystem::getHubCamAngle,
+                    visionSubsystem::isHubCamVisible)
+                    .withName("Manual Align"), col++, row);
         }
 
         // Climber commands
@@ -255,16 +257,7 @@ public final class DashboardSetup {
             Dash.add("Diag Step", turret::getDiagInstruction, col++, row);
             Dash.addCommand("Turret Diag",
                 turret.turretDiagnosticCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                    () -> swerve.getHeading().getRadians(),
-                    () -> swerve.getFieldVelocity().vxMetersPerSecond,
-                    () -> swerve.getFieldVelocity().vyMetersPerSecond,
-                    visionSubsystem::getHubDistance,
-                    () -> {
-                        var p = swerve.getPose();
-                        return String.format("(%.2f, %.2f)", p.getX(), p.getY());
-                    })
+                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible)
                     .withName("Turret Diagnostic"), col++, row);
         }
 

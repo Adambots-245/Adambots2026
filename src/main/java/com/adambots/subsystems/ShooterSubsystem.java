@@ -3,13 +3,16 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.*;
 
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -25,6 +28,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
     private final BaseMotor leftFlywheel;
     private final BaseMotor rightFlywheel;
+    private final Supplier<Pose2d> robotPose;
 
     private double targetRPS = 0;
     private double flywheelToleranceCached = ShooterConstants.kFlywheelToleranceRPS;
@@ -34,9 +38,10 @@ public class ShooterSubsystem extends SubsystemBase {
 
     private double lobShotRPSCached = ShooterConstants.kLobShotRPS;
 
-    public ShooterSubsystem(BaseMotor leftFlywheel, BaseMotor rightFlywheel) {
+    public ShooterSubsystem(BaseMotor leftFlywheel, BaseMotor rightFlywheel, Supplier<Pose2d> robotPose) {
         this.leftFlywheel = leftFlywheel;
         this.rightFlywheel = rightFlywheel;
+        this.robotPose = robotPose;
         configureMotors();
         initializeInterpolationTable();
     }
@@ -125,6 +130,20 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public boolean isAtSpeed() {
         return targetRPS > 0 && Math.abs(Math.abs(getLeftRPS()) - targetRPS) < flywheelToleranceCached;
+    }
+
+    // ==================== Field Zone ====================
+
+    /**
+     * Returns true when the robot is on its own alliance's side of mid-field
+     * (the side with the hub we're shooting at).
+     */
+    public boolean isInShootingZone() {
+        double robotX = robotPose.get().getX();
+        double midX = 16.54 / 2.0; // field midpoint
+        boolean isRed = DriverStation.getAlliance()
+            .orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Red;
+        return isRed ? robotX > midX : robotX < midX;
     }
 
     // ==================== Triggers ====================

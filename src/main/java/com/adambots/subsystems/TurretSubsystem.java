@@ -66,6 +66,12 @@ public class TurretSubsystem extends SubsystemBase {
     // Sweep bounce direction (true = sweeping toward +amplitude)
     private boolean sweepGoingRight = true;
 
+    // Camera must lock on at least once before we trust pose fallback
+    private boolean cameraHasEverLocked = false;
+
+    // Camera angle sign (flippable via dashboard if camera tracks wrong way)
+    private double cameraAngleSign = TurretTrackingConstants.kCameraAngleSign;
+
     // Pose-to-turret offset: poseAngle - offset = turret angle.
     // Derived from kTurretForwardDegrees (the turret angle that faces robot forward).
     private double poseOffsetDegrees = 360.0 - TurretConstants.kTurretForwardDegrees;
@@ -115,6 +121,10 @@ public class TurretSubsystem extends SubsystemBase {
 
     public void setPotAtMaxDeg(double deg) {
         potAtMaxDeg = deg;
+    }
+
+    public void setCameraAngleSign(double sign) {
+        cameraAngleSign = sign;
     }
 
     // ==================== Turret Control ====================
@@ -293,6 +303,7 @@ public class TurretSubsystem extends SubsystemBase {
             cameraWasTracking = false;
             cameraLostTimestamp = 0.0;
             sweepGoingRight = true;
+            cameraHasEverLocked = false;
         }, this)
         .andThen(run(() -> {
             // === EXECUTE (runs every 20ms cycle) ===
@@ -322,19 +333,17 @@ public class TurretSubsystem extends SubsystemBase {
             boolean useCam = camValid && camValidFrames >= TurretTrackingConstants.kCamHysteresisFrames;
             boolean poseValid = poseHasTarget.getAsBoolean();
 
-            // ------ Lead angle compensation ------
-            // Compute how many degrees to offset the turret aim to account for
-            // the robot's lateral motion. This is applied to ALL tracking modes
-            // (camera, pose, sweep) because the ball always inherits the robot's
-            // velocity regardless of how we determined the aim direction.
+            // ------ Lead angle compensation (DISABLED for initial debugging) ------
+            // Re-enable after camera and pose tracking are individually verified.
             double currentAngle = getTurretAngleDegrees();
-            double leadAngle = TurretTracking.computeLeadAngleDeg(
-                currentAngle,
-                robotHeadingRad.getAsDouble(),
-                fieldVxMps.getAsDouble(),
-                fieldVyMps.getAsDouble(),
-                distanceM.getAsDouble(),
-                TurretTrackingConstants.kBallExitSpeedMps);
+            double leadAngle = 0.0;
+            // double leadAngle = TurretTracking.computeLeadAngleDeg(
+            //     currentAngle,
+            //     robotHeadingRad.getAsDouble(),
+            //     fieldVxMps.getAsDouble(),
+            //     fieldVyMps.getAsDouble(),
+            //     distanceM.getAsDouble(),
+            //     TurretTrackingConstants.kBallExitSpeedMps);
 
             if (useCam) {
                 // ------ CAMERA MODE (highest priority) ------
@@ -342,8 +351,9 @@ public class TurretSubsystem extends SubsystemBase {
                 // turret. We add the camera offset to our current angle to get the
                 // absolute target. This is the most accurate tracking mode.
                 trackingMode = TrackingMode.CAMERA;
+                cameraHasEverLocked = true;
                 double target = MathUtil.clamp(
-                    currentAngle + cameraAngle.getAsDouble() + leadAngle,
+                    currentAngle + cameraAngle.getAsDouble() * cameraAngleSign + leadAngle,
                     0, TurretConstants.kTurretMaxDegrees);
                 setTurretAngle(target);
 
@@ -352,17 +362,15 @@ public class TurretSubsystem extends SubsystemBase {
                 cameraWasTracking = true;
                 cameraLostTimestamp = 0.0;
 
-            } else if (poseValid) {
-                // ------ POSE / SWEEP MODE (camera lost, odometry available) ------
-                // Compute where the hub should be based on our odometry pose.
-                // poseAngleToTurretAngle() converts the robot-relative bearing
-                // into turret coordinates.
+            } else if (cameraHasEverLocked && poseValid) {
+                // ------ POSE / SWEEP MODE ------
+                // Camera has locked on before (so we know the approximate direction
+                // was correct), but is now lost. Use pose as fallback.
                 double poseTarget = MathUtil.clamp(
                     poseAngleToTurretAngle(poseAngle.getAsDouble()) + leadAngle,
                     0, TurretConstants.kTurretMaxDegrees);
 
-                // Track how long the camera has been lost. If the camera was
-                // working and just went away, record the timestamp.
+                // Track how long the camera has been lost.
                 double now = Timer.getFPGATimestamp();
                 if (cameraWasTracking) {
                     cameraLostTimestamp = now;
@@ -374,9 +382,6 @@ public class TurretSubsystem extends SubsystemBase {
 
                 if (cameraLostDuration > TurretTrackingConstants.kPoseFallbackSweepTimeSec) {
                     // --- SWEEP: camera lost for too long, help it re-acquire ---
-                    // Bounce between two Motion Magic endpoints around the pose
-                    // target. Each endpoint gets a full trapezoidal profile, so
-                    // the motor controller handles all the acceleration smoothly.
                     trackingMode = TrackingMode.SWEEP;
                     double amplitude = TurretTrackingConstants.kPoseFallbackSweepAmplitudeDeg;
                     double sweepTarget = MathUtil.clamp(
@@ -392,20 +397,29 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(sweepTarget);
                 } else {
                     // --- POSE: camera recently lost, trust odometry ---
-                    // The pose estimate is usually still accurate shortly after
-                    // losing the camera. Aim directly at the computed target
-                    // and wait for the camera to re-acquire.
                     trackingMode = TrackingMode.POSE;
                     setTurretAngle(poseTarget);
                 }
 
             } else {
-                // ------ HOLD MODE (nothing available) ------
-                // No camera, no pose — we have no idea where the hub is.
-                // Hold the turret at its current position to avoid random motion.
-                // The driver can use D-pad manual scan to find the hub.
-                trackingMode = TrackingMode.HOLD;
-                setTurretAngle(currentAngle);
+                // ------ SWEEP MODE (camera has never locked on) ------
+                // Camera hasn't found the hub yet. Sweep across the turret range
+                // to help the camera acquire the target, rather than trusting
+                // uncorrected odometry which may send us the wrong way.
+                trackingMode = TrackingMode.SWEEP;
+                double sweepCenter = TurretConstants.kTurretMaxDegrees / 2.0;
+                double amplitude = TurretTrackingConstants.kPoseFallbackSweepAmplitudeDeg;
+                double sweepTarget = MathUtil.clamp(
+                    sweepCenter + (sweepGoingRight ? amplitude : -amplitude),
+                    0, TurretConstants.kTurretMaxDegrees);
+                if (Math.abs(currentAngle - sweepTarget)
+                        < TurretTrackingConstants.kSweepArrivalToleranceDeg) {
+                    sweepGoingRight = !sweepGoingRight;
+                    sweepTarget = MathUtil.clamp(
+                        sweepCenter + (sweepGoingRight ? amplitude : -amplitude),
+                        0, TurretConstants.kTurretMaxDegrees);
+                }
+                setTurretAngle(sweepTarget);
             }
         }))
         .finallyDo(interrupted -> {
@@ -545,7 +559,7 @@ public class TurretSubsystem extends SubsystemBase {
                     diagInstruction = "Press 'Turret Diag' to start";
                     return;
             }
-        }).withName("Turret Diagnostic");
+        }, this).withName("Turret Diagnostic");
     }
 
     /** Appends a pose/bearing snapshot to the diagnostic log. */

@@ -83,7 +83,7 @@ final class TurretTracking {
         }
 
         // Step 1: Find the turret's aim direction in the field frame.
-        // Turret 90° = robot forward (kTurretForwardDegrees = 90°).
+        // Turret 170° = robot forward (kTurretForwardDegrees = 170°).
         // So the turret-to-robot offset is (turretAngle - 90°).
         // Adding the robot heading gives us the field-frame aim direction.
         double aimFieldRad = robotHeadingRad

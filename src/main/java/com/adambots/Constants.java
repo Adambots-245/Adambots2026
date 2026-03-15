@@ -164,6 +164,8 @@ public final class Constants {
          *  Derived from: ~3600 RPM flywheel × 2in wheel ≈ 19 m/s surface speed,
          *  reduced for ball compression and slip. Tune on the field. */
         public static final double kBallExitSpeedMps = 15.0;
+        /** Sign multiplier for camera angle. Flip to -1.0 via dashboard if camera tracks wrong way. */
+        public static final double kCameraAngleSign = 1.0;
     }
 
     // ==================== HopperConstants ====================

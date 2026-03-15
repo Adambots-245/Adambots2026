@@ -49,6 +49,7 @@ public class TuningManager {
     private GenericEntry trackingToleranceEntry;
     private GenericEntry poseOffsetEntry;
     private GenericEntry potAtZeroEntry, potAtMaxEntry;
+    private GenericEntry camAngleSignEntry;
 
     private double lastTurretP = TurretConstants.kTurretP;
     private double lastTurretI = TurretConstants.kTurretI;
@@ -144,6 +145,8 @@ public class TuningManager {
         potAtMaxEntry = Dash.addTunable("Pot at 180°", TurretConstants.kTurretPotAtMaxDeg, pos[0], pos[1]);
         advance(pos, cols);
         Dash.add("Pot Raw (deg)", turret::getRawPotDegrees, pos[0], pos[1]);
+        advance(pos, cols);
+        camAngleSignEntry = Dash.addTunable("Cam Angle Sign", TurretTrackingConstants.kCameraAngleSign, pos[0], pos[1]);
         advance(pos, cols);
     }
 
@@ -297,6 +300,7 @@ public class TuningManager {
         turret.setPoseOffset(poseOffsetEntry.getDouble(360.0 - TurretConstants.kTurretForwardDegrees));
         turret.setPotAtZeroDeg(potAtZeroEntry.getDouble(TurretConstants.kTurretPotAtZeroDeg));
         turret.setPotAtMaxDeg(potAtMaxEntry.getDouble(TurretConstants.kTurretPotAtMaxDeg));
+        turret.setCameraAngleSign(camAngleSignEntry.getDouble(TurretTrackingConstants.kCameraAngleSign));
     }
 
     private void applyIntakeTunables() {

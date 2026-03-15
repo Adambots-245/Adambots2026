@@ -14,6 +14,11 @@ import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.sensors.DummyDistanceSensor;
 
+import com.adambots.lib.sensors.BaseAbsoluteEncoder;
+import com.adambots.lib.sensors.DummyAbsoluteEncoder;
+import com.adambots.lib.sensors.Potentiometer;
+import com.adambots.lib.sensors.ThroughBoreEncoder;
+
 import edu.wpi.first.wpilibj.DigitalInput;
 
 /**
@@ -37,7 +42,7 @@ public class RobotMap {
     public static final boolean SHOOTER_ENABLED = true;
     public static final boolean TURRET_ENABLED = true;
     public static final boolean CLIMBER_ENABLED = true;
-    public static final boolean LEDS_ENABLED = false;
+    public static final boolean LEDS_ENABLED = true;
     public static final boolean BACK_CAMERAS_ENABLED = true;
     public static final boolean SHOOTER_CAMERA_ENABLED = true;
 
@@ -53,13 +58,16 @@ public class RobotMap {
     // Port assignments - on CANivore
     private static final int kIntakeMotorPort = 33;
     private static final int kIntakeMotorArmPort = 32;
+    private static final int kIntakeArmEncoderPort = 0;  // DIO - throughbore absolute encoder
 
     // Hardware devices
-    // TalonFXMotor(canId, isOnCANivore, supplyCurrentLimit, isKraken)
+    // TalonFXMotor(canId, isOnCANivore, isKraken) — supply current is configured in subsystem
     public static final BaseMotor kIntakeMotor = INTAKE_ENABLED
-        ? new TalonFXMotor(kIntakeMotorPort, true, 60.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kIntakeMotorPort, true, true) : new DummyMotor();
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
         ? new MinionMotor(kIntakeMotorArmPort, true) : new DummyMotor();
+    public static final BaseAbsoluteEncoder kIntakeArmEncoder = INTAKE_ENABLED
+        ? new ThroughBoreEncoder(kIntakeArmEncoderPort) : new DummyAbsoluteEncoder();
 
     // ==================== SHOOTER ====================
     // Port assignments - on CANivore
@@ -68,16 +76,20 @@ public class RobotMap {
 
     // Hardware devices
     public static final BaseMotor shooterMotor2 = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterMotor2Port, true, 60.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kShooterMotor2Port, true, true) : new DummyMotor();
     public static final BaseMotor shooterMotor1 = SHOOTER_ENABLED
-        ? new TalonFXMotor(kShooterMotor1Port, true, 60.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kShooterMotor1Port, true, true) : new DummyMotor();
 
     // ==================== TURRET ====================
     // Port assignments - on CANivore
     private static final int kTurretPort = 35;        // Minion (WCP GreyT Turret)
+    private static final int kTurretPotPort = 0;      // Analog input - 10-turn potentiometer
+    private static final double kTurretPotFullRange = 3600.0; // 10-turn pot: 0-3600°
 
     public static final BaseMotor turretMotor = TURRET_ENABLED
         ? new MinionMotor(kTurretPort, true) : new DummyMotor();
+    public static final BaseAbsoluteEncoder kTurretPotentiometer = TURRET_ENABLED
+        ? new Potentiometer(kTurretPotPort, kTurretPotFullRange) : new DummyAbsoluteEncoder();
 
     // ==================== HOPPER (includes uptake motor) ====================
     // Port assignments - on CANivore
@@ -86,9 +98,9 @@ public class RobotMap {
     private static final int kHopperSensorPort = 27;  // CANRange sensor
 
     public static final BaseMotor hopperMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kHopperPort, true, 20.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kHopperPort, true, true) : new DummyMotor();
     public static final BaseMotor uptakeMotor = HOPPER_ENABLED
-        ? new TalonFXMotor(kUptakePort, true, 40.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kUptakePort, true, true) : new DummyMotor();
     // TODO: Re-enable when CANRange is wired in
     // public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
     //     ? new CANRangeSensor(kHopperSensorPort, true) : new DummyDistanceSensor();
@@ -103,7 +115,7 @@ public class RobotMap {
 
     // Hardware devices
     public static final BaseMotor kClimberElevatorMotor = CLIMBER_ENABLED
-        ? new TalonFXMotor(kClimberElevatorMotorPort, true, 60.0, true) : new DummyMotor();
+        ? new TalonFXMotor(kClimberElevatorMotorPort, true, true) : new DummyMotor();
     public static final BaseSolenoid kClimberRatchetSolenoid = CLIMBER_ENABLED
         ? new ElectricalSolenoid(kClimberRatchetSolenoidChannel) : new DummySolenoid();
     public static final DigitalInput kClimberRaisedLimit = CLIMBER_ENABLED

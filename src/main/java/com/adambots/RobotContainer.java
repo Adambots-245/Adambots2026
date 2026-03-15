@@ -6,6 +6,7 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
@@ -14,6 +15,7 @@ import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
 import com.adambots.lib.utils.Dash;
+import com.adambots.utils.HubActivation;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.utils.DashboardSetup;
 import com.adambots.subsystems.ClimberSubsystem;
@@ -26,9 +28,6 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -56,6 +55,7 @@ public class RobotContainer {
     private VisionSystem vision;
 
     private SendableChooser<Command> autoChooser;
+    private Runnable tuningPeriodic;
 
     public RobotContainer() {
         // 1. Swerve config for PathPlanner
@@ -73,14 +73,15 @@ public class RobotContainer {
         swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
-        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm);
-        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
-        turret = new TurretSubsystem(RobotMap.turretMotor);
+        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
+        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
+        turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
-            RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
+                    RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
         leds = RobotMap.LEDS_ENABLED
-            ? new CANdleSubsystem(RobotMap.kCANdlePort) : null;
+                    ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, true)
+                    : null;
 
         // 3. Vision
         configureVision();
@@ -106,37 +107,49 @@ public class RobotContainer {
 
     // ==================== VISION ====================
     private void configureVision() {
-        if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED) return;
+        if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED)
+            return;
 
         visionSubsystem = new VisionSubsystem(
-            swerve::getPose, swerve.getField(),
-            RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
+                    swerve::getPose, swerve.getField(),
+                    RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
         vision = visionSubsystem.getPhotonVision();
         swerve.setupVision(vision);
     }
 
     // ==================== LEDS ====================
     private void configureLEDs() {
-        if (leds == null) return;
-        leds.setDefaultCommand(leds.allianceColorCommand());
+        if (leds == null)
+
+            return;
+
+        // Default: show hub state (green when active, red→green countdown when inactive)
+        leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
+
+        // Flash green when hub becomes active
+        HubActivation.ourHubActiveTrigger()
+            .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
+
+        // Warning strobe 5s before shift change
+        HubActivation.shiftChangeSoonTrigger(5.0)
+            .onTrue(LEDCommands.hubWarningCommand(leds));
     }
 
     // ==================== DEFAULT COMMANDS ====================
     private void configureDefaultCommands() {
-        // Swerve drive
         swerve.setDefaultCommand(
-            swerve.driveCommand(
-                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC),
-                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC)
-            )
-        );
+                swerve.driveCommand(
+                        Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
+                        Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
+                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
+                        Constants.DriveConstants.kTranslationScale));
 
-        // Turret auto-track: camera → pose fallback → smart scan
+        // Turret auto-track: camera → sweep → hold (auto-track off by default, Button 5 toggles on)
         if (visionSubsystem != null) {
             turret.setDefaultCommand(turret.autoTrackCommand(
-                visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible));
+                        visionSubsystem::getHubCamAngle,
+                        visionSubsystem::isHubCamVisible,
+                        shooter::isInShootingZone));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());
         }
@@ -146,75 +159,118 @@ public class RobotContainer {
     private void configureButtonBindings() {
         // === Driver (Extreme 3D Pro — null when using Xbox controller in sim) ===
         if (Buttons.JoystickButton10 != null) {
-            Buttons.JoystickButton10.onTrue(Commands.runOnce(() -> swerve.zeroGyroWithAlliance()));
-            Buttons.JoystickButton1.whileTrue(ShootCommands.shootCommand(shooter, hopper));
+            Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+
+            // Trigger (1): Hold-to-shoot at vision distance (no timer)
+            Buttons.JoystickButton1.whileTrue(
+                    ShootCommands.holdShootAtDistanceCommand(
+                            shooter, hopper, visionSubsystem::getHubDistance));
+
+            // Button 2: Toggle bop
+            Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
+
+            // Button 3: Toggle intake
             Buttons.JoystickButton3.onTrue(
-                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
+                    intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
             Buttons.JoystickButton4.onTrue(
-                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+                    intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+
+            // Button 5: Toggle auto-track on/off
             Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+
+            // Button 6: Lob shot (hold) — intake + shoot at fixed RPS + feed hopper
             Buttons.JoystickButton6.whileTrue(
-                intake.runLowerIntakeArmCommand()
-                    .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
+                    intake.runLowerIntakeArmCommand()
+                            .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
+
+            // Button 7: Bop and run intake
+            Buttons.JoystickButton7.whileTrue(intake.bopArmAndRunCommand());
+
+            // Button 12: Lower intake but do not run
+            Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand());
         }
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
-            ()-> intake.stopIntakeCommand()
-        ));
+                () -> intake.stopIntakeCommand()));
 
         Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
+
         // === Operator (Xbox Controller) ===
-        // Right Trigger: Shoot (full sequence)
+        // Right Trigger: Shoot with throttle-mapped RPS (vision fallback)
         Buttons.XboxRightTriggerButton.whileTrue(
-            ShootCommands.shootCommand(shooter, hopper));
+                    ShootCommands.shootCommand(shooter, hopper, intake, false,
+                                () -> shooter.throttleToRPS(Buttons.JoystickThrottle.getAsDouble())));
 
         // Left Trigger: Spin up flywheel (hold)
         Buttons.XboxLeftTriggerButton.whileTrue(
-            shooter.spinUpCommand());
+                    shooter.spinUpCommand());
 
         // Right Bumper: Feed hopper + uptake (manual)
         Buttons.XboxRightBumper.whileTrue(
-            hopper.feedCommand());
+                    hopper.feedCommand());
 
         // Left Bumper: Eject (reverse hopper + uptake, stop flywheel)
         Buttons.XboxLeftBumper.whileTrue(
-            ShootCommands.ejectCommand(shooter, hopper));
+                    ShootCommands.ejectCommand(shooter, hopper));
 
         // B: Stop all shooter systems
         Buttons.XboxBButton.onTrue(
-            ShootCommands.stopAllCommand(shooter, hopper));
+                    ShootCommands.stopAllCommand(shooter, hopper));
 
-        // Y: Hold turret at 0° while held — autoTrack resumes on release
+        // Y: Hold turret at 90° while held — autoTrack resumes on release
         Buttons.XboxYButton.whileTrue(
-            turret.aimTurretCommand(() -> 0.0));
+                    turret.aimTurretCommand(() -> 90.0));
 
         // D-pad Left/Right: Manual turret adjust
         Buttons.XboxDPadW.whileTrue(
-            turret.scanCommand(Constants.TurretConstants.kTurretManualSpeed));
+                    turret.scanCommand(-1.0));
         Buttons.XboxDPadE.whileTrue(
-            turret.scanCommand(-Constants.TurretConstants.kTurretManualSpeed));
+                    turret.scanCommand(1.0));
 
         // === Climber ===
         // D-pad Up: Extend elevator (hold to raise hook)
+        // Bind diagonals too — POV hat wobble between cardinal/diagonal causes stutter
         Buttons.XboxDPadN.whileTrue(climber.extendCommand());
+        Buttons.XboxDPadNE.whileTrue(climber.extendCommand());
+        Buttons.XboxDPadNW.whileTrue(climber.extendCommand());
         // D-pad Down: Climb (hold to retract / pull robot up)
         Buttons.XboxDPadS.whileTrue(climber.climbCommand());
+        Buttons.XboxDPadSE.whileTrue(climber.climbCommand());
+        Buttons.XboxDPadSW.whileTrue(climber.climbCommand());
         // X: Lock climber (stop motor + engage ratchet)
         Buttons.XboxXButton.onTrue(climber.lockCommand());
+
+        // Back: One-press auto-extend — raise elevator to top, then lock
+        Buttons.XboxBackButton.onTrue(
+                    climber.extendCommand()
+                                .until(climber::isAtRaisedLimit)
+                                .andThen(climber.lockCommand()));
+
+        // Start: One-press auto-climb — retract to bottom, then lock
+        Buttons.XboxStartButton.onTrue(
+                    climber.climbCommand()
+                                .until(climber::isAtLoweredLimit)
+                                .andThen(climber.lockCommand()));
     }
 
     // ==================== PATHPLANNER ====================
     private void configurePathPlannerCommands() {
         NamedCommands.registerCommand("intake",
-            intake.runLowerIntakeArmCommand().andThen(
-                intake.runIntakeCommand().withTimeout(Constants.IntakeConstants.kAutoIntakeTimeout)));
+                    intake.runLowerIntakeArmCommand().andThen(
+                                intake.runIntakeCommand().withTimeout(Constants.IntakeConstants.kAutoIntakeTimeout)));
         NamedCommands.registerCommand("spinUp",
-            shooter.spinUpCommand()
-                .until(shooter.isAtSpeedTrigger())
-                .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
+                    shooter.spinUpCommand()
+                                .until(shooter.isAtSpeedTrigger())
+                                .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
-            ShootCommands.shootCommand(shooter, hopper));
+                    // ShootCommands.shootCommand(shooter, hopper));
+                    ShootCommands.shootAtDistanceTimerCommand(
+                                shooter, hopper, visionSubsystem::getHubDistance));
+        NamedCommands.registerCommand("shootWithBop",
+                    ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, visionSubsystem::getHubDistance));
+        NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
     }
 
     // ==================== AUTO CHOOSER ====================
@@ -233,22 +289,16 @@ public class RobotContainer {
 
     // ==================== DASHBOARD ====================
     private void configureDashboard() {
-        DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        Runnable tuning = DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
+        tuningPeriodic = tuning != null ? tuning : () -> {};
+    }
+
+    /** Returns the tuning periodic callback. Safe to call every cycle (no-op when tuning disabled). */
+    public Runnable getTuningPeriodic() {
+        return tuningPeriodic;
     }
 
     public void onTeleopInit(boolean noAutoRan) {
-        if (noAutoRan) {
-            if (com.adambots.lib.utils.Utils.isOnRedAlliance()) {
-                swerve.resetOdometry(new Pose2d(
-                    new Translation2d(15.98, 4.0),
-                    Rotation2d.fromDegrees(0)));
-            } else {
-                swerve.resetOdometry(new Pose2d(
-                    new Translation2d(1.0, 4.0),
-                    Rotation2d.fromDegrees(180)));
-            }
-        }
-        turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

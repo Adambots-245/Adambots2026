@@ -17,6 +17,9 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 
 import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
@@ -124,6 +127,7 @@ public class Robot extends LoggedRobot {
         // and running subsystem periodic() methods. This must be called from the robot's periodic
         // block in order for anything in the Command-based framework to work.
         CommandScheduler.getInstance().run();
+        container.getTuningPeriodic().run();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
         // Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
@@ -168,6 +172,19 @@ public class Robot extends LoggedRobot {
             autonomousCommand.cancel();
         }
         container.onTeleopInit(autonomousCommand == null);
+
+        // In sim, reset odometry to alliance-correct starting position
+        // (alliance isn't available during simulationInit, only after DS connects)
+        if (!isReal()) {
+            Pose2d startPose = new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0));
+            if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red) {
+                double fieldLength = 16.54;
+                startPose = new Pose2d(
+                    fieldLength - startPose.getX(), startPose.getY(),
+                    startPose.getRotation().plus(Rotation2d.fromDegrees(180)));
+            }
+            container.getSwerve().resetOdometry(startPose);
+        }
     }
 
     /** This function is called periodically during operator control. */
@@ -188,8 +205,10 @@ public class Robot extends LoggedRobot {
     @Override
     public void simulationInit() {
         SimulatedArena.getInstance();
-        container.getSwerve().resetOdometry(
-            new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0)));
+        DriverStationSim.setAllianceStationId(edu.wpi.first.hal.AllianceStationID.Red1);
+        DriverStationSim.setEnabled(true);
+        DriverStationSim.notifyNewData();
+        System.out.println("[SIM] Auto-enabled as Red1");
     }
 
     /** This function is called periodically whilst in simulation. */
@@ -202,7 +221,7 @@ public class Robot extends LoggedRobot {
 
         // Publish field-relative camera pose for AdvantageScope Camera Override
         double robotYaw = robotPose.getRotation().getRadians();
-        double camYaw = robotYaw + Math.toRadians(turretAngle + Constants.VisionConstants.kShooterCameraTurretOffset);
+        double camYaw = robotYaw + Math.toRadians(Constants.VisionConstants.kShooterCameraTurretOffset - turretAngle);
         double camX = robotPose.getX() + Constants.VisionConstants.kShooterCameraX * Math.cos(camYaw)
                      - Constants.VisionConstants.kShooterCameraY * Math.sin(camYaw);
         double camY = robotPose.getY() + Constants.VisionConstants.kShooterCameraX * Math.sin(camYaw)

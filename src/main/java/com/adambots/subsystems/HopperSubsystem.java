@@ -8,7 +8,6 @@ import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.utils.Dash;
 
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -30,22 +29,24 @@ public class HopperSubsystem extends SubsystemBase {
     private double uptakeSpeed = HopperConstants.kUptakeSpeed;
     private double detectionRange = HopperConstants.kDetectionRange;
 
-    private GenericEntry hopperSpeedEntry;
-    private GenericEntry uptakeSpeedEntry;
-    private GenericEntry detectionRangeEntry;
-
     public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor, BaseDistanceSensor hopperPieceSensor) {
         this.hopperMotor = hopperMotor;
         this.uptakeMotor = uptakeMotor;
         this.hopperPieceSensor = hopperPieceSensor;
-        // hopperMotor.setInverted(true);
-        hopperMotor.setBrakeMode(true);
-        uptakeMotor.setInverted(true);
-        uptakeMotor.setBrakeMode(true);
+
+        hopperMotor.configure()
+            .brakeMode(true)
+            .currentLimits(0, HopperConstants.kHopperSupplyCurrentLimit, 0)
+            .apply();
+
+        uptakeMotor.configure()
+            .brakeMode(true)
+            .inverted(true)
+            .currentLimits(0, HopperConstants.kUptakeSupplyCurrentLimit, 0)
+            .apply();
 
         if (Constants.HOPPER_TAB) {
             setupDash();
-            setupTunables();
         }
     }
 
@@ -104,22 +105,17 @@ public class HopperSubsystem extends SubsystemBase {
         Dash.useDefaultTab();
     }
 
-    private void setupTunables() {
-        Dash.useTab("Hopper");
+    // ==================== Tuning Setters (called by TuningManager) ====================
 
-        hopperSpeedEntry = Dash.addTunable("Hopper Speed", HopperConstants.kHopperSpeed, 0, 2);
-        uptakeSpeedEntry = Dash.addTunable("Uptake Speed", HopperConstants.kUptakeSpeed, 1, 2);
-        detectionRangeEntry = Dash.addTunable("Detection Range (cm)", HopperConstants.kDetectionRange, 2, 2);
-
-        Dash.useDefaultTab();
+    public void setHopperSpeed(double speed) {
+        hopperSpeed = speed;
     }
 
-    @Override
-    public void periodic() {
-        if (hopperSpeedEntry != null) {
-            hopperSpeed = hopperSpeedEntry.getDouble(HopperConstants.kHopperSpeed);
-            uptakeSpeed = uptakeSpeedEntry.getDouble(HopperConstants.kUptakeSpeed);
-            detectionRange = detectionRangeEntry.getDouble(HopperConstants.kDetectionRange);
-        }
+    public void setUptakeSpeed(double speed) {
+        uptakeSpeed = speed;
+    }
+
+    public void setDetectionRange(double range) {
+        detectionRange = range;
     }
 }

@@ -33,7 +33,6 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -102,8 +101,7 @@ public class VisionSubsystem extends SubsystemBase {
     private final MedianFilter camAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
     private final MedianFilter poseDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
     private final MedianFilter poseAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
-    private final LinearFilter camDistLowPass = LinearFilter.singlePoleIIR(
-        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
+    // camDistLowPass removed — low-pass on distance caused 0.19m cold-start bug after filter resets
     private final LinearFilter camAngleLowPass = LinearFilter.singlePoleIIR(
         VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
     private final LinearFilter poseDistLowPass = LinearFilter.singlePoleIIR(
@@ -112,12 +110,11 @@ public class VisionSubsystem extends SubsystemBase {
         VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
 
     // Runtime vision mode (editable from Shuffleboard): 0=Camera-only, 1=Pose-only, 2=Hybrid
-    private GenericEntry visionModeEntry;
     private int visionMode = VisionConstants.kVisionMode;
 
-    // Tunable ambiguity threshold (default from constants, overridable via DashboardSetup)
-    private GenericEntry ambiguityEntry;
-    private double runtimeAmbiguityThreshold = VisionConstants.kAmbiguityThreshold;
+    // Tunable ambiguity threshold (default from constants, overridable via TuningManager)
+    // Sim camera at 3m+ produces ambiguity 0.7-0.99; real LifeCam is ~0.3-0.8
+    private double runtimeAmbiguityThreshold = RobotBase.isSimulation() ? 1.0 : VisionConstants.kAmbiguityThreshold;
 
     // Diagnostic counters for camera-only target processing
     private int diagTagsSeen = 0;
@@ -236,6 +233,7 @@ public class VisionSubsystem extends SubsystemBase {
             hasBackCameras ? "present" : "absent",
             VisionConstants.kAmbiguityThreshold);
 
+
         if (Constants.VISION_TAB) setupDash();
 
         if (RobotBase.isSimulation() && hasShooterCamera) {
@@ -348,7 +346,7 @@ public class VisionSubsystem extends SubsystemBase {
             new Rotation3d(
                 0,
                 Math.toRadians(-VisionConstants.kShooterCameraPitch),
-                Math.toRadians(turretAngleDeg + VisionConstants.kShooterCameraTurretOffset)));
+                Math.toRadians(VisionConstants.kShooterCameraTurretOffset - turretAngleDeg)));
         visionSim.adjustCamera(shooterCamSim, robotToCamera);
 
         visionSim.update(robotPose);
@@ -356,14 +354,12 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== Tunable Setters (called by DashboardSetup) ====================
 
-    /** Sets the vision mode GenericEntry (created by DashboardSetup behind TUNING_ENABLED). */
-    public void setVisionModeEntry(GenericEntry entry) {
-        this.visionModeEntry = entry;
+    public void setVisionMode(int mode) {
+        visionMode = hasShooterCamera ? mode : 1;
     }
 
-    /** Sets the ambiguity threshold GenericEntry (created by DashboardSetup behind TUNING_ENABLED). */
-    public void setAmbiguityEntry(GenericEntry entry) {
-        this.ambiguityEntry = entry;
+    public void setAmbiguityThreshold(double threshold) {
+        runtimeAmbiguityThreshold = threshold;
     }
 
     // Raw value getters for DashboardSetup to display behind TUNING_ENABLED
@@ -374,18 +370,7 @@ public class VisionSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Read runtime vision mode from Shuffleboard (force pose-only if no shooter cam)
-        if (visionModeEntry != null) {
-            visionMode = hasShooterCamera
-                ? (int) visionModeEntry.getDouble(VisionConstants.kVisionMode)
-                : 1;
-        }
         SmartDashboard.putNumber("Vision/Mode", visionMode);
-
-        // Read runtime ambiguity threshold from Shuffleboard
-        if (ambiguityEntry != null) {
-            runtimeAmbiguityThreshold = ambiguityEntry.getDouble(VisionConstants.kAmbiguityThreshold);
-        }
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache
@@ -440,17 +425,17 @@ public class VisionSubsystem extends SubsystemBase {
             if (now - lastLogTimestamp >= 1.0) {
                 lastLogTimestamp = now;
                 Pose2d p = poseSupplier.get();
-                int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
+                String trackMode = SmartDashboard.getString("Turret/TrackingMode", "?");
                 String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;
                 System.out.printf(
-                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
+                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f track=%s tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
                     modeName,
                     hubCamHasTarget ? "T" : "F", diagTagsSeen, diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
                     hubPoseHasTarget ? "T" : "F",
                     hubCamDistanceMeters, hubPoseDistanceMeters,
                     hubCamAngleDegrees, hubPoseAngleDegrees,
-                    tier, hubVisibleTagCount,
+                    trackMode, hubVisibleTagCount,
                     p.getX(), p.getY(), p.getRotation().getDegrees(),
                     hc.getX(), hc.getY());
             }
@@ -472,7 +457,6 @@ public class VisionSubsystem extends SubsystemBase {
             if (prevHubCamHasTarget) {
                 camDistMedian.reset();
                 camAngleMedian.reset();
-                camDistLowPass.reset();
                 camAngleLowPass.reset();
             }
             prevHubCamHasTarget = false;
@@ -488,7 +472,6 @@ public class VisionSubsystem extends SubsystemBase {
             if (prevHubCamHasTarget) {
                 camDistMedian.reset();
                 camAngleMedian.reset();
-                camDistLowPass.reset();
                 camAngleLowPass.reset();
             }
             prevHubCamHasTarget = false;
@@ -500,7 +483,7 @@ public class VisionSubsystem extends SubsystemBase {
         // Average target.getYaw() across passing hub tags for turret-relative angle.
         // getYaw() is a direct 2D pixel measurement — robust at any distance, unlike PnP.
         double sumYaw = 0;
-        double sumPnpDist = 0; // PnP distance kept for debug display only
+        double bestDist = Double.MAX_VALUE; // closest tag's PnP distance (most reliable)
         int count = 0;
 
         // Reset diagnostic counters for this cycle
@@ -531,9 +514,11 @@ public class VisionSubsystem extends SubsystemBase {
             // Use getYaw() for angle — direct 2D pixel measurement, turret-relative
             sumYaw += target.getYaw();
 
-            // PnP distance for debug display only (not used for gating)
+            // Use closest tag's PnP distance — best accuracy at range, avoids
+            // averaging tags at different distances into a composite value
             Transform3d camToTag = target.getBestCameraToTarget();
-            sumPnpDist += camToTag.getTranslation().getNorm();
+            double dist = camToTag.getTranslation().getNorm();
+            if (dist < bestDist) bestDist = dist;
 
             count++;
         }
@@ -543,7 +528,6 @@ public class VisionSubsystem extends SubsystemBase {
             if (prevHubCamHasTarget) {
                 camDistMedian.reset();
                 camAngleMedian.reset();
-                camDistLowPass.reset();
                 camAngleLowPass.reset();
             }
             prevHubCamHasTarget = false;
@@ -551,14 +535,16 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         double rawAngle = sumYaw / count;
-        double rawDist = sumPnpDist / count; // debug only — not used for gating
+        double rawDist = bestDist;
 
         rawCamDist = rawDist;
         rawCamAngle = rawAngle;
 
-        // Median filter (spike rejection) → low-pass (smoothing)
-        hubCamDistanceMeters = camDistLowPass.calculate(camDistMedian.calculate(rawDist));
-        hubCamAngleDegrees = camAngleLowPass.calculate(camAngleMedian.calculate(rawAngle));
+        // Distance: median only (no low-pass — avoids cold-start after filter reset)
+        hubCamDistanceMeters = camDistMedian.calculate(rawDist);
+        // Angle: median only — low-pass IIR destroys the signal with intermittent detections
+        // (filter starts from 0 each time tags reappear, never reaches true value)
+        hubCamAngleDegrees = camAngleMedian.calculate(rawAngle);
 
         // Gate on having ≥1 passing tag — don't use PnP distance for gating
         hubCamHasTarget = true;

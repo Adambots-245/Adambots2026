@@ -1,19 +1,17 @@
 package com.adambots.subsystems;
 
-import static edu.wpi.first.units.Units.RPM;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
-
 import com.adambots.Constants;
 import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
 import com.adambots.Robot;
 import com.adambots.lib.actuators.BaseMotor;
+import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import com.adambots.lib.utils.Dash;
+
+import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
@@ -38,6 +36,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private final BaseMotor intakeMotor;
     private final BaseMotor intakeArmMotor;
+    private final BaseAbsoluteEncoder armEncoder;
 
     // Simulation
     private SingleJointedArmSim armSim;
@@ -46,26 +45,14 @@ public class IntakeSubsystem extends SubsystemBase {
     private double simMotorVoltage;
     private double simArmAngleDeg;
 
-    // Tunable PID entries
-    private GenericEntry intakeArmPEntry;
-    private GenericEntry intakeArmIEntry;
-    private GenericEntry intakeArmDEntry;
-    private GenericEntry intakeArmKGEntry;
-    private GenericEntry intakeArmKSEntry;
-    private GenericEntry intakeArmKVEntry;
-    private GenericEntry intakeArmKAEntry;
-
-    // Tunable motion/position entries (row 3)
-    private GenericEntry cruiseVelocityEntry;
-    private GenericEntry accelerationEntry;
-    private GenericEntry loweredPositionEntry;
-    private GenericEntry bopAngleEntry;
-
     private double bopAngle = IntakeConstants.kBopAngle;
-
-    private double lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
-    private double lastAcceleration = IntakeConstants.kArmAcceleration;
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+
+    // Cached PID gains for simulation voltage computation (updated by setArmPID)
+    private double simP = IntakeConstants.kArmP;
+    private double simD = IntakeConstants.kArmD;
+    private double simKG = IntakeConstants.kArmKG;
+    private double simKS = IntakeConstants.kArmKS;
 
     /**
      * Returns true when the intake roller is running (velocity above threshold).
@@ -74,26 +61,28 @@ public class IntakeSubsystem extends SubsystemBase {
         return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
     }
 
-    private double lastP = IntakeConstants.kArmP;
-    private double lastI = IntakeConstants.kArmI;
-    private double lastD = IntakeConstants.kArmD;
-    private double lastKG = IntakeConstants.kArmKG;
-    private double lastKS = IntakeConstants.kArmKS;
-    private double lastKV = IntakeConstants.kArmKV;
-    private double lastKA = IntakeConstants.kArmKA;
+    // Sign that maps encoder-increasing direction to motor direction.
+    // Lowered > Raised → encoder increases as arm lowers → motor needs negative direction.
+    private static final int kArmDirection =
+        (IntakeConstants.kArmLoweredPosition - IntakeConstants.kArmRaisedPosition) < 0 ? 1 : -1;
 
-    private double targetPosition = IntakeConstants.kArmLoweredPosition;
+    private double targetPosition = 0;
 
-    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor) {
+    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, BaseAbsoluteEncoder armEncoder) {
         this.intakeMotor = intakeMotor;
         this.intakeArmMotor = intakeArmMotor;
+        this.armEncoder = armEncoder;
 
         configureMotors();
+
+        // Seed motor encoder from throughbore absolute position so Motion Magic targets are correct
+        double absoluteDeg = armEncoder.getPosition().in(Degrees);
+        intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
+        targetPosition = degreesToMechanismRotations(absoluteDeg);
+
         if (Constants.INTAKE_TAB) {
             setupDash();
-            setupTunables();
         }
-        // intakeArmMotor.setPosition(0);
 
         if (Robot.isSimulation()) {
             setupSimulation();
@@ -109,6 +98,7 @@ public class IntakeSubsystem extends SubsystemBase {
         // Configure arm motor: brake mode + current limits + gear ratio
         intakeArmMotor.configure()
                 .brakeMode(true)
+                .inverted(true)
                 .currentLimits(IntakeConstants.kArmStatorCurrentLimit, IntakeConstants.kArmSupplyCurrentLimit, 2500)
                 .gravity(BaseMotor.GravityType.ARM_COSINE)
                 .sensorToMechanismRatio(IntakeConstants.kArmTotalGearRatio)
@@ -118,7 +108,7 @@ public class IntakeSubsystem extends SubsystemBase {
                         IntakeConstants.kArmJerk)
                 .apply();
         
-        intakeArmMotor.configureHardLimits(false, true, 0, 0);
+        // intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
         // Set extended PID with feedforward gains (kV, kS, kA, kG)
         intakeArmMotor.setPID(0,
@@ -138,9 +128,11 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
         Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
-        Dash.add("Arm Position", () -> intakeArmMotor.getPosition(), 3, 0);
-        Dash.add("Arm Target", () -> targetPosition, 4, 0);
-        Dash.add("Raised Position", () -> IntakeConstants.kArmRaisedPosition, 5, 0);
+        Dash.add("Arm Encoder (deg)", () -> armEncoder.getPosition().in(Degrees), 3, 0);
+        Dash.add("Arm Mech Pos (rot)", () -> intakeArmMotor.getPosition(), 4, 0);
+        Dash.add("Arm Target (mech rot)", () -> targetPosition, 5, 0);
+        Dash.add("Arm Direction", () -> kArmDirection, 8, 0);
+        Dash.add("Target (deg)", () -> targetPosition / kArmDirection * 360.0, 9, 0);
 
         // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
         Dash.add("Sim Voltage", () -> simMotorVoltage, 6, 0);
@@ -153,81 +145,48 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.addCommand("Lower Arm", runLowerIntakeArmCommand(), 3, 1);
         Dash.addCommand("Raise Arm", runRaiseIntakeArmCommand(), 4, 1);
         Dash.addCommand("Stop Arm", stopIntakeArmCommand(), 5, 1);
-        Dash.addCommand("Reset Position", resetIntakeArmPosition(), 6, 1);
-        Dash.addCommand("Bop Arm", bopArmCommand(), 7, 1);
+        Dash.addCommand("Bop Arm", bopArmCommand(), 6, 1);
 
         Dash.useDefaultTab();
     }
 
-    public void setupTunables() {
-        Dash.useTab("Intake");
+    // ==================== Tuning Setters (called by TuningManager) ====================
 
-        // Row 2: Tunable PID / feedforward gains
-        intakeArmPEntry = Dash.addTunable("kP", IntakeConstants.kArmP, 0, 2);
-        intakeArmIEntry = Dash.addTunable("kI", IntakeConstants.kArmI, 1, 2);
-        intakeArmDEntry = Dash.addTunable("kD", IntakeConstants.kArmD, 2, 2);
-        intakeArmKGEntry = Dash.addTunable("kG", IntakeConstants.kArmKG, 3, 2);
-        intakeArmKSEntry = Dash.addTunable("kS", IntakeConstants.kArmKS, 4, 2);
-        intakeArmKVEntry = Dash.addTunable("kV", IntakeConstants.kArmKV, 5, 2);
-        intakeArmKAEntry = Dash.addTunable("kA", IntakeConstants.kArmKA, 6, 2);
-        Dash.addCommand("Zero Tunables", zeroTunablesCommand(), 7, 2);
-        Dash.addCommand("Reset Tunables", resetTunablesCommand(), 8, 2);
-
-        // Row 3: Motion Magic / position tunables
-        cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
-        accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
-        loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
-        bopAngleEntry = Dash.addTunable("Bop Angle (rot)", IntakeConstants.kBopAngle, 3, 3);
-
-        Dash.useDefaultTab();
-
-        // Force-write code constants to Shuffleboard so displayed values always
-        // match what's in use (overrides stale cache from previous sessions)
-        intakeArmPEntry.setDouble(IntakeConstants.kArmP);
-        intakeArmIEntry.setDouble(IntakeConstants.kArmI);
-        intakeArmDEntry.setDouble(IntakeConstants.kArmD);
-        intakeArmKGEntry.setDouble(IntakeConstants.kArmKG);
-        intakeArmKSEntry.setDouble(IntakeConstants.kArmKS);
-        intakeArmKVEntry.setDouble(IntakeConstants.kArmKV);
-        intakeArmKAEntry.setDouble(IntakeConstants.kArmKA);
-
-        lastP = IntakeConstants.kArmP;
-        lastI = IntakeConstants.kArmI;
-        lastD = IntakeConstants.kArmD;
-        lastKG = IntakeConstants.kArmKG;
-        lastKS = IntakeConstants.kArmKS;
-        lastKV = IntakeConstants.kArmKV;
-        lastKA = IntakeConstants.kArmKA;
-
-        cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
-        accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
-        loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-        bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
-        lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
-        lastAcceleration = IntakeConstants.kArmAcceleration;
-        armLoweredPosition = IntakeConstants.kArmLoweredPosition;
-        bopAngle = IntakeConstants.kBopAngle;
-
-        // Apply to motor controller (for real hardware)
-        intakeArmMotor.setPID(0,
-                IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
-                IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
-                IntakeConstants.kArmKG);
+    public void setArmPID(double p, double i, double d, double kG, double kS, double kV, double kA) {
+        intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
         intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+        simP = p; simD = d; simKG = kG; simKS = kS;
+    }
+
+    public void setMotionMagic(double cruiseVel, double accel) {
+        intakeArmMotor.configure()
+            .motionMagic(
+                RotationsPerSecond.of(cruiseVel),
+                RotationsPerSecondPerSecond.of(accel),
+                IntakeConstants.kArmJerk)
+            .apply();
+    }
+
+    public void setArmLoweredPosition(double pos) {
+        armLoweredPosition = pos;
+    }
+
+    public void setBopAngle(double angle) {
+        bopAngle = angle;
     }
 
     /**
      * Run the intake roller at the configured speed.
      */
     public void runIntake() {
-        intakeMotor.set(IntakeConstants.kLowSpeed);
+        intakeMotor.set(IntakeConstants.kIntakeSpeed);
     }
 
     /**
      * Run the intake roller in reverse.
      */
     public void reverseIntake() {
-        intakeMotor.set(-IntakeConstants.kLowSpeed);
+        intakeMotor.set(-IntakeConstants.kIntakeSpeed);
     }
 
     /**
@@ -241,7 +200,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Lower the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void lowerIntakeArm() {
-        targetPosition = armLoweredPosition;
+        targetPosition = degreesToMechanismRotations(armLoweredPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -249,7 +208,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Raise the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void raiseIntakeArm() {
-        targetPosition = IntakeConstants.kArmRaisedPosition;
+        targetPosition = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -258,7 +217,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Uses Motion Magic to maintain gravity compensation.
      */
     public void stopIntakeArm() {
-        targetPosition = intakeArmMotor.getPosition();
+        targetPosition = degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -270,10 +229,19 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Get the intake arm motor position.
+     * Get the intake arm position in degrees from the throughbore encoder.
      */
     public double getIntakeArmPosition() {
-        return intakeArmMotor.getPosition();
+        return armEncoder.getPosition().in(Degrees);
+    }
+
+    /**
+     * Convert a throughbore angle (degrees) to mechanism rotations for Motion Magic.
+     * With sensorToMechanismRatio configured, all motor position methods operate
+     * in mechanism rotations — no gear ratio multiplication needed here.
+     */
+    private double degreesToMechanismRotations(double degrees) {
+        return kArmDirection * (degrees / 360.0);
     }
 
     // ==================== Command Factory Methods ====================
@@ -284,14 +252,6 @@ public class IntakeSubsystem extends SubsystemBase {
     public Command runIntakeCommand() {
         return runEnd(this::runIntake, this::stopIntake)
                 .withName("Run Intake");
-    }
-
-    /**
-     * Reset arm position encoder to 0.
-     */
-    public Command resetIntakeArmPosition() {
-        return runOnce(() -> intakeArmMotor.setPosition(0))
-                .withName("Reset Intake Position");
     }
 
     /**
@@ -335,99 +295,52 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Command to bop the intake arm — oscillates slightly up and down from the
-     * lowered position to nudge balls toward the hopper while shooting.
-     * Hold to keep bopping; releases back to lowered on end.
+     * Shared bop oscillation state machine. Oscillates the arm between lowered
+     * and (lowered - bopAngle) positions. Returns a runEnd command base.
+     *
+     * @param runExtra extra action to run each execute cycle (e.g. run intake motor), or null
      */
-    public Command bopArmCommand() {
-        // Track which phase we're in (up vs down)
-        boolean[] bopUp = {true};
+    private Command bopCommandBase(Runnable runExtra, String name) {
+        boolean[] bopUp = {false};
         double[] switchTime = {0};
         return runEnd(
             () -> {
                 double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-                double lowered = armLoweredPosition;
-                double raised = lowered - bopAngle;  // negative = up
-                // Switch direction based on elapsed time since last switch
-                if (now - switchTime[0] > 0.25) {
+                if (switchTime[0] == 0) switchTime[0] = now;
+                double lowered = degreesToMechanismRotations(armLoweredPosition);
+                double raised = degreesToMechanismRotations(armLoweredPosition - bopAngle);
+                if (now - switchTime[0] > 0.35) {
                     bopUp[0] = !bopUp[0];
                     switchTime[0] = now;
                 }
                 targetPosition = bopUp[0] ? raised : lowered;
                 intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+                if (runExtra != null) runExtra.run();
             },
             () -> {
-                bopUp[0] = true;
+                bopUp[0] = false;
                 lowerIntakeArm();
             }
-        ).withName("Bop Arm");
+        ).withName(name);
     }
 
     /**
-     * Command to reset all tunable PID/feedforward gains back to code constants.
+     * Command to bop the intake arm — oscillates slightly up and down from the
+     * lowered position to nudge balls toward the hopper while shooting.
+     * Hold to keep bopping; releases back to lowered on end.
      */
-    public Command resetTunablesCommand() {
-        return runOnce(() -> {
-            intakeArmPEntry.setDouble(IntakeConstants.kArmP);
-            intakeArmIEntry.setDouble(IntakeConstants.kArmI);
-            intakeArmDEntry.setDouble(IntakeConstants.kArmD);
-            intakeArmKGEntry.setDouble(IntakeConstants.kArmKG);
-            intakeArmKSEntry.setDouble(IntakeConstants.kArmKS);
-            intakeArmKVEntry.setDouble(IntakeConstants.kArmKV);
-            intakeArmKAEntry.setDouble(IntakeConstants.kArmKA);
-
-            intakeArmMotor.setPID(0,
-                    IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
-                    IntakeConstants.kArmKV, IntakeConstants.kArmKS, IntakeConstants.kArmKA,
-                    IntakeConstants.kArmKG);
-            intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-
-            lastP = IntakeConstants.kArmP;
-            lastI = IntakeConstants.kArmI;
-            lastD = IntakeConstants.kArmD;
-            lastKG = IntakeConstants.kArmKG;
-            lastKS = IntakeConstants.kArmKS;
-            lastKV = IntakeConstants.kArmKV;
-            lastKA = IntakeConstants.kArmKA;
-
-            if (cruiseVelocityEntry != null) {
-                cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
-                accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
-                loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-                bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
-                lastCruiseVelocity = IntakeConstants.kArmCruiseVelocity;
-                lastAcceleration = IntakeConstants.kArmAcceleration;
-                armLoweredPosition = IntakeConstants.kArmLoweredPosition;
-                bopAngle = IntakeConstants.kBopAngle;
-            }
-        }).withName("Reset Tunables");
+    public Command bopArmCommand() {
+        return bopCommandBase(null, "Bop Arm");
     }
 
     /**
-     * Command to zero all tunable PID/feedforward gains (for tuning from scratch).
+     * Command to bop the intake arm while running intake rollers.
+     * Hold to keep bopping; releases back to lowered on end.
      */
-    public Command zeroTunablesCommand() {
-        return runOnce(() -> {
-            intakeArmPEntry.setDouble(0);
-            intakeArmIEntry.setDouble(0);
-            intakeArmDEntry.setDouble(0);
-            intakeArmKGEntry.setDouble(0);
-            intakeArmKSEntry.setDouble(0);
-            intakeArmKVEntry.setDouble(0);
-            intakeArmKAEntry.setDouble(0);
-
-            intakeArmMotor.setPID(0, 0, 0, 0, 0, 0, 0, 0);
-            intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-
-            lastP = 0;
-            lastI = 0;
-            lastD = 0;
-            lastKG = 0;
-            lastKS = 0;
-            lastKV = 0;
-            lastKA = 0;
-        }).withName("Zero Tunables");
+    public Command bopArmAndRunCommand() {
+        return bopCommandBase(() -> intakeMotor.set(IntakeConstants.kIntakeSpeed), "Bop Arm and Run");
     }
+
 
     private void setupSimulation() {
         // Kraken X60 as Minion approximation (no DCMotor.getMinion() in WPILib)
@@ -466,23 +379,20 @@ public class IntakeSubsystem extends SubsystemBase {
         double currentAngleRad = armSim.getAngleRads();
         double velocityRadPerSec = armSim.getVelocityRadPerSec();
 
-        // Convert target from motor rotations to arm angle (radians)
-        // Motor negative = arm up, so negate. Divide by gear ratio to get mechanism
-        // rotations.
-        double targetAngleRad = -targetPosition / SimConstants.kSimGearRatio * 2 * Math.PI;
+        // Convert target to arm angle (radians).
+        // Motor negative = arm up, so negate. targetPosition is in mechanism rotations.
+        double targetAngleRad = -targetPosition * 2 * Math.PI;
 
         // Error in mechanism rotations (matches CTRE's gain units when scaled by gear
         // ratio)
         double errorMechRot = Units.radiansToRotations(targetAngleRad - currentAngleRad);
         double velocityMechRPS = Units.radiansToRotations(velocityRadPerSec);
 
-        // Compute voltage using tunable gains
-        // Scale position/velocity terms by gear ratio so CTRE gain values produce
-        // equivalent torque (CTRE PID operates in motor rotations = mech * gearRatio)
-        double voltage = lastP * errorMechRot * SimConstants.kSimGearRatio
-                + lastKG * Math.cos(currentAngleRad)
-                + lastKS * Math.signum(errorMechRot)
-                - lastD * velocityMechRPS * SimConstants.kSimGearRatio;
+        // Compute voltage using tunable gains (gains are in mechanism units)
+        double voltage = simP * errorMechRot
+                + simKG * Math.cos(currentAngleRad)
+                + simKS * Math.signum(errorMechRot)
+                - simD * velocityMechRPS;
 
         // Clamp to battery voltage
         double batteryVoltage = RobotController.getBatteryVoltage();
@@ -498,70 +408,44 @@ public class IntakeSubsystem extends SubsystemBase {
         double mechRotations = Units.radiansToRotations(armSim.getAngleRads());
         double mechRPS = Units.radiansToRotations(armSim.getVelocityRadPerSec());
         intakeArmMotor.setSimSupplyVoltage(batteryVoltage);
-        intakeArmMotor.setSimPosition(-mechRotations * SimConstants.kSimGearRatio);
-        intakeArmMotor.setSimVelocity(-mechRPS * SimConstants.kSimGearRatio);
+        intakeArmMotor.setSimPosition(-mechRotations * IntakeConstants.kArmTotalGearRatio);
+        intakeArmMotor.setSimVelocity(-mechRPS * IntakeConstants.kArmTotalGearRatio);
 
         // Update Mechanism2d visualization
         simArmAngleDeg = Math.toDegrees(armSim.getAngleRads());
         armLigament.setAngle(simArmAngleDeg);
     }
 
+    /**
+     * Check if the arm's throughbore encoder is within tolerance of the current target.
+     */
+    private boolean isArmAtTarget() {
+        double currentDeg = armEncoder.getPosition().in(Degrees);
+        double targetDeg = targetPosition / kArmDirection * 360.0;
+        return Math.abs(currentDeg - targetDeg) < IntakeConstants.kArmAtTargetThreshold;
+    }
+
+    /**
+     * Check if the target is one of the two known setpoints (raised or lowered).
+     * Used to guard re-sync so it doesn't fire during bop oscillation.
+     */
+    private boolean isAtKnownSetpoint() {
+        double raisedTarget = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
+        double loweredTarget = degreesToMechanismRotations(armLoweredPosition);
+        double tolerance = 0.01; // mechanism rotations
+        return Math.abs(targetPosition - raisedTarget) < tolerance
+            || Math.abs(targetPosition - loweredTarget) < tolerance;
+    }
+
     @Override
     public void periodic() {
-        // When the reverse limit switch is active and we're targeting the raised position,
-        // snap the target to 0 so the motor stops pushing against the hard stop.
-        // The hardware limit already auto-reset the encoder to 0.
-        if (intakeArmMotor.getReverseLimitSwitch() && targetPosition < 0) {
-            targetPosition = 0;
-            intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, 0);
-        }
-
-        // No PID loop here - the motor controller handles everything at 1kHz.
-        // We only check for tunable gain updates from Shuffleboard.
-
-        if (intakeArmPEntry != null) {
-            double p = intakeArmPEntry.getDouble(IntakeConstants.kArmP);
-            double i = intakeArmIEntry.getDouble(IntakeConstants.kArmI);
-            double d = intakeArmDEntry.getDouble(IntakeConstants.kArmD);
-            double kG = intakeArmKGEntry.getDouble(IntakeConstants.kArmKG);
-            double kS = intakeArmKSEntry.getDouble(IntakeConstants.kArmKS);
-            double kV = intakeArmKVEntry.getDouble(IntakeConstants.kArmKV);
-            double kA = intakeArmKAEntry.getDouble(IntakeConstants.kArmKA);
-
-            if (p != lastP || i != lastI || d != lastD ||
-                    kG != lastKG || kS != lastKS || kV != lastKV || kA != lastKA) {
-
-                intakeArmMotor.setPID(0, p, i, d, kV, kS, kA, kG);
-                intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
-
-                lastP = p;
-                lastI = i;
-                lastD = d;
-                lastKG = kG;
-                lastKS = kS;
-                lastKV = kV;
-                lastKA = kA;
-            }
-        }
-
-        // Hot-reload Motion Magic cruise velocity and acceleration
-        if (cruiseVelocityEntry != null) {
-            double cruiseVel = cruiseVelocityEntry.getDouble(IntakeConstants.kArmCruiseVelocity);
-            double accel = accelerationEntry.getDouble(IntakeConstants.kArmAcceleration);
-
-            if (cruiseVel != lastCruiseVelocity || accel != lastAcceleration) {
-                intakeArmMotor.configure()
-                    .motionMagic(
-                        RotationsPerSecond.of(cruiseVel),
-                        RotationsPerSecondPerSecond.of(accel),
-                        IntakeConstants.kArmJerk)
-                    .apply();
-                lastCruiseVelocity = cruiseVel;
-                lastAcceleration = accel;
-            }
-
-            armLoweredPosition = loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition);
-            bopAngle = bopAngleEntry.getDouble(IntakeConstants.kBopAngle);
+        // Re-sync motor encoder from throughbore when arm has settled at a known setpoint.
+        // Only re-sync when velocity is near zero and at raised/lowered position,
+        // not during bop oscillation where it could cause position jumps.
+        if (isArmAtTarget() && isAtKnownSetpoint()
+                && Math.abs(intakeArmMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
+            double absoluteDeg = armEncoder.getPosition().in(Degrees);
+            intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
         }
     }
 }

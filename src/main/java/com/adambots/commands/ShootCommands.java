@@ -186,7 +186,8 @@ public final class ShootCommands {
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier)
-                .until(shooter.isAtSpeedTrigger()),
+                .until(shooter.isAtSpeedTrigger())
+                .withTimeout(kSpinUpTimeoutSeconds),
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier),
                 hopper.feedCommand())
@@ -207,7 +208,8 @@ public final class ShootCommands {
         return Commands.sequence(
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier)
-                    .until(shooter.isAtSpeedTrigger()),
+                    .until(shooter.isAtSpeedTrigger())
+                    .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier),

@@ -318,12 +318,9 @@ public final class Constants {
         public static final int kVisionMode = 0;
 
         // ==================== Vision Filtering ====================
-        /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
-        public static final int kMedianFilterSize = 5;
-        /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
-        public static final double kLowPassTimeConstant = 0.15;
-        /** Robot loop period (seconds) — used for low-pass filter calculation. */
-        public static final double kLoopPeriod = 0.02;
+        /** Exponential weighted average alpha — fraction of new measurement per frame.
+         *  0.04 = 4% new, 96% prior (à la 6328). Higher = more responsive but noisier. */
+        public static final double kVisionAlpha = 0.04;
 
         // ==================== Hub Visibility Holdoff ====================
         /** Max value for charge/decay holdoff counter.

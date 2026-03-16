@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import com.adambots.Constants;
+import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
@@ -25,6 +26,7 @@ import org.photonvision.simulation.VisionSystemSim;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -437,6 +439,10 @@ public class VisionSubsystem extends SubsystemBase {
                 poseAngleLowPass.reset();
             }
             prevHubPoseHasTarget = hubPoseHasTarget;
+
+            // Pose tracking telemetry
+            SmartDashboard.putBoolean("Vision/HubPoseVisible", hubPoseHasTarget);
+            SmartDashboard.putNumber("Vision/HubPoseTurretAngle", getHubPoseTurretAngle());
         }
 
         // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
@@ -605,6 +611,15 @@ public class VisionSubsystem extends SubsystemBase {
     public double getHubPoseDistance() { return hubPoseDistanceMeters; }
     public double getHubPoseAngle() { return hubPoseAngleDegrees; }
     public boolean isHubPoseVisible() { return hubPoseHasTarget; }
+
+    /** Pose-computed turret angle to point at the hub. Clamps to turret travel range.
+     *  Sign: getHubPoseAngle() is WPILib CCW-positive (left = positive),
+     *  but turret angle increases CW (right = increasing), so we subtract. */
+    public double getHubPoseTurretAngle() {
+        return MathUtil.clamp(
+            TurretConstants.kTurretForwardDegrees - getHubPoseAngle(),
+            0, TurretConstants.kTurretMaxDegrees);
+    }
 
     // ==================== Hub Shared Getters ====================
 

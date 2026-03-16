@@ -144,12 +144,14 @@ public class RobotContainer {
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Constants.DriveConstants.kTranslationScale));
 
-        // Turret auto-track: visible → track, not visible → search
+        // Turret pose-track: pose→camera→sweep (fast lock-on via odometry)
         if (visionSubsystem != null) {
-            turret.setDefaultCommand(turret.autoTrackCommand(
+            turret.setDefaultCommand(turret.poseTrackCommand(
                         visionSubsystem::getHubCamAngle,
                         visionSubsystem::isHubCamVisible,
                         visionSubsystem::isHubCamFresh,
+                        visionSubsystem::getHubPoseTurretAngle,
+                        visionSubsystem::isHubPoseVisible,
                         shooter::isInShootingZone));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());

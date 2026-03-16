@@ -39,7 +39,7 @@ import org.littletonrobotics.junction.Logger;
 public class TurretSubsystem extends SubsystemBase {
 
     /** Tracking state for telemetry. */
-    enum TrackingMode { HOLD, CAMERA, SWEEP }
+    enum TrackingMode { HOLD, CAMERA, POSE, SWEEP }
 
     private final BaseMotor turretMotor;
     private final BaseAbsoluteEncoder turretPot;
@@ -227,10 +227,13 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.setSimVelocity(velRotPerSec);
 
         // Publish component pose for AdvantageScope 3D visualization
+        // Convert turret angle (0-260°, 170°=forward) to robot-relative yaw (0°=forward)
+        // Sign: increasing turret angle = CW = negative yaw in WPILib CCW-positive convention
+        double robotRelativeYaw = TurretConstants.kTurretForwardDegrees - getTurretAngleDegrees();
         Logger.recordOutput("Components", new Pose3d[] {
             new Pose3d(
                 new Translation3d(0, 0, 0.15), // turret pivot height
-                new Rotation3d(0, 0, Math.toRadians(getTurretAngleDegrees())))
+                new Rotation3d(0, 0, Math.toRadians(robotRelativeYaw)))
         });
     }
 
@@ -272,19 +275,22 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Vision Tracking Commands ====================
 
     /**
-     * Auto-track command: search-then-lock system.
-     * Vision layer provides sticky visibility (holdoff) so this command just needs:
-     * visible → track, not visible → search.
+     * Pose-based tracking: uses odometry pose to slew turret to the hub immediately,
+     * then refines with camera once it acquires. Falls back to sweep only if pose is unavailable.
      *
-     * @param cameraAngle      turret-relative yaw offset (degrees)
-     * @param hubVisible       sticky visibility — stays true during holdoff after last detection
-     * @param hubFresh         raw per-frame detection — true only when PV sees hub this frame
-     * @param inShootingZone   whether robot is between alliance wall and hub
+     * @param cameraAngle        turret-relative yaw offset from camera (degrees)
+     * @param hubVisible         sticky camera visibility (holdoff)
+     * @param hubFresh           raw per-frame camera detection
+     * @param poseTurretAngle    pose-computed turret angle to point at hub (degrees, clamped)
+     * @param poseHasTarget      whether pose-based hub estimate is available
+     * @param inShootingZone     whether robot is between alliance wall and hub
      */
-    public Command autoTrackCommand(
+    public Command poseTrackCommand(
             DoubleSupplier cameraAngle,
             BooleanSupplier hubVisible,
             BooleanSupplier hubFresh,
+            DoubleSupplier poseTurretAngle,
+            BooleanSupplier poseHasTarget,
             BooleanSupplier inShootingZone) {
 
         return Commands.runOnce(() -> {
@@ -329,26 +335,30 @@ public class TurretSubsystem extends SubsystemBase {
                 }
             }
 
-            if (hubVisible.getAsBoolean()) {
-                // CAMERA MODE — hub visible (or in holdoff)
+            if (hubFresh.getAsBoolean()) {
+                // CAMERA MODE — fresh detection, fine-track with exponential smoothing
                 trackingMode = TrackingMode.CAMERA;
                 searchDwellFrames = 0;
                 searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
                     * TurretTrackingConstants.kSearchStepDeg;
-                if (hubFresh.getAsBoolean()) {
-                    // Fresh detection — update setpoint with exponential smoothing
-                    double fullTarget = MathUtil.clamp(
-                        currentAngle + cameraAngle.getAsDouble(),
-                        0, TurretConstants.kTurretMaxDegrees);
-                    double smoothed = lastSetpointDegrees
-                        + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
-                    setTurretAngle(smoothed);
-                } else {
-                    // Holdoff — hold last setpoint
-                    setTurretAngle(lastSetpointDegrees);
-                }
+                double fullTarget = MathUtil.clamp(
+                    currentAngle + cameraAngle.getAsDouble(),
+                    0, TurretConstants.kTurretMaxDegrees);
+                double smoothed = lastSetpointDegrees
+                    + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
+                setTurretAngle(smoothed);
+            } else if (poseHasTarget.getAsBoolean()) {
+                // POSE MODE — pose is always up-to-date, better than stale camera holdoff
+                trackingMode = TrackingMode.POSE;
+                searchDwellFrames = 0;
+                setTurretAngle(poseTurretAngle.getAsDouble());
+            } else if (hubVisible.getAsBoolean()) {
+                // CAMERA MODE — holdoff, no pose available so hold last setpoint
+                trackingMode = TrackingMode.CAMERA;
+                searchDwellFrames = 0;
+                setTurretAngle(lastSetpointDegrees);
             } else {
-                // SEARCH MODE — step through positions
+                // SWEEP MODE — fallback search (rarely reached with good odometry)
                 trackingMode = TrackingMode.SWEEP;
                 if (isAtTarget(5.0)) {
                     searchDwellFrames++;
@@ -367,7 +377,7 @@ public class TurretSubsystem extends SubsystemBase {
         .finallyDo(interrupted -> {
             setTurretAngle(getTurretAngleDegrees());
         })
-        .withName("Auto Track Hub");
+        .withName("Pose Track Hub");
     }
 
     // ==================== Manual Align Command ====================

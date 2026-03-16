@@ -54,10 +54,6 @@ public class TurretSubsystem extends SubsystemBase {
     // Current tracking mode for telemetry
     private TrackingMode trackingMode = TrackingMode.HOLD;
 
-    // Camera hysteresis: charge/decay counter. Charges per valid frame, drains -1 per lost frame.
-    private static final int CAM_COUNTER_MAX = TurretTrackingConstants.kCamCounterMax;
-    private int camCounter = 0;
-
     // Search state: step through discrete angles, dwell at each to let camera detect
     private double searchAngleDeg = 0;
     private int searchDwellFrames = 0;
@@ -163,7 +159,6 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
         SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
-        SmartDashboard.putNumber("Turret/CamCounter", camCounter);
         SmartDashboard.putNumber("Turret/SearchAngle", searchAngleDeg);
         SmartDashboard.putNumber("Turret/SearchDwell", searchDwellFrames);
     }
@@ -207,23 +202,23 @@ public class TurretSubsystem extends SubsystemBase {
 
     /**
      * Auto-track command: search-then-lock system.
-     * <ol>
-     *   <li><b>SWEEP</b> — Steps to discrete angles (0°, 30°, 60°, …), dwelling at each
-     *       to give the camera time to detect hub tags.</li>
-     *   <li><b>CAMERA</b> — Hub tags found → track using camera yaw offset, with
-     *       charge/decay hysteresis to ride through brief dropouts.</li>
-     *   <li><b>HOLD</b> — Auto-track disabled or not in shooting zone.</li>
-     * </ol>
+     * Vision layer provides sticky visibility (holdoff) so this command just needs:
+     * visible → track, not visible → search.
+     *
+     * @param cameraAngle      turret-relative yaw offset (degrees)
+     * @param hubVisible       sticky visibility — stays true during holdoff after last detection
+     * @param hubFresh         raw per-frame detection — true only when PV sees hub this frame
+     * @param inShootingZone   whether robot is between alliance wall and hub
      */
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget,
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh,
             BooleanSupplier inShootingZone) {
 
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
             wasAutoTracking = false;
-            camCounter = 0;
             searchAngleDeg = TurretConstants.kTurretForwardDegrees;
             searchDwellFrames = 0;
         }, this)
@@ -247,42 +242,28 @@ public class TurretSubsystem extends SubsystemBase {
                 return;
             }
 
-            // Charge/decay hysteresis: +kCamChargeRate per valid frame, -1 per lost frame
-            boolean camValid = cameraHasTarget.getAsBoolean();
-            camCounter = camValid
-                ? Math.min(camCounter + TurretTrackingConstants.kCamChargeRate, CAM_COUNTER_MAX)
-                : Math.max(camCounter - 1, 0);
-
-            boolean useCam = camCounter >= TurretTrackingConstants.kCamHysteresisFrames;
             double currentAngle = getTurretAngleDegrees();
 
-            if (useCam) {
-                // CAMERA MODE — locked on hub
+            if (hubVisible.getAsBoolean()) {
+                // CAMERA MODE — hub visible (or in holdoff)
                 trackingMode = TrackingMode.CAMERA;
                 searchDwellFrames = 0;
-                // Keep search position near current angle for quick re-acquisition
                 searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
                     * TurretTrackingConstants.kSearchStepDeg;
-                if (camValid) {
-                    // Compute where the hub actually is, then smoothly move setpoint toward it
+                if (hubFresh.getAsBoolean()) {
+                    // Fresh detection — update setpoint with exponential smoothing
                     double fullTarget = MathUtil.clamp(
                         currentAngle + cameraAngle.getAsDouble(),
                         0, TurretConstants.kTurretMaxDegrees);
-                    // Exponential smoothing: move setpoint 30% of remaining distance each cycle
                     double smoothed = lastSetpointDegrees
                         + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed);
                 } else {
-                    // Brief dropout — hold last setpoint while counter drains
+                    // Holdoff — hold last setpoint
                     setTurretAngle(lastSetpointDegrees);
                 }
-            } else if (camCounter > 0) {
-                // NEAR-LOCK — tags recently seen but below threshold.
-                // Hold last known position instead of snapping to search grid.
-                trackingMode = TrackingMode.CAMERA;
-                setTurretAngle(lastSetpointDegrees);
             } else {
-                // SEARCH MODE — no recent detections, step through positions
+                // SEARCH MODE — step through positions
                 trackingMode = TrackingMode.SWEEP;
                 if (isAtTarget(5.0)) {
                     searchDwellFrames++;
@@ -309,31 +290,29 @@ public class TurretSubsystem extends SubsystemBase {
      * One-shot manual align: sweeps until the camera finds the hub, then locks on.
      * No auto-track toggle or shooting zone checks — drive team presses button, turret finds hub.
      * Holds locked position when the command ends (button release or cancel).
+     *
+     * @param cameraAngle  turret-relative yaw offset (degrees)
+     * @param hubVisible   sticky visibility from vision layer
+     * @param hubFresh     raw per-frame detection
      */
     public Command manualAlignCommand(
             DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget) {
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh) {
 
         return Commands.runOnce(() -> {
-            camCounter = 0;
-            searchAngleDeg = TurretConstants.kTurretForwardDegrees; // start from forward — hub is most likely ahead
+            searchAngleDeg = TurretConstants.kTurretForwardDegrees;
             searchDwellFrames = 0;
         }, this)
         .andThen(run(() -> {
-            boolean camValid = cameraHasTarget.getAsBoolean();
-            camCounter = camValid
-                ? Math.min(camCounter + TurretTrackingConstants.kCamChargeRate, CAM_COUNTER_MAX)
-                : Math.max(camCounter - 1, 0);
-
-            boolean useCam = camCounter >= TurretTrackingConstants.kCamHysteresisFrames;
             double currentAngle = getTurretAngleDegrees();
 
-            if (useCam) {
+            if (hubVisible.getAsBoolean()) {
                 trackingMode = TrackingMode.CAMERA;
                 searchDwellFrames = 0;
                 searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
                     * TurretTrackingConstants.kSearchStepDeg;
-                if (camValid) {
+                if (hubFresh.getAsBoolean()) {
                     double fullTarget = MathUtil.clamp(
                         currentAngle + cameraAngle.getAsDouble(),
                         0, TurretConstants.kTurretMaxDegrees);
@@ -343,9 +322,6 @@ public class TurretSubsystem extends SubsystemBase {
                 } else {
                     setTurretAngle(lastSetpointDegrees);
                 }
-            } else if (camCounter > 0) {
-                trackingMode = TrackingMode.CAMERA;
-                setTurretAngle(lastSetpointDegrees);
             } else {
                 trackingMode = TrackingMode.SWEEP;
                 if (isAtTarget(5.0)) {

@@ -229,7 +229,8 @@ public final class DashboardSetup {
             Dash.addCommand("Manual Align",
                 turret.manualAlignCommand(
                     visionSubsystem::getHubCamAngle,
-                    visionSubsystem::isHubCamVisible)
+                    visionSubsystem::isHubCamVisible,
+                    visionSubsystem::isHubCamFresh)
                     .withName("Manual Align"), col++, row);
         }
 

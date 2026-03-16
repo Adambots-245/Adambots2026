@@ -156,14 +156,6 @@ public final class Constants {
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
         public static final double kCameraTrackingGain = 0.3;
-        /** Consecutive frames camera must be valid before switching to camera mode (60ms at 3) */
-        public static final int kCamHysteresisFrames = 3;
-        /** Max value for charge/decay hysteresis counter.
-         *  At 50, a full drain at -1/frame takes 1 second — survives long gaps between detections. */
-        public static final int kCamCounterMax = 50;
-        /** Charge rate per valid camera frame. With ~12% detection rate (3/25 frames),
-         *  charge=10 × 3 = 30 vs drain=1 × 22 = 22 → net +8 per 25-frame window. */
-        public static final int kCamChargeRate = 10;
         /** Degrees between search positions during hub acquisition sweep */
         public static final double kSearchStepDeg = 30.0;
         /** Frames to dwell at each search position (1s at 50Hz — gives 20 FPS camera ~20 frames) */
@@ -338,6 +330,14 @@ public final class Constants {
         public static final double kLowPassTimeConstant = 0.15;
         /** Robot loop period (seconds) — used for low-pass filter calculation. */
         public static final double kLoopPeriod = 0.02;
+
+        // ==================== Hub Visibility Holdoff ====================
+        /** Max value for charge/decay holdoff counter.
+         *  At 50, a full drain at -1/frame takes 1 second — survives long gaps between detections. */
+        public static final int kCamCounterMax = 50;
+        /** Charge rate per valid camera frame. With ~15% detection rate,
+         *  charge=10 × 3 = 30 vs drain=1 × 22 = 22 → net +8 per 25-frame window. */
+        public static final int kCamChargeRate = 10;
     }
 
     // ==================== ClimberConstants ====================

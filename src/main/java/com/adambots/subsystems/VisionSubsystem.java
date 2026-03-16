@@ -92,6 +92,12 @@ public class VisionSubsystem extends SubsystemBase {
     private boolean prevHubCamHasTarget = false;
     private boolean prevHubPoseHasTarget = false;
 
+    // Hub camera holdoff: charge/decay counter makes isHubCamVisible() "sticky"
+    // so consumers don't see per-frame flicker from intermittent detections.
+    private int hubCamHoldoffCounter = 0;
+    private boolean hubCamSticky = false;
+    private double lastHubCamAngle = 0;
+
     // Raw (pre-filter) values for diagnostic logging
     private double rawCamDist, rawCamAngle;
     private double rawPoseDist, rawPoseAngle;
@@ -389,6 +395,20 @@ public class VisionSubsystem extends SubsystemBase {
             updateHubCameraOnly(hubCenter, hubTagIds);
         }
 
+        // Charge/decay holdoff: makes isHubCamVisible() sticky across frame gaps
+        if (hubCamHasTarget) {
+            hubCamHoldoffCounter = Math.min(
+                hubCamHoldoffCounter + VisionConstants.kCamChargeRate,
+                VisionConstants.kCamCounterMax);
+            lastHubCamAngle = hubCamAngleDegrees;
+        } else {
+            hubCamHoldoffCounter = Math.max(hubCamHoldoffCounter - 1, 0);
+        }
+        hubCamSticky = hubCamHoldoffCounter > 0;
+        SmartDashboard.putNumber("Vision/HoldoffCounter", hubCamHoldoffCounter);
+        SmartDashboard.putBoolean("Vision/HubSticky", hubCamSticky);
+        SmartDashboard.putBoolean("Vision/HubFresh", hubCamHasTarget);
+
         // ==================== Hub Approach B: Pose-Based ====================
         if (hasBackCameras) {
             Pose2d currentPose = poseSupplier.get();
@@ -574,8 +594,11 @@ public class VisionSubsystem extends SubsystemBase {
     // ==================== Hub Approach A Getters (camera-only) ====================
 
     public double getHubCamDistance() { return hubCamDistanceMeters; }
-    public double getHubCamAngle() { return hubCamAngleDegrees; }
-    public boolean isHubCamVisible() { return hubCamHasTarget; }
+    public double getHubCamAngle() { return hubCamHasTarget ? hubCamAngleDegrees : lastHubCamAngle; }
+    /** Sticky visibility — stays true during holdoff after last detection. */
+    public boolean isHubCamVisible() { return hubCamSticky; }
+    /** Raw per-frame detection — true only when PV actually sees hub tags this frame. */
+    public boolean isHubCamFresh() { return hubCamHasTarget; }
 
     // ==================== Hub Approach B Getters (pose-based) ====================
 

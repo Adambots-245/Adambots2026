@@ -62,17 +62,11 @@ public class TurretSubsystem extends SubsystemBase {
     // Current tracking mode for telemetry
     private TrackingMode trackingMode = TrackingMode.HOLD;
 
-    // Camera hysteresis: charge/decay counter. Charges per valid frame, drains -1 per lost frame.
-    private static final int CAM_COUNTER_MAX = TurretTrackingConstants.kCamCounterMax;
-    private int camCounter = 0;
-
     // Search state: step through discrete angles, dwell at each to let camera detect
     private double searchAngleDeg = 0;
     private int searchDwellFrames = 0;
 
     // Diagnostic counters for sim (reset every log window)
-    private int diagValidFrames = 0;
-    private int diagInvalidFrames = 0;
     private int diagModeChanges = 0;
     private TrackingMode diagPrevMode = TrackingMode.HOLD;
     private long diagWindowStart = 0;
@@ -185,7 +179,6 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
         SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
-        SmartDashboard.putNumber("Turret/CamCounter", camCounter);
         SmartDashboard.putNumber("Turret/SearchAngle", searchAngleDeg);
         SmartDashboard.putNumber("Turret/SearchDwell", searchDwellFrames);
         // Log every 0.5s in sim
@@ -194,8 +187,8 @@ public class TurretSubsystem extends SubsystemBase {
             if (tick != dbgTick) {
                 dbgTick = tick;
                 double voltage = turretMotor.getSimMotorVoltage();
-                System.out.printf("[TURRET] mode=%s angle=%.1f setpoint=%.1f voltage=%.2f camCnt=%d search=%.0f dwell=%d autoTrack=%s%n",
-                    trackingMode, currentAngle, lastSetpointDegrees, voltage, camCounter, searchAngleDeg, searchDwellFrames, autoTrackEnabled);
+                System.out.printf("[TURRET] mode=%s angle=%.1f setpoint=%.1f voltage=%.2f search=%.0f dwell=%d autoTrack=%s%n",
+                    trackingMode, currentAngle, lastSetpointDegrees, voltage, searchAngleDeg, searchDwellFrames, autoTrackEnabled);
             }
         }
     }
@@ -280,23 +273,23 @@ public class TurretSubsystem extends SubsystemBase {
 
     /**
      * Auto-track command: search-then-lock system.
-     * <ol>
-     *   <li><b>SWEEP</b> — Steps to discrete angles (0°, 30°, 60°, …), dwelling at each
-     *       to give the camera time to detect hub tags.</li>
-     *   <li><b>CAMERA</b> — Hub tags found → track using camera yaw offset, with
-     *       charge/decay hysteresis to ride through brief dropouts.</li>
-     *   <li><b>HOLD</b> — Auto-track disabled or not in shooting zone.</li>
-     * </ol>
+     * Vision layer provides sticky visibility (holdoff) so this command just needs:
+     * visible → track, not visible → search.
+     *
+     * @param cameraAngle      turret-relative yaw offset (degrees)
+     * @param hubVisible       sticky visibility — stays true during holdoff after last detection
+     * @param hubFresh         raw per-frame detection — true only when PV sees hub this frame
+     * @param inShootingZone   whether robot is between alliance wall and hub
      */
     public Command autoTrackCommand(
             DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget,
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh,
             BooleanSupplier inShootingZone) {
 
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
             wasAutoTracking = false;
-            camCounter = 0;
             searchAngleDeg = TurretConstants.kTurretForwardDegrees;
             searchDwellFrames = 0;
         }, this)
@@ -320,63 +313,42 @@ public class TurretSubsystem extends SubsystemBase {
                 return;
             }
 
-            // Charge/decay hysteresis: +10 per valid frame, -1 per lost frame
-            boolean camValid = cameraHasTarget.getAsBoolean();
-            camCounter = camValid
-                ? Math.min(camCounter + TurretTrackingConstants.kCamChargeRate, CAM_COUNTER_MAX)
-                : Math.max(camCounter - 1, 0);
-
-            boolean useCam = camCounter >= TurretTrackingConstants.kCamHysteresisFrames;
             double currentAngle = getTurretAngleDegrees();
-            double camYaw = cameraAngle.getAsDouble();
 
             // === Diagnostic tracking (sim only) ===
             if (RobotBase.isSimulation()) {
-                if (camValid) diagValidFrames++; else diagInvalidFrames++;
                 if (trackingMode != diagPrevMode) diagModeChanges++;
 
-                // Aggregate stats every 2 seconds
                 long now = System.currentTimeMillis();
                 if (diagWindowStart == 0) diagWindowStart = now;
                 if (now - diagWindowStart >= 2000) {
-                    int total = diagValidFrames + diagInvalidFrames;
-                    double pct = total > 0 ? (100.0 * diagValidFrames / total) : 0;
-                    System.out.printf("[TRACK] 2s: valid=%d/%d (%.0f%%) cnt=%d mode=%s changes=%d angle=%.1f setpt=%.1f camYaw=%.1f%n",
-                        diagValidFrames, total, pct, camCounter, trackingMode, diagModeChanges, currentAngle, lastSetpointDegrees, camYaw);
-                    diagValidFrames = 0;
-                    diagInvalidFrames = 0;
+                    System.out.printf("[TRACK] 2s: mode=%s changes=%d angle=%.1f setpt=%.1f%n",
+                        trackingMode, diagModeChanges, currentAngle, lastSetpointDegrees);
                     diagModeChanges = 0;
                     diagWindowStart = now;
                 }
             }
 
-            if (useCam) {
-                // CAMERA MODE — locked on hub
+            if (hubVisible.getAsBoolean()) {
+                // CAMERA MODE — hub visible (or in holdoff)
                 trackingMode = TrackingMode.CAMERA;
-                searchDwellFrames = 0; // reset so search doesn't advance when we drop out
-                // Keep search position near current angle for quick re-acquisition
+                searchDwellFrames = 0;
                 searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
                     * TurretTrackingConstants.kSearchStepDeg;
-                if (camValid) {
-                    // Compute where the hub actually is, then smoothly move setpoint toward it
+                if (hubFresh.getAsBoolean()) {
+                    // Fresh detection — update setpoint with exponential smoothing
                     double fullTarget = MathUtil.clamp(
-                        currentAngle + camYaw,
+                        currentAngle + cameraAngle.getAsDouble(),
                         0, TurretConstants.kTurretMaxDegrees);
-                    // Exponential smoothing: move setpoint 30% of remaining distance each cycle
                     double smoothed = lastSetpointDegrees
                         + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed);
                 } else {
-                    // Brief dropout — hold last setpoint while counter drains
+                    // Holdoff — hold last setpoint
                     setTurretAngle(lastSetpointDegrees);
                 }
-            } else if (camCounter > 0) {
-                // NEAR-LOCK — tags recently seen but below threshold.
-                // Hold last known position instead of snapping to search grid.
-                trackingMode = TrackingMode.CAMERA;
-                setTurretAngle(lastSetpointDegrees);
             } else {
-                // SEARCH MODE — no recent detections, step through positions
+                // SEARCH MODE — step through positions
                 trackingMode = TrackingMode.SWEEP;
                 if (isAtTarget(5.0)) {
                     searchDwellFrames++;
@@ -390,7 +362,6 @@ public class TurretSubsystem extends SubsystemBase {
                 }
                 setTurretAngle(searchAngleDeg);
             }
-            // Update previous mode for transition detection
             diagPrevMode = trackingMode;
         }))
         .finallyDo(interrupted -> {
@@ -405,34 +376,31 @@ public class TurretSubsystem extends SubsystemBase {
      * One-shot manual align: sweeps until the camera finds the hub, then locks on.
      * No auto-track toggle or shooting zone checks — drive team presses button, turret finds hub.
      * Holds locked position when the command ends (button release or cancel).
+     *
+     * @param cameraAngle  turret-relative yaw offset (degrees)
+     * @param hubVisible   sticky visibility from vision layer
+     * @param hubFresh     raw per-frame detection
      */
     public Command manualAlignCommand(
             DoubleSupplier cameraAngle,
-            BooleanSupplier cameraHasTarget) {
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh) {
 
         return Commands.runOnce(() -> {
-            camCounter = 0;
-            searchAngleDeg = TurretConstants.kTurretForwardDegrees; // start from forward — hub is most likely ahead
+            searchAngleDeg = TurretConstants.kTurretForwardDegrees;
             searchDwellFrames = 0;
         }, this)
         .andThen(run(() -> {
-            boolean camValid = cameraHasTarget.getAsBoolean();
-            camCounter = camValid
-                ? Math.min(camCounter + TurretTrackingConstants.kCamChargeRate, CAM_COUNTER_MAX)
-                : Math.max(camCounter - 1, 0);
-
-            boolean useCam = camCounter >= TurretTrackingConstants.kCamHysteresisFrames;
             double currentAngle = getTurretAngleDegrees();
-            double camYaw = cameraAngle.getAsDouble();
 
-            if (useCam) {
+            if (hubVisible.getAsBoolean()) {
                 trackingMode = TrackingMode.CAMERA;
                 searchDwellFrames = 0;
                 searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
                     * TurretTrackingConstants.kSearchStepDeg;
-                if (camValid) {
+                if (hubFresh.getAsBoolean()) {
                     double fullTarget = MathUtil.clamp(
-                        currentAngle + camYaw,
+                        currentAngle + cameraAngle.getAsDouble(),
                         0, TurretConstants.kTurretMaxDegrees);
                     double smoothed = lastSetpointDegrees
                         + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
@@ -440,9 +408,6 @@ public class TurretSubsystem extends SubsystemBase {
                 } else {
                     setTurretAngle(lastSetpointDegrees);
                 }
-            } else if (camCounter > 0) {
-                trackingMode = TrackingMode.CAMERA;
-                setTurretAngle(lastSetpointDegrees);
             } else {
                 trackingMode = TrackingMode.SWEEP;
                 if (isAtTarget(5.0)) {
@@ -456,26 +421,6 @@ public class TurretSubsystem extends SubsystemBase {
                     }
                 }
                 setTurretAngle(searchAngleDeg);
-            }
-
-            // === Diagnostic tracking (sim only) ===
-            if (RobotBase.isSimulation()) {
-                if (camValid) diagValidFrames++; else diagInvalidFrames++;
-                if (trackingMode != diagPrevMode) diagModeChanges++;
-
-                long now = System.currentTimeMillis();
-                if (diagWindowStart == 0) diagWindowStart = now;
-                if (now - diagWindowStart >= 2000) {
-                    int total = diagValidFrames + diagInvalidFrames;
-                    double pct = total > 0 ? (100.0 * diagValidFrames / total) : 0;
-                    System.out.printf("[MANUAL] 2s: valid=%d/%d (%.0f%%) cnt=%d mode=%s changes=%d angle=%.1f setpt=%.1f camYaw=%.1f%n",
-                        diagValidFrames, total, pct, camCounter, trackingMode, diagModeChanges, currentAngle, lastSetpointDegrees, camYaw);
-                    diagValidFrames = 0;
-                    diagInvalidFrames = 0;
-                    diagModeChanges = 0;
-                    diagWindowStart = now;
-                }
-                diagPrevMode = trackingMode;
             }
         }))
         .finallyDo(interrupted -> {

@@ -235,19 +235,19 @@ public final class Constants {
         // Back-Left ArduCam (on top of back-left swerve module, facing backward)
          // Back-Left ArduCam (on top of back-left swerve module, facing backward)
         public static final double kBackLeftCameraX = -0.32;   // back of robot
-        public static final double kBackLeftCameraY = 0.24;    // left side
+        public static final double kBackLeftCameraY = 0.27;    // left side
         public static final double kBackLeftCameraZ = 0.18;    // on top of module (~8.5in up)
         public static final double kBackLeftCameraRoll = 0.0;
-        public static final double kBackLeftCameraPitch = 20.0;  // slightly up to see AprilTags
+        public static final double kBackLeftCameraPitch = 22.5;  // slightly up to see AprilTags
         public static final double kBackLeftCameraYaw = 170.0;   // facing backward
 
         // Back-Right ArduCam (on top of back-right swerve module, facing backward)
-        public static final double kBackRightCameraX = -0.32;  // back of robot
-        public static final double kBackRightCameraY = -0.24;  // right side
+        public static final double kBackRightCameraX = -0.33;  // back of robot
+        public static final double kBackRightCameraY = -0.27;  // right side
         public static final double kBackRightCameraZ = 0.18;   // on top of module (~8.5in up)
         public static final double kBackRightCameraRoll = 0.0;
-        public static final double kBackRightCameraPitch = 22.0;  // slightly up to see AprilTags
-        public static final double kBackRightCameraYaw = -166.0;  // facing backward
+        public static final double kBackRightCameraPitch = 22.5;  // slightly up to see AprilTags
+        public static final double kBackRightCameraYaw = -170.0;  // facing backward
 
         // Shooter LifeCam (on top of shooter at back of robot, facing forward)
         public static final double kShooterCameraX = -0.20;   // behind center (shooter is at back)

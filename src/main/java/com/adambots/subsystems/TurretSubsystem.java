@@ -109,6 +109,12 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
     }
 
+    /** Commands the turret to sweep at a constant velocity (degrees/sec). Positive = toward max. */
+    public void sweepTurret(double degreesPerSec) {
+        double rps = (degreesPerSec / 360.0) * TurretConstants.kTurretGearRatio;
+        turretMotor.set(ControlMode.VELOCITY, rps);
+    }
+
     public void stopTurret() {
         turretMotor.set(0);
     }
@@ -259,11 +265,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: velocity-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                sweepTurret(scanDirection * TurretTrackingConstants.kScanVelocityDegPerSec);
             }
         }))
         .finallyDo(interrupted -> {
@@ -309,11 +315,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: velocity-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                sweepTurret(scanDirection * TurretTrackingConstants.kScanVelocityDegPerSec);
             }
         }))
         .finallyDo(interrupted -> {

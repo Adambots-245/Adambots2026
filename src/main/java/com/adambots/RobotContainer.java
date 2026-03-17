@@ -126,17 +126,12 @@ public class RobotContainer {
         // Enable hub activation test mode (dashboard controls for testing without FMS)
         HubActivation.initTestMode();
 
-        // Default: show hub state (green when active, red→green countdown when inactive)
+        // Default: green when active, alliance-color countdown when inactive, strobe at 5s
         leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
-        // leds.setDefaultCommand(leds.setColorCommand(LEDConstants.adambotsYellow));
 
         // Flash green when hub becomes active
         HubActivation.ourHubActiveTrigger()
             .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
-
-        // Warning strobe 5s before shift change
-        HubActivation.shiftChangeSoonTrigger(5.0)
-            .onTrue(LEDCommands.hubWarningCommand(leds));
     }
 
     // ==================== DEFAULT COMMANDS ====================
@@ -231,17 +226,15 @@ public class RobotContainer {
         Buttons.XboxYButton.whileTrue(
                     turret.aimTurretCommand(() -> 90.0));
 
-        // === D-pad: Turret presets (hold to snap, release resumes auto-track) ===
-        // Up (170°) = forward, Right (260°) = max CW, Down (130°) = rear, Left (0°) = max CCW
-        // Diagonals map to nearest cardinal for POV hat wobble robustness
-        Buttons.XboxDPadN.whileTrue(turret.aimTurretCommand(() -> 170.0));
-        Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> 170.0));
-        Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> 170.0));
-        Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> 260.0));
-        Buttons.XboxDPadS.whileTrue(turret.aimTurretCommand(() -> 130.0));
-        Buttons.XboxDPadSE.whileTrue(turret.aimTurretCommand(() -> 130.0));
-        Buttons.XboxDPadSW.whileTrue(turret.aimTurretCommand(() -> 130.0));
-        Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> 0.0));
+        // === D-pad: Turret manual control ===
+        // Up = snap to forward (170°), Left/Right = incremental nudge
+        // Diagonals included for POV hat wobble robustness
+        double step = Constants.TurretConstants.kTurretManualStepDeg;
+        Buttons.XboxDPadN.whileTrue(turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
+        Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
+        Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
+        Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
+        Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
         // X: Lock climber (stop motor + engage ratchet)
         Buttons.XboxXButton.onTrue(climber.lockCommand());
 

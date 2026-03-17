@@ -149,11 +149,15 @@ public final class Constants {
     public static final class TurretTrackingConstants {
         /** Degrees tolerance to consider turret "on target" for tracking */
         public static final double kTrackingToleranceDeg = 2.0;
-        /** Consecutive frames camera must be valid before switching to camera tier (60ms at 3) */
-        public static final int kCamHysteresisFrames = 3;
-        /** Scan step size (degrees per cycle) when sweeping to find hub via Motion Magic.
-         *  At 50 Hz, 0.7°/cycle ≈ 35°/sec — fast enough to reacquire, slow enough for camera to detect. */
-        public static final double kScanStepDeg = 0.7;
+        /** Proportional gain applied to camera yaw for turret correction.
+         *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
+        public static final double kCameraTrackingGain = 0.3;
+        /** Degrees between search positions during hub acquisition sweep */
+        public static final double kSearchStepDeg = 30.0;
+        /** Frames to dwell at each search position (1s at 50Hz — gives 20 FPS camera ~20 frames) */
+        public static final int kSearchDwellFrames = 50;
+        /** Frames to dwell during manual align (0.5s — with charge rate 10, 1 valid frame suffices) */
+        public static final int kManualAlignDwellFrames = 25;
     }
 
     // ==================== HopperConstants ====================
@@ -314,12 +318,17 @@ public final class Constants {
         public static final int kVisionMode = 0;
 
         // ==================== Vision Filtering ====================
-        /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
-        public static final int kMedianFilterSize = 5;
-        /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
-        public static final double kLowPassTimeConstant = 0.15;
-        /** Robot loop period (seconds) — used for low-pass filter calculation. */
-        public static final double kLoopPeriod = 0.02;
+        /** Exponential weighted average alpha — fraction of new measurement per frame.
+         *  0.04 = 4% new, 96% prior (à la 6328). Higher = more responsive but noisier. */
+        public static final double kVisionAlpha = 0.04;
+
+        // ==================== Hub Visibility Holdoff ====================
+        /** Max value for charge/decay holdoff counter.
+         *  At 50, a full drain at -1/frame takes 1 second — survives long gaps between detections. */
+        public static final int kCamCounterMax = 50;
+        /** Charge rate per valid camera frame. With ~15% detection rate,
+         *  charge=10 × 3 = 30 vs drain=1 × 22 = 22 → net +8 per 25-frame window. */
+        public static final int kCamChargeRate = 10;
     }
 
     // ==================== ClimberConstants ====================

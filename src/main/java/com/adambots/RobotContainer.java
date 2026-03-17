@@ -73,7 +73,7 @@ public class RobotContainer {
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
         intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
-        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
+        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
         turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
@@ -143,10 +143,13 @@ public class RobotContainer {
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Constants.DriveConstants.kTranslationScale));
 
-        // Turret auto-track: camera-only scan-and-track
+        // Turret auto-track: visible → track, not visible → search
         if (visionSubsystem != null) {
             turret.setDefaultCommand(turret.autoTrackCommand(
-                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
+                        visionSubsystem::getHubCamAngle,
+                        visionSubsystem::isHubCamVisible,
+                        visionSubsystem::isHubCamFresh,
+                        shooter::isInShootingZone));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());
         }
@@ -223,22 +226,17 @@ public class RobotContainer {
         Buttons.XboxYButton.whileTrue(
                     turret.aimTurretCommand(() -> 90.0));
 
-        // D-pad Left/Right: Manual turret adjust
-        Buttons.XboxDPadW.whileTrue(
-                    turret.scanCommand(-1.0));
-        Buttons.XboxDPadE.whileTrue(
-                    turret.scanCommand(1.0));
-
-        // === Climber ===
-        // D-pad Up: Extend elevator (hold to raise hook)
-        // Bind diagonals too — POV hat wobble between cardinal/diagonal causes stutter
-        Buttons.XboxDPadN.whileTrue(climber.extendCommand());
-        Buttons.XboxDPadNE.whileTrue(climber.extendCommand());
-        Buttons.XboxDPadNW.whileTrue(climber.extendCommand());
-        // D-pad Down: Climb (hold to retract / pull robot up)
-        Buttons.XboxDPadS.whileTrue(climber.climbCommand());
-        Buttons.XboxDPadSE.whileTrue(climber.climbCommand());
-        Buttons.XboxDPadSW.whileTrue(climber.climbCommand());
+        // === D-pad: Turret presets (hold to snap, release resumes auto-track) ===
+        // Up (170°) = forward, Right (260°) = max CW, Down (130°) = rear, Left (0°) = max CCW
+        // Diagonals map to nearest cardinal for POV hat wobble robustness
+        Buttons.XboxDPadN.whileTrue(turret.aimTurretCommand(() -> 170.0));
+        Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> 170.0));
+        Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> 170.0));
+        Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> 260.0));
+        Buttons.XboxDPadS.whileTrue(turret.aimTurretCommand(() -> 130.0));
+        Buttons.XboxDPadSE.whileTrue(turret.aimTurretCommand(() -> 130.0));
+        Buttons.XboxDPadSW.whileTrue(turret.aimTurretCommand(() -> 130.0));
+        Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> 0.0));
         // X: Lock climber (stop motor + engage ratchet)
         Buttons.XboxXButton.onTrue(climber.lockCommand());
 

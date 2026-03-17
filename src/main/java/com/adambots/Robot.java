@@ -88,7 +88,7 @@ public class Robot extends LoggedRobot {
         Buttons.init(
             RobotMap.kDriverJoystickPort,
             RobotMap.kOperatorXboxPort,
-            ControllerType.XBOX,
+            ControllerType.EXTREME_3D_PRO,
             ControllerType.XBOX
         );
 

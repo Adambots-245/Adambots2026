@@ -161,8 +161,7 @@ public class RobotContainer {
     // ==================== BUTTON BINDINGS ====================
     private void configureButtonBindings() {
         // === Driver (Extreme 3D Pro — null when using Xbox controller in sim) ===
-        if (Buttons.JoystickButton10 != null) {
-            Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+            // Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
             // Trigger (1): Hold-to-shoot at vision distance (no timer)
             Buttons.JoystickButton1.whileTrue(
@@ -191,12 +190,11 @@ public class RobotContainer {
 
             // Button 12: Lower intake but do not run
             Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand());
-        }
 
         Buttons.XboxAButton.onTrue(Commands.runOnce(
                 () -> intake.stopIntakeCommand()));
 
-        Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
+        // Dash.addCommand("Shoot", ShootCommands.shootCommand(shooter, hopper));
 
 
         // === Operator (Xbox Controller) ===

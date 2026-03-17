@@ -9,6 +9,7 @@ import java.io.File;
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
+import com.adambots.lib.Constants.LEDConstants;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -85,17 +86,18 @@ public class RobotContainer {
         // 3. Vision
         configureVision();
 
-        // 4. LEDs
+        // 4. PathPlanner named commands — must be registered before buildAutoChooser()
+        // which resolves them eagerly. Vision must be set up first (shoot commands use it).
+        configurePathPlannerCommands();
+
+        // 5. LEDs
         configureLEDs();
 
-        // 5. Default commands
+        // 6. Default commands
         configureDefaultCommands();
 
-        // 6. Button bindings
+        // 7. Button bindings
         configureButtonBindings();
-
-        // 7. PathPlanner named commands
-        configurePathPlannerCommands();
 
         // 8. Auto chooser
         configureAutoChooser();
@@ -124,6 +126,7 @@ public class RobotContainer {
 
         // Default: show hub state (green when active, red→green countdown when inactive)
         leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
+        // leds.setDefaultCommand(leds.setColorCommand(LEDConstants.adambotsYellow));
 
         // Flash green when hub becomes active
         HubActivation.ourHubActiveTrigger()

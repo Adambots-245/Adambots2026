@@ -62,9 +62,8 @@ public class TurretSubsystem extends SubsystemBase {
     // Current tracking mode for telemetry
     private TrackingMode trackingMode = TrackingMode.HOLD;
 
-    // Search state: step through discrete angles, dwell at each to let camera detect
-    private double searchAngleDeg = 0;
-    private int searchDwellFrames = 0;
+    // Scan direction for SWEEP mode: +1 = toward max, -1 = toward zero
+    private int scanDirection = 1;
 
     // Diagnostic counters for sim (reset every log window)
     private int diagModeChanges = 0;
@@ -179,16 +178,15 @@ public class TurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
         SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
         SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
-        SmartDashboard.putNumber("Turret/SearchAngle", searchAngleDeg);
-        SmartDashboard.putNumber("Turret/SearchDwell", searchDwellFrames);
+        SmartDashboard.putNumber("Turret/ScanDirection", scanDirection);
         // Log every 0.5s in sim
         if (RobotBase.isSimulation()) {
             long tick = System.nanoTime() / 500_000_000L;
             if (tick != dbgTick) {
                 dbgTick = tick;
                 double voltage = turretMotor.getSimMotorVoltage();
-                System.out.printf("[TURRET] mode=%s angle=%.1f setpoint=%.1f voltage=%.2f search=%.0f dwell=%d autoTrack=%s%n",
-                    trackingMode, currentAngle, lastSetpointDegrees, voltage, searchAngleDeg, searchDwellFrames, autoTrackEnabled);
+                System.out.printf("[TURRET] mode=%s angle=%.1f setpoint=%.1f voltage=%.2f scanDir=%d autoTrack=%s%n",
+                    trackingMode, currentAngle, lastSetpointDegrees, voltage, scanDirection, autoTrackEnabled);
             }
         }
     }
@@ -290,8 +288,7 @@ public class TurretSubsystem extends SubsystemBase {
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
             wasAutoTracking = false;
-            searchAngleDeg = TurretConstants.kTurretForwardDegrees;
-            searchDwellFrames = 0;
+            scanDirection = 1;
         }, this)
         .andThen(run(() -> {
             // Auto-track toggle (Button 5)
@@ -332,9 +329,8 @@ public class TurretSubsystem extends SubsystemBase {
             if (hubVisible.getAsBoolean()) {
                 // CAMERA MODE — hub visible (or in holdoff)
                 trackingMode = TrackingMode.CAMERA;
-                searchDwellFrames = 0;
-                searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
-                    * TurretTrackingConstants.kSearchStepDeg;
+                // Remember which side the hub is for faster reacquisition
+                scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
                 if (hubFresh.getAsBoolean()) {
                     // Fresh detection — update setpoint with exponential smoothing
                     double fullTarget = MathUtil.clamp(
@@ -348,19 +344,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
-                // SEARCH MODE — step through positions
+                // SWEEP: continuous smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
-                if (isAtTarget(5.0)) {
-                    searchDwellFrames++;
-                    if (searchDwellFrames >= TurretTrackingConstants.kManualAlignDwellFrames) {
-                        searchAngleDeg += TurretTrackingConstants.kSearchStepDeg;
-                        if (searchAngleDeg > TurretConstants.kTurretMaxDegrees) {
-                            searchAngleDeg = 0;
-                        }
-                        searchDwellFrames = 0;
-                    }
-                }
-                setTurretAngle(searchAngleDeg);
+                if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
             }
             diagPrevMode = trackingMode;
         }))
@@ -387,17 +375,15 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier hubFresh) {
 
         return Commands.runOnce(() -> {
-            searchAngleDeg = TurretConstants.kTurretForwardDegrees;
-            searchDwellFrames = 0;
+            scanDirection = 1;
         }, this)
         .andThen(run(() -> {
             double currentAngle = getTurretAngleDegrees();
 
             if (hubVisible.getAsBoolean()) {
                 trackingMode = TrackingMode.CAMERA;
-                searchDwellFrames = 0;
-                searchAngleDeg = Math.round(currentAngle / TurretTrackingConstants.kSearchStepDeg)
-                    * TurretTrackingConstants.kSearchStepDeg;
+                // Remember which side the hub is for faster reacquisition
+                scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
                 if (hubFresh.getAsBoolean()) {
                     double fullTarget = MathUtil.clamp(
                         currentAngle + cameraAngle.getAsDouble(),
@@ -409,18 +395,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
+                // SWEEP: continuous smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
-                if (isAtTarget(5.0)) {
-                    searchDwellFrames++;
-                    if (searchDwellFrames >= TurretTrackingConstants.kManualAlignDwellFrames) {
-                        searchAngleDeg += TurretTrackingConstants.kSearchStepDeg;
-                        if (searchAngleDeg > TurretConstants.kTurretMaxDegrees) {
-                            searchAngleDeg = 0;
-                        }
-                        searchDwellFrames = 0;
-                    }
-                }
-                setTurretAngle(searchAngleDeg);
+                if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
             }
         }))
         .finallyDo(interrupted -> {

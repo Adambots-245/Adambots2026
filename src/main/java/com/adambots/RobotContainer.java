@@ -121,8 +121,10 @@ public class RobotContainer {
     // ==================== LEDS ====================
     private void configureLEDs() {
         if (leds == null)
-
             return;
+
+        // Enable hub activation test mode (dashboard controls for testing without FMS)
+        HubActivation.initTestMode();
 
         // Default: show hub state (green when active, red→green countdown when inactive)
         leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));

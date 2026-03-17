@@ -32,9 +32,9 @@ public final class Constants {
     public static final int kShuffleboardRows = 5;
 
     /** LED strip configuration — update kLEDStripLength once strip is wired. */
-    public static final int kLEDStripLength = 100;
+    public static final int kLEDStripLength = 105;
     public static final int kProgressStartIndex = 8;    // first external LED (after 8 onboard)
-    public static final int kProgressLEDCount = 100;    // LEDs used for the progress bar
+    public static final int kProgressLEDCount = 97;    // LEDs used for the progress bar
 
     // ==================== DriveConstants ====================
     /**
@@ -112,14 +112,14 @@ public final class Constants {
         // kV = 12V / 88.8 RPS (Minion free speed) ≈ 0.135
         // kP: 20 × 0.031 rot/deg = 0.62V per degree error — enough to correct without overshoot
         // kD: kept low — Minion velocity signal is noisy, high D goes berserk
-        public static final double kTurretP = 15.0;
+        public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
         public static final double kTurretFF = 0.135;
 
         // ==================== Motion Magic Profile ====================
-        public static final double kTurretCruiseVelocity = 12.0;   // RPS at motor
-        public static final double kTurretAcceleration = 24.0;      // RPS/s at motor
+        public static final double kTurretCruiseVelocity = 16.0;   // RPS at motor
+        public static final double kTurretAcceleration = 48.0;      // RPS/s at motor
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
@@ -161,7 +161,7 @@ public final class Constants {
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 5.0;
         /** Degrees to move per cycle during continuous scan sweep */
-        public static final double kScanStepDeg = 5.0;
+        public static final double kScanStepDeg = 2.5;
     }
 
     // ==================== HopperConstants ====================

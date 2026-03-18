@@ -387,7 +387,7 @@ public final class Constants {
 
         public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
-        public static final double kBopAngle = 15.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kBopAngle = 55.0;           // degrees to bop up from lowered position — CALIBRATE
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
 
         // Roller motor current limits

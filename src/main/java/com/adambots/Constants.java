@@ -57,7 +57,7 @@ public final class Constants {
         public static final double kAutoRotationD = 0.0;
 
         /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
-        public static final double kTranslationScale = 0.8;
+        public static final double kTranslationScale = 0.9;
     }
 
     // ==================== ShooterConstants ====================
@@ -92,10 +92,10 @@ public final class Constants {
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
             {2.0, 45.0},
-            {2.5, 47.5},
+            {2.5, 49.0},
             {3.0, 52.0},
-            {4.0, 55.0},
-            {5.0, 65.0}
+            {4.0, 58.0},
+            {5.0, 68.0}
         };
 
         public static final double kMinRPS = 42.0;  // table minimum
@@ -166,8 +166,8 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.13;
-        public static final double kUptakeSpeed = 0.5;
+        public static final double kHopperSpeed = 0.25;
+        public static final double kUptakeSpeed = 0.8;
         public static final double kDetectionRange = 2.0; // cm
 
         // Current limits
@@ -207,7 +207,7 @@ public final class Constants {
         public static final String kShooterCameraName = "shooter_cam";
 
         /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
-        public static final String kFrontCameraName = "front_camera";
+        public static final String kFrontCameraName = "forward_camera";
 
 
         // ==================== Camera Positions ====================

@@ -159,7 +159,7 @@ public final class Constants {
         /** Frames to dwell during manual align (0.5s — with charge rate 10, 1 valid frame suffices) */
         public static final int kManualAlignDwellFrames = 25;
         /** Degrees margin from turret limits before reversing scan direction */
-        public static final double kScanMarginDeg = 5.0;
+        public static final double kScanMarginDeg = 15.0;
         /** Sweep velocity in degrees/sec for continuous scan (velocity control, not steps) */
         public static final double kScanVelocityDegPerSec = 120.0;
     }

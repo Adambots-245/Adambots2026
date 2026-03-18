@@ -2,6 +2,7 @@ package com.adambots.utils;
 
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
@@ -11,10 +12,17 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * inactive first. That alliance is active during Shifts 2 and 4; the other alliance is
  * active during Shifts 1 and 3. Both alliances are active during the transition period
  * and endgame.
+ *
+ * <p><strong>Test Mode:</strong> Call {@link #initTestMode()} at startup to add dashboard
+ * controls for testing without an FMS. Toggle "Hub/TestMode" on, set "Hub/TestGameData"
+ * to "R" or "B", and adjust "Hub/TestMatchTime" (135→0) to simulate shifts.
  */
 public final class HubActivation {
 
     private HubActivation() {}
+
+    // --- Test mode state ---
+    private static boolean testModeInitialized = false;
 
     /** Shift duration in seconds. */
     static final double SHIFT_DURATION = 25.0;
@@ -31,12 +39,38 @@ public final class HubActivation {
     }
 
     /**
+     * Publishes test mode controls to SmartDashboard for testing hub activation
+     * without an FMS. Call once during robot initialization.
+     */
+    public static void initTestMode() {
+        SmartDashboard.putBoolean("Hub/TestMode", false);
+        SmartDashboard.putString("Hub/TestGameData", "R");
+        SmartDashboard.putNumber("Hub/TestMatchTime", 135.0);
+        testModeInitialized = true;
+    }
+
+    /** Returns match time from test mode dashboard or DriverStation. */
+    private static double getMatchTime() {
+        if (testModeInitialized && SmartDashboard.getBoolean("Hub/TestMode", false)) {
+            return SmartDashboard.getNumber("Hub/TestMatchTime", 135.0);
+        }
+        return DriverStation.getMatchTime();
+    }
+
+    /** Returns game-specific message from test mode dashboard or DriverStation. */
+    private static String getGameData() {
+        if (testModeInitialized && SmartDashboard.getBoolean("Hub/TestMode", false)) {
+            return SmartDashboard.getString("Hub/TestGameData", "R");
+        }
+        return DriverStation.getGameSpecificMessage();
+    }
+
+    /**
      * Determines the current shift based on match time remaining.
      * Match time counts down from 135 in teleop.
      */
     public static Shift getCurrentShift() {
-        double time = DriverStation.getMatchTime();
-        return shiftForTime(time);
+        return shiftForTime(getMatchTime());
     }
 
     /**
@@ -44,8 +78,7 @@ public final class HubActivation {
      * Defaults to true if game data is not yet available or we're not in a match.
      */
     public static boolean isOurHubActive() {
-        double time = DriverStation.getMatchTime();
-        return isOurHubActiveForTime(time);
+        return isOurHubActiveForTime(getMatchTime());
     }
 
     /**
@@ -53,8 +86,7 @@ public final class HubActivation {
      * Returns 0.0 if our hub is already active.
      */
     public static double secondsUntilOurHubActivates() {
-        double time = DriverStation.getMatchTime();
-        return secondsUntilActiveForTime(time);
+        return secondsUntilActiveForTime(getMatchTime());
     }
 
     /**
@@ -73,8 +105,7 @@ public final class HubActivation {
      * Returns 0.0 if not in a match or during endgame.
      */
     public static double secondsUntilNextShiftChange() {
-        double time = DriverStation.getMatchTime();
-        return secondsUntilNextShiftChangeForTime(time);
+        return secondsUntilNextShiftChangeForTime(getMatchTime());
     }
 
     // --- Trigger factories ---
@@ -131,7 +162,7 @@ public final class HubActivation {
      * 'R' matches Red, 'B' matches Blue.
      */
     private static Boolean weAreInactiveFirst() {
-        String gameData = DriverStation.getGameSpecificMessage();
+        String gameData = getGameData();
         if (gameData == null || gameData.isEmpty()) {
             return null; // not yet received
         }

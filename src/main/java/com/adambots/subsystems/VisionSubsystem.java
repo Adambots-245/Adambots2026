@@ -11,15 +11,12 @@ import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
 import com.adambots.lib.vision.PhotonVision;
 import com.adambots.lib.vision.VisionCamera;
-import com.adambots.lib.vision.VisionCameraInterface;
 import com.adambots.lib.vision.VisionResult;
 import com.adambots.lib.vision.VisionTarget;
 import com.adambots.lib.vision.config.VisionCameraConfig.CameraPurpose;
 import com.adambots.lib.vision.config.VisionConfigBuilder;
 import com.adambots.lib.vision.config.VisionSystemConfig;
 
-import edu.wpi.first.math.filter.LinearFilter;
-import edu.wpi.first.math.filter.MedianFilter;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -81,22 +78,20 @@ public class VisionSubsystem extends SubsystemBase {
     private boolean prevHubCamHasTarget = false;
     private boolean prevHubPoseHasTarget = false;
 
+    // Hub camera holdoff: charge/decay counter makes isHubCamVisible() "sticky"
+    // so consumers don't see per-frame flicker from intermittent detections.
+    private int hubCamHoldoffCounter = 0;
+    private boolean hubCamSticky = false;
+    private double lastHubCamAngle = 0;
+
     // Raw (pre-filter) values for diagnostic logging
     private double rawCamDist, rawCamAngle;
     private double rawPoseDist, rawPoseAngle;
 
-    // Median → low-pass filter chains for distance and angle (both approaches)
-    private final MedianFilter camDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
-    private final MedianFilter camAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
-    private final MedianFilter poseDistMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
-    private final MedianFilter poseAngleMedian = new MedianFilter(VisionConstants.kMedianFilterSize);
-    // camDistLowPass removed — low-pass on distance caused 0.19m cold-start bug after filter resets
-    private final LinearFilter camAngleLowPass = LinearFilter.singlePoleIIR(
-        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
-    private final LinearFilter poseDistLowPass = LinearFilter.singlePoleIIR(
-        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
-    private final LinearFilter poseAngleLowPass = LinearFilter.singlePoleIIR(
-        VisionConstants.kLowPassTimeConstant, VisionConstants.kLoopPeriod);
+    // Exponential weighted average (EWA) state — NaN = not yet initialized (cold-start seed)
+    private double ewaCamDist = Double.NaN;
+    private double ewaCamAngle = Double.NaN;
+    private double ewaPoseDist = Double.NaN;
 
     // Runtime vision mode (editable from Shuffleboard): 0=Camera-only, 1=Pose-only, 2=Hybrid
     private int visionMode = VisionConstants.kVisionMode;
@@ -187,6 +182,24 @@ public class VisionSubsystem extends SubsystemBase {
                 .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
                 .done();
         }
+
+                builder.addCamera(VisionConstants.kFrontCameraName)
+                .position(Meters.of(VisionConstants.kFrontCameraX),
+                          Meters.of(VisionConstants.kFrontCameraY),
+                          Meters.of(VisionConstants.kFrontCameraZ))
+                .rotation(Degrees.of(VisionConstants.kFrontCameraRoll),
+                          Degrees.of(VisionConstants.kFrontCameraPitch),
+                          Degrees.of(VisionConstants.kFrontCameraYaw))
+                .purpose(CameraPurpose.ODOMETRY)
+                .singleTagStdDevs(Meters.of(VisionConstants.kSingleTagStdDevs[0]),
+                                  Meters.of(VisionConstants.kSingleTagStdDevs[1]),
+                                  Radians.of(VisionConstants.kSingleTagStdDevs[2]))
+                .multiTagStdDevs(Meters.of(VisionConstants.kMultiTagStdDevs[0]),
+                                 Meters.of(VisionConstants.kMultiTagStdDevs[1]),
+                                 Radians.of(VisionConstants.kMultiTagStdDevs[2]))
+                .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
+                .done();
+
 
         VisionSystemConfig config = builder
             .ambiguityThreshold(VisionConstants.kAmbiguityThreshold)
@@ -300,6 +313,20 @@ public class VisionSubsystem extends SubsystemBase {
             updateHubCameraOnly(hubCenter, hubTagIds);
         }
 
+        // Charge/decay holdoff: makes isHubCamVisible() sticky across frame gaps
+        if (hubCamHasTarget) {
+            hubCamHoldoffCounter = Math.min(
+                hubCamHoldoffCounter + VisionConstants.kCamChargeRate,
+                VisionConstants.kCamCounterMax);
+            lastHubCamAngle = hubCamAngleDegrees;
+        } else {
+            hubCamHoldoffCounter = Math.max(hubCamHoldoffCounter - 1, 0);
+        }
+        hubCamSticky = hubCamHoldoffCounter > 0;
+        SmartDashboard.putNumber("Vision/HoldoffCounter", hubCamHoldoffCounter);
+        SmartDashboard.putBoolean("Vision/HubSticky", hubCamSticky);
+        SmartDashboard.putBoolean("Vision/HubFresh", hubCamHasTarget);
+
         // ==================== Hub Approach B: Pose-Based ====================
         if (hasBackCameras) {
             Pose2d currentPose = poseSupplier.get();
@@ -310,8 +337,9 @@ public class VisionSubsystem extends SubsystemBase {
                 double rawAngle = photonVision.getYawToPoint(hubCenter).getDegrees();
                 rawPoseDist = rawDist;
                 rawPoseAngle = rawAngle;
-                // Distance: median → low-pass (safe for linear values)
-                hubPoseDistanceMeters = poseDistLowPass.calculate(poseDistMedian.calculate(rawDist));
+                // Distance: EWA (seed on first measurement, avoids cold-start lag)
+                ewaPoseDist = Double.isNaN(ewaPoseDist) ? rawDist : ewaPoseDist + VisionConstants.kVisionAlpha * (rawDist - ewaPoseDist);
+                hubPoseDistanceMeters = ewaPoseDist;
                 // Angle: use raw value — the swerve pose estimator already smooths the pose,
                 // and linear filters break at the ±180° wraparound boundary causing wild oscillation.
                 hubPoseAngleDegrees = rawAngle;
@@ -322,10 +350,7 @@ public class VisionSubsystem extends SubsystemBase {
 
             // Single reset point: true→false transition (covers both pose-at-origin and out-of-range)
             if (!hubPoseHasTarget && prevHubPoseHasTarget) {
-                poseDistMedian.reset();
-                poseAngleMedian.reset();
-                poseDistLowPass.reset();
-                poseAngleLowPass.reset();
+                ewaPoseDist = Double.NaN;
             }
             prevHubPoseHasTarget = hubPoseHasTarget;
         }
@@ -366,9 +391,8 @@ public class VisionSubsystem extends SubsystemBase {
         if (cam == null) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
-                camDistMedian.reset();
-                camAngleMedian.reset();
-                camAngleLowPass.reset();
+                ewaCamDist = Double.NaN;
+                ewaCamAngle = Double.NaN;
             }
             prevHubCamHasTarget = false;
             return;
@@ -381,9 +405,8 @@ public class VisionSubsystem extends SubsystemBase {
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
-                camDistMedian.reset();
-                camAngleMedian.reset();
-                camAngleLowPass.reset();
+                ewaCamDist = Double.NaN;
+                ewaCamAngle = Double.NaN;
             }
             prevHubCamHasTarget = false;
             return;
@@ -437,9 +460,8 @@ public class VisionSubsystem extends SubsystemBase {
         if (count == 0) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
-                camDistMedian.reset();
-                camAngleMedian.reset();
-                camAngleLowPass.reset();
+                ewaCamDist = Double.NaN;
+                ewaCamAngle = Double.NaN;
             }
             prevHubCamHasTarget = false;
             return;
@@ -451,10 +473,11 @@ public class VisionSubsystem extends SubsystemBase {
         rawCamDist = rawDist;
         rawCamAngle = rawAngle;
 
-        // Distance: median only (no low-pass — avoids 0.19m cold-start after filter reset)
-        hubCamDistanceMeters = camDistMedian.calculate(rawDist);
-        // Angle: median → low-pass (angle smoothing is useful for turret tracking)
-        hubCamAngleDegrees = camAngleLowPass.calculate(camAngleMedian.calculate(rawAngle));
+        // EWA: seed on first measurement (NaN sentinel), then blend 4% new / 96% prior
+        ewaCamDist = Double.isNaN(ewaCamDist) ? rawDist : ewaCamDist + VisionConstants.kVisionAlpha * (rawDist - ewaCamDist);
+        ewaCamAngle = Double.isNaN(ewaCamAngle) ? rawAngle : ewaCamAngle + VisionConstants.kVisionAlpha * (rawAngle - ewaCamAngle);
+        hubCamDistanceMeters = ewaCamDist;
+        hubCamAngleDegrees = ewaCamAngle;
 
         // Gate on having ≥1 passing tag — don't use PnP distance for gating
         hubCamHasTarget = true;
@@ -484,8 +507,11 @@ public class VisionSubsystem extends SubsystemBase {
     // ==================== Hub Approach A Getters (camera-only) ====================
 
     public double getHubCamDistance() { return hubCamDistanceMeters; }
-    public double getHubCamAngle() { return hubCamAngleDegrees; }
-    public boolean isHubCamVisible() { return hubCamHasTarget; }
+    public double getHubCamAngle() { return hubCamHasTarget ? hubCamAngleDegrees : lastHubCamAngle; }
+    /** Sticky visibility — stays true during holdoff after last detection. */
+    public boolean isHubCamVisible() { return hubCamSticky; }
+    /** Raw per-frame detection — true only when PV actually sees hub tags this frame. */
+    public boolean isHubCamFresh() { return hubCamHasTarget; }
 
     // ==================== Hub Approach B Getters (pose-based) ====================
 

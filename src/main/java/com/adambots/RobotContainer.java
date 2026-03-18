@@ -9,6 +9,7 @@ import java.io.File;
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
+import com.adambots.lib.Constants.LEDConstants;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
@@ -72,8 +73,8 @@ public class RobotContainer {
 
         // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
         intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
-        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1);
-        turret = new TurretSubsystem(RobotMap.turretMotor);
+        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
+        turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
         hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
         climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                     RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
@@ -84,17 +85,18 @@ public class RobotContainer {
         // 3. Vision
         configureVision();
 
-        // 4. LEDs
+        // 4. PathPlanner named commands — must be registered before buildAutoChooser()
+        // which resolves them eagerly. Vision must be set up first (shoot commands use it).
+        configurePathPlannerCommands();
+
+        // 5. LEDs
         configureLEDs();
 
-        // 5. Default commands
+        // 6. Default commands
         configureDefaultCommands();
 
-        // 6. Button bindings
+        // 7. Button bindings
         configureButtonBindings();
-
-        // 7. PathPlanner named commands
-        configurePathPlannerCommands();
 
         // 8. Auto chooser
         configureAutoChooser();
@@ -118,19 +120,17 @@ public class RobotContainer {
     // ==================== LEDS ====================
     private void configureLEDs() {
         if (leds == null)
-
             return;
 
-        // Default: show hub state (green when active, red→green countdown when inactive)
+        // Enable hub activation test mode (dashboard controls for testing without FMS)
+        HubActivation.initTestMode();
+
+        // Default: green when active, alliance-color countdown when inactive, strobe at 5s
         leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
 
         // Flash green when hub becomes active
         HubActivation.ourHubActiveTrigger()
             .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
-
-        // Warning strobe 5s before shift change
-        HubActivation.shiftChangeSoonTrigger(5.0)
-            .onTrue(LEDCommands.hubWarningCommand(leds));
     }
 
     // ==================== DEFAULT COMMANDS ====================
@@ -142,10 +142,13 @@ public class RobotContainer {
                         Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
                         Constants.DriveConstants.kTranslationScale));
 
-        // Turret auto-track: camera-only scan-and-track
+        // Turret auto-track: visible → track, not visible → search
         if (visionSubsystem != null) {
             turret.setDefaultCommand(turret.autoTrackCommand(
-                        visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible));
+                        visionSubsystem::getHubCamAngle,
+                        visionSubsystem::isHubCamVisible,
+                        visionSubsystem::isHubCamFresh,
+                        shooter::isInShootingZone));
         } else {
             turret.setDefaultCommand(turret.holdPositionCommand());
         }
@@ -222,22 +225,15 @@ public class RobotContainer {
         Buttons.XboxYButton.whileTrue(
                     turret.aimTurretCommand(() -> 90.0));
 
-        // D-pad Left/Right: Manual turret adjust
-        Buttons.XboxDPadW.whileTrue(
-                    turret.scanCommand(-1.0));
-        Buttons.XboxDPadE.whileTrue(
-                    turret.scanCommand(1.0));
-
-        // === Climber ===
-        // D-pad Up: Extend elevator (hold to raise hook)
-        // Bind diagonals too — POV hat wobble between cardinal/diagonal causes stutter
-        Buttons.XboxDPadN.whileTrue(climber.extendCommand());
-        Buttons.XboxDPadNE.whileTrue(climber.extendCommand());
-        Buttons.XboxDPadNW.whileTrue(climber.extendCommand());
-        // D-pad Down: Climb (hold to retract / pull robot up)
-        Buttons.XboxDPadS.whileTrue(climber.climbCommand());
-        Buttons.XboxDPadSE.whileTrue(climber.climbCommand());
-        Buttons.XboxDPadSW.whileTrue(climber.climbCommand());
+        // === D-pad: Turret manual control ===
+        // Up = snap to forward (170°), Left/Right = incremental nudge
+        // Diagonals included for POV hat wobble robustness
+        double step = Constants.TurretConstants.kTurretManualStepDeg;
+        Buttons.XboxDPadN.whileTrue(turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
+        Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
+        Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
+        Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
+        Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
         // X: Lock climber (stop motor + engage ratchet)
         Buttons.XboxXButton.onTrue(climber.lockCommand());
 
@@ -300,7 +296,6 @@ public class RobotContainer {
     }
 
     public void onTeleopInit(boolean noAutoRan) {
-        // turret.calibrateCommand().schedule();
     }
 
     public Command getAutonomousCommand() {

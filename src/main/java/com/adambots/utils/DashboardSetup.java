@@ -3,6 +3,7 @@ package com.adambots.utils;
 import static edu.wpi.first.units.Units.Centimeters;
 
 import com.adambots.Constants;
+import com.adambots.Constants.TurretConstants;
 import com.adambots.RobotMap;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.SystemCheckCommand;
@@ -88,7 +89,6 @@ public final class DashboardSetup {
         Dash.add("Right RPS", shooter::getRightRPS, tc++, telemetryRow);
         Dash.add("At Speed", shooter::isAtSpeed, tc++, telemetryRow);
         Dash.add("Turret Angle", turret::getTurretAngleDegrees, tc++, telemetryRow);
-        Dash.add("Calibrated", turret::isCalibrated, tc++, telemetryRow);
         if (visionSubsystem != null) {
             Dash.add("Hub Visible", visionSubsystem::isHubVisible, tc++, telemetryRow);
             Dash.add("Alliance", visionSubsystem::getAllianceColor, tc++, telemetryRow);
@@ -112,11 +112,12 @@ public final class DashboardSetup {
                 .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake))
                 .withName("Lob Shot"), cc++, cmdRow);
         Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), cc++, cmdRow);
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), cc++, cmdRow);
         Dash.addCommand("Turret Left",
             turret.scanCommand(1.0), cc++, cmdRow);
         Dash.addCommand("Turret Right",
             turret.scanCommand(-1.0), cc++, cmdRow);
+        Dash.addCommand("Turret Forward",
+            turret.aimTurretCommand(()->TurretConstants.kTurretForwardDegrees), cc++, cmdRow);
 
         // Vision tunables row (after commands)
         if (visionSubsystem != null) {
@@ -223,10 +224,14 @@ public final class DashboardSetup {
         Dash.addCommand("Eject", ShootCommands.ejectCommand(shooter, hopper), col++, row);
         Dash.addCommand("Stop All", ShootCommands.stopAllCommand(shooter, hopper), col++, row);
         if (visionSubsystem != null) {
-            Dash.addCommand("Track Hub",
-                turret.trackHubCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible)
-                    .withName("Track Hub"), col++, row);
+            Dash.addCommand("Auto Track",
+                turret.toggleAutoTrackCommand(), col++, row);
+            Dash.addCommand("Manual Align",
+                turret.manualAlignCommand(
+                    visionSubsystem::getHubCamAngle,
+                    visionSubsystem::isHubCamVisible,
+                    visionSubsystem::isHubCamFresh)
+                    .withName("Manual Align"), col++, row);
         }
 
         // Climber commands
@@ -237,28 +242,10 @@ public final class DashboardSetup {
         Dash.addCommand("Lock Climber", climber.lockCommand(), col++, row);
 
         // Utility
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col++, row);
         Dash.addCommand("Stop Flywheel", shooter.stopFlywheelCommand(), col++, row);
         Dash.addCommand("Reverse Hopper", hopper.reverseCommand(), col++, row);
         if (visionSubsystem != null) {
             Dash.addCommand("Log Vision", visionSubsystem.logVisionCommand(), col++, row);
-        }
-
-        // Diagnostic commands row (for troubleshooting turret + vision alignment)
-        if (visionSubsystem != null) {
-            col = 0; row++;
-            Dash.addCommand("Diag: Align",
-                turret.diagAlignCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                    visionSubsystem::getHubDistance)
-                    .withName("Diag: Align"), col++, row);
-            Dash.addCommand("Diag: Auto Track",
-                turret.diagAutoTrackCommand(
-                    visionSubsystem::getHubCamAngle, visionSubsystem::isHubCamVisible,
-                    visionSubsystem::getHubPoseAngle, visionSubsystem::isHubPoseVisible,
-                    visionSubsystem::getHubDistance)
-                    .withName("Diag: Auto Track"), col++, row);
         }
 
         Dash.useDefaultTab();
@@ -339,8 +326,6 @@ public final class DashboardSetup {
         Dash.addCommand("Move Turret", turret.scanCommand(1.0), col, row);
         if (++col >= sysCols) { col = 0; row++; }
         Dash.addCommand("Turret to 0", turret.aimTurretCommand(() -> 0.0), col, row);
-        if (++col >= sysCols) { col = 0; row++; }
-        Dash.addCommand("Calibrate Turret", turret.calibrateCommand(), col, row);
         if (++col >= sysCols) { col = 0; row++; }
 
         // Hopper + climber

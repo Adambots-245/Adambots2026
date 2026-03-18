@@ -109,6 +109,26 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
     }
 
+    /**
+     * Commands the turret to sweep at a constant voltage (open-loop).
+     * Uses VOLTAGE mode to avoid PID conflicts with MotionMagic position control.
+     * Enforces hard position limits to prevent grinding at mechanical stops.
+     *
+     * @param voltage Positive = toward max angle, negative = toward zero
+     */
+    public void sweepTurret(double voltage) {
+        double angle = getTurretAngleDegrees();
+        if (voltage > 0 && angle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) {
+            stopTurret();
+            return;
+        }
+        if (voltage < 0 && angle <= TurretTrackingConstants.kScanMarginDeg) {
+            stopTurret();
+            return;
+        }
+        turretMotor.set(ControlMode.VOLTAGE, voltage);
+    }
+
     public void stopTurret() {
         turretMotor.set(0);
     }
@@ -259,11 +279,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: voltage-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                sweepTurret(scanDirection * TurretTrackingConstants.kScanVoltage);
             }
         }))
         .finallyDo(interrupted -> {
@@ -309,11 +329,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: voltage-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                sweepTurret(scanDirection * TurretTrackingConstants.kScanVoltage);
             }
         }))
         .finallyDo(interrupted -> {

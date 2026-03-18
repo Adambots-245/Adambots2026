@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = true;
+    public static final boolean TUNING_ENABLED = false;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -171,7 +171,7 @@ public final class Constants {
         public static final double kDetectionRange = 2.0; // cm
 
         // Current limits
-        public static final double kHopperSupplyCurrentLimit = 20.0;
+        public static final double kHopperSupplyCurrentLimit = 40.0;
         public static final double kUptakeSupplyCurrentLimit = 40.0;
     }
 
@@ -392,7 +392,7 @@ public final class Constants {
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)
-        public static final int kRollerSupplyCurrentLimit = 50;  // supply amps (must be ≤ PDH breaker)
+        public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 60;  // stator amps (torque limiting)

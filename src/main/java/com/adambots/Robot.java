@@ -55,8 +55,8 @@ public class Robot extends LoggedRobot {
 
         if (!isReal()) {
             // In simulation only — publish to NT for live AdvantageScope viewing.
-            Logger.addDataReceiver(new NT4Publisher());
         }
+        Logger.addDataReceiver(new NT4Publisher());
         // On real robot: no data receivers = AdvantageKit logging fully disabled.
         // Re-enable WPILOGWriter once connection stability is resolved.
 

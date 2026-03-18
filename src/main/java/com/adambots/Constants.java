@@ -163,9 +163,9 @@ public final class Constants {
         /** Frames to dwell during manual align (0.5s — with charge rate 10, 1 valid frame suffices) */
         public static final int kManualAlignDwellFrames = 25;
         /** Degrees margin from turret limits before reversing scan direction */
-        public static final double kScanMarginDeg = 5.0;
-        /** Degrees to move per cycle during continuous scan sweep */
-        public static final double kScanStepDeg = 5.0;
+        public static final double kScanMarginDeg = 15.0;
+        /** Voltage for sweep motor output (higher = faster sweep, 1.0V ≈ 180°/sec) */
+        public static final double kScanVoltage = 1.0;
     }
 
     // ==================== HopperConstants ====================

@@ -183,6 +183,24 @@ public class VisionSubsystem extends SubsystemBase {
                 .done();
         }
 
+                builder.addCamera(VisionConstants.kFrontCameraName)
+                .position(Meters.of(VisionConstants.kFrontCameraX),
+                          Meters.of(VisionConstants.kFrontCameraY),
+                          Meters.of(VisionConstants.kFrontCameraZ))
+                .rotation(Degrees.of(VisionConstants.kFrontCameraRoll),
+                          Degrees.of(VisionConstants.kFrontCameraPitch),
+                          Degrees.of(VisionConstants.kFrontCameraYaw))
+                .purpose(CameraPurpose.ODOMETRY)
+                .singleTagStdDevs(Meters.of(VisionConstants.kSingleTagStdDevs[0]),
+                                  Meters.of(VisionConstants.kSingleTagStdDevs[1]),
+                                  Radians.of(VisionConstants.kSingleTagStdDevs[2]))
+                .multiTagStdDevs(Meters.of(VisionConstants.kMultiTagStdDevs[0]),
+                                 Meters.of(VisionConstants.kMultiTagStdDevs[1]),
+                                 Radians.of(VisionConstants.kMultiTagStdDevs[2]))
+                .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
+                .done();
+
+
         VisionSystemConfig config = builder
             .ambiguityThreshold(VisionConstants.kAmbiguityThreshold)
             .maxPoseJump(Meters.of(2.0))

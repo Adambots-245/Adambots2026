@@ -161,7 +161,7 @@ public final class Constants {
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 5.0;
         /** Sweep velocity in degrees/sec for continuous scan (velocity control, not steps) */
-        public static final double kScanVelocityDegPerSec = 120.0;
+        public static final double kScanVelocityDegPerSec = 100.0;
     }
 
     // ==================== HopperConstants ====================
@@ -205,6 +205,10 @@ public final class Constants {
 
         /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
         public static final String kShooterCameraName = "shooter_cam";
+
+        /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
+        public static final String kFrontCameraName = "front_camera";
+
 
         // ==================== Camera Positions ====================
         // All measurements are in METERS from the robot center to the camera lens.
@@ -256,6 +260,15 @@ public final class Constants {
         public static final double kShooterCameraRoll = 0.0;
         public static final double kShooterCameraPitch = 27.0;  // level
         public static final double kShooterCameraYaw = 0.0;     // facing forward
+
+        // Shooter LifeCam (on top of climb, facing forward)
+        public static final double kFrontCameraX = -0.155;   // behind center (climb is at back)
+        public static final double kFrontCameraY = 0.13;
+        public static final double kFrontCameraZ = 0.48;     // on top of climb
+        public static final double kFrontCameraRoll = 0.0;
+        public static final double kFrontCameraPitch = 0.0;  // level
+        public static final double kFrontCameraYaw = 0.0;     // facing forward
+
 
         // ==================== Pose Estimation Parameters ====================
 

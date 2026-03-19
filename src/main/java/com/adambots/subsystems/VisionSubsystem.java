@@ -294,7 +294,9 @@ public class VisionSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        SmartDashboard.putNumber("Vision/Mode", visionMode);
+        if (Constants.TUNING_ENABLED) {
+            SmartDashboard.putNumber("Vision/Mode", visionMode);
+        }
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache
@@ -323,9 +325,11 @@ public class VisionSubsystem extends SubsystemBase {
             hubCamHoldoffCounter = Math.max(hubCamHoldoffCounter - 1, 0);
         }
         hubCamSticky = hubCamHoldoffCounter > 0;
-        SmartDashboard.putNumber("Vision/HoldoffCounter", hubCamHoldoffCounter);
-        SmartDashboard.putBoolean("Vision/HubSticky", hubCamSticky);
-        SmartDashboard.putBoolean("Vision/HubFresh", hubCamHasTarget);
+        if (Constants.TUNING_ENABLED) {
+            SmartDashboard.putNumber("Vision/HoldoffCounter", hubCamHoldoffCounter);
+            SmartDashboard.putBoolean("Vision/HubSticky", hubCamSticky);
+            SmartDashboard.putBoolean("Vision/HubFresh", hubCamHasTarget);
+        }
 
         // ==================== Hub Approach B: Pose-Based ====================
         if (hasBackCameras) {

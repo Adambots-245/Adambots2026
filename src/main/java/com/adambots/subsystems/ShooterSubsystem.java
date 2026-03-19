@@ -14,7 +14,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -23,7 +22,6 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * Uses an interpolation table to map distance (meters) to flywheel RPS.
  * All closed-loop control runs on the motor controller at 1kHz.
  */
-@Logged
 public class ShooterSubsystem extends SubsystemBase {
 
     private final BaseMotor leftFlywheel;

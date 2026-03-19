@@ -52,7 +52,9 @@ public final class DashboardSetup {
         if (Constants.INTAKE_TAB && tuningManager != null)  tuningManager.setupIntakeTunables();
         if (Constants.HOPPER_TAB && tuningManager != null)  tuningManager.setupHopperTunables();
 
-        configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
+        if (Constants.TUNING_ENABLED) {
+            configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
+        }
 
         return tuningManager != null ? tuningManager::periodic : null;
     }

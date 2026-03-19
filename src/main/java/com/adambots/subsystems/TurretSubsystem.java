@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 
 import static edu.wpi.first.units.Units.Degrees;
 
+import com.adambots.Constants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
 import com.adambots.lib.actuators.BaseMotor;
@@ -19,7 +20,6 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -28,7 +28,6 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  * Uses a 10-turn potentiometer for absolute position sensing — no calibration needed.
  * The pot seeds the motor encoder on construction and re-syncs periodically.
  */
-@Logged
 public class TurretSubsystem extends SubsystemBase {
 
     /** Tracking state for telemetry. */
@@ -149,16 +148,18 @@ public class TurretSubsystem extends SubsystemBase {
         // Pot seeds motor encoder on construction — no continuous re-sync needed.
         // Continuous re-sync fights the PID controller and causes oscillation.
 
-        // Dashboard telemetry (read angle once to avoid redundant CAN bus reads)
-        double currentAngle = getTurretAngleDegrees();
-        SmartDashboard.putNumber("Turret/Angle (deg)", currentAngle);
-        SmartDashboard.putNumber("Turret/Pot Raw (deg)", getRawPotDegrees());
-        SmartDashboard.putNumber("Turret/Pot Turret (deg)", getPotAngleDegrees());
-        SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
-        SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
-        SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
-        SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
-        SmartDashboard.putNumber("Turret/ScanDirection", scanDirection);
+        // Dashboard telemetry — only when tuning to reduce bandwidth
+        if (Constants.TUNING_ENABLED) {
+            double currentAngle = getTurretAngleDegrees();
+            SmartDashboard.putNumber("Turret/Angle (deg)", currentAngle);
+            SmartDashboard.putNumber("Turret/Pot Raw (deg)", getRawPotDegrees());
+            SmartDashboard.putNumber("Turret/Pot Turret (deg)", getPotAngleDegrees());
+            SmartDashboard.putBoolean("Turret/AutoTrack", autoTrackEnabled);
+            SmartDashboard.putNumber("Turret/Setpoint (deg)", lastSetpointDegrees);
+            SmartDashboard.putNumber("Turret/Error (deg)", lastSetpointDegrees - currentAngle);
+            SmartDashboard.putString("Turret/TrackingMode", trackingMode.name());
+            SmartDashboard.putNumber("Turret/ScanDirection", scanDirection);
+        }
     }
 
     // ==================== Command Factories ====================

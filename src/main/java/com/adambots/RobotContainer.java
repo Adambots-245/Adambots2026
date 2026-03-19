@@ -28,7 +28,6 @@ import com.adambots.subsystems.VisionSubsystem;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -40,7 +39,6 @@ import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
  * RobotContainer — subsystems, commands, triggers, and button bindings.
  * Uses Inversion of Control (IoC) — hardware devices are created in RobotMap.
  */
-@Logged
 public class RobotContainer {
 
     // ==================== SUBSYSTEMS ====================

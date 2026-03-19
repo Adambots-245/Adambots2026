@@ -10,14 +10,6 @@ import java.util.Map;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.ControllerType;
 
-import edu.wpi.first.epilogue.Epilogue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.NotLogged;
-import edu.wpi.first.epilogue.logging.EpilogueBackend;
-import edu.wpi.first.epilogue.logging.FileBackend;
-import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
-import edu.wpi.first.epilogue.logging.errors.ErrorHandler;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -33,18 +25,13 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
  * the TimedRobot documentation. If you change the name of this class or the package after
  * creating this project, you must also update the Main.java file in the project.
  */
-@Logged
 public class Robot extends LoggedRobot {
     private Command autonomousCommand;
 
-    @Logged
     private RobotContainer container;
 
     // For tracking command execution times
     private final Map<Command, Double> commandStartTimes = new HashMap<>();
-
-    // Epilogue backend for logging (since we can't use bind() with LoggedRobot)
-    private EpilogueBackend epilogueBackend;
 
     /**
      * Constructor - AdvantageKit Logger MUST be configured here, before LoggedRobot initialization.
@@ -55,10 +42,10 @@ public class Robot extends LoggedRobot {
 
         if (!isReal()) {
             // In simulation only — publish to NT for live AdvantageScope viewing.
+            Logger.addDataReceiver(new NT4Publisher());
         }
-        Logger.addDataReceiver(new NT4Publisher());
-        // On real robot: no data receivers = AdvantageKit logging fully disabled.
-        // Re-enable WPILOGWriter once connection stability is resolved.
+        // Log to USB stick on real robot for post-match analysis in AdvantageScope
+        Logger.addDataReceiver(new WPILOGWriter());
 
         Logger.start();
     }
@@ -69,8 +56,8 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotInit() {
-        // 1. WPILib DataLogManager disabled to reduce disk I/O — re-enable once stable
-        // DataLogManager.start();
+        // 1. WPILib DataLogManager — logs DS data, joystick inputs to USB for post-match review
+        DataLogManager.start();
 
         // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
         Buttons.init(
@@ -83,19 +70,8 @@ public class Robot extends LoggedRobot {
         // 3. Create RobotContainer (creates all subsystems)
         container = new RobotContainer();
 
-        // 4. CommandScheduler timing hooks disabled — re-enable once connection stability is resolved
+        // 4. CommandScheduler timing hooks disabled — high overhead from per-command logging
         // setupCommandSchedulerHooks();
-
-        // 5. Epilogue disabled to reduce CPU/IO load — re-enable once connection stability is resolved
-        // epilogueBackend = isReal()
-        //     ? new FileBackend(DataLogManager.getLog())
-        //     : new NTEpilogueBackend(NetworkTableInstance.getDefault());
-        //
-        // Epilogue.getConfig().errorHandler = (error, logger) -> {
-        //     if (!(error instanceof NullPointerException)) {
-        //         ErrorHandler.printErrorMessages().handle(error, logger);
-        //     }
-        // };
     }
 
     /**
@@ -118,14 +94,7 @@ public class Robot extends LoggedRobot {
         container.getTuningPeriodic().run();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
-        // Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
-
-        // Epilogue logging disabled — re-enable once connection stability is resolved
-        // try {
-        //     Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
-        // } catch (NoSuchFieldError e) {
-        //     // Epilogue class mismatch — harmless in simulation, logging is best-effort
-        // }
+        Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
     }
 
     /** This function is called once each time the robot enters Disabled mode. */

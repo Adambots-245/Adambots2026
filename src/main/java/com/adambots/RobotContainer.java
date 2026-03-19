@@ -254,7 +254,7 @@ public class RobotContainer {
     private void configurePathPlannerCommands() {
         NamedCommands.registerCommand("intake",
                     intake.runLowerIntakeArmCommand().andThen(
-                                intake.runIntakeCommand().withTimeout(Constants.IntakeConstants.kAutoIntakeTimeout)));
+                                intake.runIntakeCommand()));
         NamedCommands.registerCommand("spinUp",
                     shooter.spinUpCommand()
                                 .until(shooter.isAtSpeedTrigger())

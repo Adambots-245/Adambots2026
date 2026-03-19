@@ -196,6 +196,14 @@ public class TurretSubsystem extends SubsystemBase {
             .withName("Toggle Auto-Track");
     }
 
+    public void setAutoTrack(boolean enabled) {
+        autoTrackEnabled = enabled;
+    }
+
+    public boolean isAutoTrackEnabled() {
+        return autoTrackEnabled;
+    }
+
     // ==================== Vision Tracking Commands ====================
 
     /**

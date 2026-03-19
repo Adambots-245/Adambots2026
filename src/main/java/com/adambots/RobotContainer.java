@@ -169,7 +169,7 @@ public class RobotContainer {
         // Trigger (1): Hold-to-shoot at vision distance (no timer)
         Buttons.JoystickButton1.whileTrue(
                 ShootCommands.holdShootAtDistanceCommand(
-                        shooter, hopper, visionSubsystem::getHubDistance));
+                        shooter, hopper, turret, visionSubsystem::getHubDistance));
 
         // Button 2: Toggle bop
         Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
@@ -261,12 +261,11 @@ public class RobotContainer {
                                 .until(shooter.isAtSpeedTrigger())
                                 .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
         NamedCommands.registerCommand("shoot",
-                    // ShootCommands.shootCommand(shooter, hopper));
                     ShootCommands.shootAtDistanceTimerCommand(
-                                shooter, hopper, visionSubsystem::getHubDistance));
+                                shooter, hopper, turret, visionSubsystem::getHubDistance));
         NamedCommands.registerCommand("shootWithBop",
                     ShootCommands.shootAtDistanceTimerWithBopCommand(
-                                shooter, hopper, intake, visionSubsystem::getHubDistance));
+                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance));
         NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
     }
 

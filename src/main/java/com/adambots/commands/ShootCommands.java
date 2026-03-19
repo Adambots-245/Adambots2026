@@ -24,6 +24,20 @@ public final class ShootCommands {
     private ShootCommands() {}
 
     /**
+     * Wraps a shoot command to suppress turret auto-tracking while shooting.
+     * Prevents the turret from sweeping if vision drops momentarily during a shot.
+     * Restores the previous auto-track state when the command ends.
+     */
+    private static Command withAutoTrackSuppressed(Command shootCommand, TurretSubsystem turret) {
+        final boolean[] wasAutoTracking = {false}; //lambda requires effectively final, so use array to capture state
+        return Commands.runOnce(() -> {
+            wasAutoTracking[0] = turret.isAutoTrackEnabled();
+            turret.setAutoTrack(false);
+        }).andThen(shootCommand)
+          .finallyDo(() -> { if (wasAutoTracking[0]) turret.setAutoTrack(true); });
+    }
+
+    /**
      * Spin up → once at speed (or timeout), keep spinning + feed hopper in parallel → stop all.
      */
     public static Command shootCommand(
@@ -85,6 +99,19 @@ public final class ShootCommands {
             HopperSubsystem hopper,
             DoubleSupplier distanceSupplier) {
         return shootAtDistanceTimerCommand(shooter, hopper, distanceSupplier, null, false);
+    }
+
+    /**
+     * Spin for vision distance with turret auto-track suppression → stop all.
+     */
+    public static Command shootAtDistanceTimerCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return withAutoTrackSuppressed(
+            shootAtDistanceTimerCommand(shooter, hopper, distanceSupplier), turret)
+            .withName("Shoot At Distance");
     }
 
     /**
@@ -171,6 +198,20 @@ public final class ShootCommands {
     }
 
     /**
+     * Hold-to-shoot at vision distance with turret auto-track suppression.
+     * Disables turret sweep while shooting, restores when released.
+     */
+    public static Command holdShootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return withAutoTrackSuppressed(
+            holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret)
+            .withName("Hold Shoot At Distance");
+    }
+
+    /**
      * Hold-to-shoot at vision distance: spin for distance → wait for speed → spin + feed until released.
      * No timeouts — runs entirely while the trigger is held.
      */
@@ -212,6 +253,20 @@ public final class ShootCommands {
         ).finallyDo(() -> {
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance With Bop");
+    }
+
+    /**
+     * Timer-based shoot at distance with bop and turret auto-track suppression.
+     */
+    public static Command shootAtDistanceTimerWithBopCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return withAutoTrackSuppressed(
+            shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, distanceSupplier), turret)
+            .withName("Shoot At Distance With Bop");
     }
 
     /**

@@ -171,7 +171,7 @@ public final class Constants {
         public static final double kDetectionRange = 2.0; // cm
 
         // Current limits
-        public static final double kHopperSupplyCurrentLimit = 40.0;
+        public static final double kHopperSupplyCurrentLimit = 50.0;
         public static final double kUptakeSupplyCurrentLimit = 40.0;
     }
 
@@ -371,8 +371,8 @@ public final class Constants {
         public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 2.0;  // rotations per second
-        public static final double kArmAcceleration = 1.0;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 4.0;  // rotations per second
+        public static final double kArmAcceleration = 2.0;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -387,7 +387,7 @@ public final class Constants {
 
         public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
-        public static final double kBopAngle = 55.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
 
         // Roller motor current limits

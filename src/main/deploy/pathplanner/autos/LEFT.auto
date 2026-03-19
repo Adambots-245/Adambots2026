@@ -5,25 +5,13 @@
     "data": {
       "commands": [
         {
-          "type": "named",
-          "data": {
-            "name": "shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "S4-C2"
-          }
-        },
-        {
-          "type": "parallel",
+          "type": "race",
           "data": {
             "commands": [
               {
                 "type": "path",
                 "data": {
-                  "pathName": "C2-C"
+                  "pathName": "S4-C2"
                 }
               },
               {
@@ -36,9 +24,15 @@
           }
         },
         {
+          "type": "path",
+          "data": {
+            "pathName": "C2-M2"
+          }
+        },
+        {
           "type": "named",
           "data": {
-            "name": "intakeLob"
+            "name": "shoot"
           }
         }
       ]

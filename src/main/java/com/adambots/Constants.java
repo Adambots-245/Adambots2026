@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
@@ -380,12 +380,12 @@ public final class Constants {
         // Stage 2: Belt-driven pulley from gearbox output to arm pivot
         // Total ratio = stage1 * stage2 (motor rotations per mechanism rotation)
         public static final double kArmPlanetaryRatio = 20.0;  // e.g., 5.0 for 5:1 planetary
-        public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
+        public static final double kArmBeltRatio = 4.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kIntakeSpeed = 0.55;
+        public static final double kIntakeSpeed = 0.65;
 
-        public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmRaisedPosition = 130.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync

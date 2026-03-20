@@ -187,34 +187,30 @@ public class RobotContainer {
         // Button 5: Toggle auto-track on/off
         Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
 
-        // Button 6: Lob shot (hold) — intake + shoot at fixed RPS + feed hopper
+        // Button 6: Lower Intake Arm
         Buttons.JoystickButton6.whileTrue(
-                    intake.runLowerIntakeArmCommand()
-                                .andThen(ShootCommands.lobShotCommand(shooter, hopper, intake)));
+                    intake.runLowerIntakeArmCommand());
 
-        // Button 7: Bop and run intake
-        Buttons.JoystickButton7.whileTrue(intake.bopArmAndRunCommand());
+        // Button 9: Bop and run intake
+        Buttons.JoystickButton9.whileTrue(intake.bopArmAndRunCommand());
+
+        // Button 10: Lob
+        Buttons.JoystickButton10.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
 
         // Button 12: Lower intake but do not run
         Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the Xbox controller, however we have to many binds on that so we will have to discuss which to drop.
 
         // === Operator (Xbox Controller) ===
-        // Right Trigger: Shoot with throttle-mapped RPS (vision fallback)
-        Buttons.XboxRightTriggerButton.whileTrue(
-                    ShootCommands.shootCommand(shooter, hopper, intake, false,
-                                () -> shooter.throttleToRPS(Buttons.JoystickThrottle.getAsDouble())));
-
-        // Left Trigger: Spin up flywheel (hold)
-        Buttons.XboxLeftTriggerButton.whileTrue(
-                    shooter.spinUpCommand());
+        // R-L Triggers: Bop
+        Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
+        Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
 
         // Right Bumper: Feed hopper + uptake (manual)
         Buttons.XboxRightBumper.whileTrue(
                     hopper.feedCommand());
 
         // Left Bumper: Eject (reverse hopper + uptake, stop flywheel)
-        Buttons.XboxLeftBumper.whileTrue(
-                    ShootCommands.ejectCommand(shooter, hopper));
+        Buttons.XboxLeftBumper.onTrue(intake.runLowerIntakeArmCommand());
 
         // B: Stop all shooter systems
         Buttons.XboxBButton.onTrue(

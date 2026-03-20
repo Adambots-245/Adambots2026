@@ -14,6 +14,7 @@ import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
+import com.adambots.lib.utils.Dash;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
@@ -39,291 +40,305 @@ import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
  */
 public class RobotContainer {
 
-    // ==================== SUBSYSTEMS ====================
-    private final SwerveSubsystem swerve;
-    private final IntakeSubsystem intake;
-    private final ShooterSubsystem shooter;
-    private final TurretSubsystem turret;
-    private final HopperSubsystem hopper;
-    private final ClimberSubsystem climber;
-    private final CANdleSubsystem leds;
-    private VisionSubsystem visionSubsystem;
-    private VisionSystem vision;
+        // ==================== SUBSYSTEMS ====================
+        private final SwerveSubsystem swerve;
+        private final IntakeSubsystem intake;
+        private final ShooterSubsystem shooter;
+        private final TurretSubsystem turret;
+        private final HopperSubsystem hopper;
+        private final ClimberSubsystem climber;
+        private final CANdleSubsystem leds;
+        private VisionSubsystem visionSubsystem;
+        private VisionSystem vision;
 
-    private SendableChooser<Command> autoChooser;
-    private Runnable tuningPeriodic;
+        private SendableChooser<Command> autoChooser;
+        private Runnable tuningPeriodic;
 
-    public RobotContainer() {
-        // 1. Swerve config for PathPlanner
-        SwerveConfig swerveConfig = new SwerveConfig()
-                .withTranslationPID(
-                        Constants.DriveConstants.kAutoTranslationP,
-                        Constants.DriveConstants.kAutoTranslationI,
-                        Constants.DriveConstants.kAutoTranslationD)
-                .withRotationPID(
-                        Constants.DriveConstants.kAutoRotationP,
-                        Constants.DriveConstants.kAutoRotationI,
-                        Constants.DriveConstants.kAutoRotationD)
-                .withEncoderAutoSync(true, 1.0)
-                .withTelemetryVerbosity(TelemetryVerbosity.POSE);
-        swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
+        public RobotContainer() {
+                // 1. Swerve config for PathPlanner
+                SwerveConfig swerveConfig = new SwerveConfig()
+                                .withTranslationPID(
+                                                Constants.DriveConstants.kAutoTranslationP,
+                                                Constants.DriveConstants.kAutoTranslationI,
+                                                Constants.DriveConstants.kAutoTranslationD)
+                                .withRotationPID(
+                                                Constants.DriveConstants.kAutoRotationP,
+                                                Constants.DriveConstants.kAutoRotationI,
+                                                Constants.DriveConstants.kAutoRotationD)
+                                .withEncoderAutoSync(true, 1.0)
+                                .withTelemetryVerbosity(TelemetryVerbosity.POSE);
+                swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
-        // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
-        intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm, RobotMap.kIntakeArmEncoder);
-        shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
-        turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
-        hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
-        climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
-                RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
-        leds = RobotMap.LEDS_ENABLED
-                ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, true)
-                : null;
+                // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
+                intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
+                                RobotMap.kIntakeArmEncoder);
+                shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
+                turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
+                hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
+                climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
+                                RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
+                leds = RobotMap.LEDS_ENABLED
+                                ? new CANdleSubsystem(RobotMap.kCANdlePort, Constants.kLEDStripLength, true)
+                                : null;
 
-        // 3. Vision
-        configureVision();
+                // 3. Vision
+                configureVision();
 
-        // 4. PathPlanner named commands — must be registered before buildAutoChooser()
-        // which resolves them eagerly. Vision must be set up first (shoot commands use
-        // it).
-        configurePathPlannerCommands();
+                // 4. PathPlanner named commands — must be registered before buildAutoChooser()
+                // which resolves them eagerly. Vision must be set up first (shoot commands use
+                // it).
+                configurePathPlannerCommands();
 
-        // 5. LEDs
-        configureLEDs();
+                // 5. LEDs
+                configureLEDs();
 
-        // 6. Default commands
-        configureDefaultCommands();
+                // 6. Default commands
+                configureDefaultCommands();
 
-        // 7. Button bindings
-        configureButtonBindings();
+                // 7. Button bindings
+                configureButtonBindings();
 
-        // 8. Auto chooser
-        configureAutoChooser();
+                // 8. Auto chooser
+                configureAutoChooser();
 
-        // 9. Dashboard
-        configureDashboard();
-    }
-
-    // ==================== VISION ====================
-    private void configureVision() {
-        if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED)
-            return;
-
-        visionSubsystem = new VisionSubsystem(
-                swerve::getPose, swerve.getField(),
-                RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
-        vision = visionSubsystem.getPhotonVision();
-        swerve.setupVision(vision);
-    }
-
-    // ==================== LEDS ====================
-    private void configureLEDs() {
-        if (leds == null)
-            return;
-
-        // Enable hub activation test mode (dashboard controls for testing without FMS)
-        HubActivation.initTestMode();
-
-        // Default: green when active, alliance-color countdown when inactive, strobe at
-        // 5s
-        leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
-
-        // Flash green when hub becomes active
-        HubActivation.ourHubActiveTrigger()
-                .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
-    }
-
-    // ==================== DEFAULT COMMANDS ====================
-    private void configureDefaultCommands() {
-        swerve.setDefaultCommand(
-                swerve.driveCommand(
-                        Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                        Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                        Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true),
-                        Constants.DriveConstants.kTranslationScale));
-
-        // Turret auto-track: visible → track, not visible → search
-        if (visionSubsystem != null) {
-            turret.setDefaultCommand(turret.autoTrackCommand(
-                    visionSubsystem::getHubCamAngle,
-                    visionSubsystem::isHubCamVisible,
-                    visionSubsystem::isHubCamFresh,
-                    shooter::isInShootingZone));
-        } else {
-            turret.setDefaultCommand(turret.holdPositionCommand());
+                // 9. Dashboard
+                configureDashboard();
         }
-    }
 
-    // ==================== BUTTON BINDINGS ====================
-    private void configureButtonBindings() {
-        // === Driver (Thrustmaster) ===
-        // Buttons.JoystickButton10.onTrue(Commands.runOnce(() ->
-        //
-        // swerve.zeroGyroWithAlliance()));
+        // ==================== VISION ====================
+        private void configureVision() {
+                if (!RobotMap.BACK_CAMERAS_ENABLED && !RobotMap.SHOOTER_CAMERA_ENABLED)
+                        return;
 
-        // Trigger (1): Hold-to-shoot at vision distance (no timer)
-        Buttons.JoystickButton1.whileTrue(
-                ShootCommands.holdShootAtDistanceCommand(
-                        shooter, hopper, turret, visionSubsystem::getHubDistance));
+                visionSubsystem = new VisionSubsystem(
+                                swerve::getPose, swerve.getField(),
+                                RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
+                vision = visionSubsystem.getPhotonVision();
+                swerve.setupVision(vision);
+        }
 
-        // Button 2: Toggle bop
-        Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
+        // ==================== LEDS ====================
+        private void configureLEDs() {
+                if (leds == null)
+                        return;
 
-        // Button 3: Toggle intake
-        Buttons.JoystickButton3.onTrue(
-                // runLowerIntakeArmCommand is runOnce (sets Motion Magic target), so andThen
-                // fires immediately — roller spinning while arm deploys is
+                // Enable hub activation test mode (dashboard controls for testing without FMS)
+                HubActivation.initTestMode();
+
+                // Default: green when active, alliance-color countdown when inactive, strobe at
+                // 5s
+                leds.setDefaultCommand(LEDCommands.hubStateCommand(leds));
+
+                // Flash green when hub becomes active
+                HubActivation.ourHubActiveTrigger()
+                                .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
+        }
+
+        // ==================== DEFAULT COMMANDS ====================
+        private void configureDefaultCommands() {
+                swerve.setDefaultCommand(
+                                swerve.driveCommand(
+                                                Buttons.createForwardSupplier(Constants.DriveConstants.kDeadzone,
+                                                                InputCurve.CUBIC, true),
+                                                Buttons.createStrafeSupplier(Constants.DriveConstants.kDeadzone,
+                                                                InputCurve.CUBIC, true),
+                                                Buttons.createRotationSupplier(Constants.DriveConstants.kDeadzone,
+                                                                InputCurve.CUBIC, true),
+                                                Constants.DriveConstants.kTranslationScale));
+
+                // Turret auto-track: visible → track, not visible → search
+                if (visionSubsystem != null) {
+                        turret.setDefaultCommand(turret.autoTrackCommand(
+                                        visionSubsystem::getHubCamAngle,
+                                        visionSubsystem::isHubCamVisible,
+                                        visionSubsystem::isHubCamFresh,
+                                        shooter::isInShootingZone));
+                } else {
+                        turret.setDefaultCommand(turret.holdPositionCommand());
+                }
+        }
+
+        // ==================== BUTTON BINDINGS ====================
+        private void configureButtonBindings() {
+                // === Driver (Thrustmaster) ===
+                // Buttons.JoystickButton10.onTrue(Commands.runOnce(() ->
                 //
-                // intentional/harmless.
-                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
+                // swerve.zeroGyroWithAlliance()));
 
-        Buttons.JoystickButton4.onTrue(
-                // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
-                // arm raising while roller winds down is intentional/harmless.
-                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+                // Trigger (1): Hold-to-shoot at vision distance (no timer)
+                Buttons.JoystickButton1.whileTrue(
+                                ShootCommands.holdShootAtDistanceCommand(
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance));
 
-        // Button 5: Toggle auto-track on/off
-        Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+                // Button 2: Toggle bop
+                Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
 
-        // Button 6: Lower Intake Arm
-        Buttons.JoystickButton6.whileTrue(
-                intake.runLowerIntakeArmCommand());
+                // Button 3: Toggle intake
+                Buttons.JoystickButton3.onTrue(
+                                // runLowerIntakeArmCommand is runOnce (sets Motion Magic target), so andThen
+                                // fires immediately — roller spinning while arm deploys is
+                                //
+                                // intentional/harmless.
+                                intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
 
-        // Button 7: None
-        Buttons.JoystickButton7.onTrue(Commands.none());
+                Buttons.JoystickButton4.onTrue(
+                                // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
+                                // arm raising while roller winds down is intentional/harmless.
+                                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
 
-        // Button 8: None
-        Buttons.JoystickButton8.onTrue(Commands.none());
+                // Button 5: Toggle auto-track on/off
+                Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
 
-        // Button 9: Bop and run intake
-        Buttons.JoystickButton9.whileTrue(intake.bopArmAndRunCommand());
+                // Button 6: Lower Intake Arm
+                Buttons.JoystickButton6.whileTrue(
+                                intake.runLowerIntakeArmCommand());
 
-        // Button 10: Lob
-        Buttons.JoystickButton10.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
+                // Button 7: None
+                Buttons.JoystickButton7.onTrue(Commands.none());
 
-        // Button 11: Zero Gyro
-        Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+                // Button 8: None
+                Buttons.JoystickButton8.onTrue(Commands.none());
 
-        // Button 12: Lower intake but do not run
-        Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the
-                                                                            // Xbox controller, however we have to many
-                                                                            // binds on that so we will have to discuss
-                                                                            // which to drop.
+                // Button 9: Bop and run intake
+                Buttons.JoystickButton9.whileTrue(intake.bopArmAndRunCommand());
 
-        // Button 13: None
-        Buttons.JoystickButton13.onTrue(Commands.none());
+                // Button 10: Lob
+                Buttons.JoystickButton10.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
 
-        // Button 14: None
-        Buttons.JoystickButton14.onTrue(Commands.none());
+                // Button 11: Zero Gyro
+                Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
 
-        // Button 15: None
-        Buttons.JoystickButton15.onTrue(Commands.none());
+                // Button 12: Lower intake but do not run
+                Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want
+                                                                                    // this on the
+                                                                                    // Xbox controller, however we have
+                                                                                    // to many
+                                                                                    // binds on that so we will have to
+                                                                                    // discuss
+                                                                                    // which to drop.
 
-        // === Operator (Xbox Controller) ===
+                // Button 13: None
+                Buttons.JoystickButton13.onTrue(Commands.none());
 
-        // R-L Triggers: Bop
-        Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
-        Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
+                // Button 14: None
+                Buttons.JoystickButton14.onTrue(Commands.none());
 
-        // Right Bumper: Intake up
-        Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
+                // Button 15: None
+                Buttons.JoystickButton15.onTrue(Commands.none());
 
-        // Left Bumper: Intake down
-        Buttons.XboxLeftBumper.onTrue(intake.runLowerIntakeArmCommand());
+                // === Operator (Xbox Controller) ===
 
-        // Button A: Stop intake
-        Buttons.XboxAButton.onTrue(intake.stopIntakeCommand());
+                // R-L Triggers: Bop
+                Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
+                Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
 
-        // B: Eject
-        Buttons.XboxBButton.onTrue(
-                intake.reverseIntakeCommand());
+                // Right Bumper: Intake up
+                Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
 
-        // Y: None
-        Buttons.XboxYButton.onTrue(
-                Commands.none());
+                // Left Bumper: Intake down
+                Buttons.XboxLeftBumper.onTrue(intake.runLowerIntakeArmCommand());
 
-        // X: None
-        Buttons.XboxXButton.onTrue(Commands.none());
+                // Button A: Stop intake
+                Buttons.XboxAButton.onTrue(intake.stopIntakeCommand());
 
-        // === D-pad: Turret manual control ===
-        // Up = snap to forward (170°), Left/Right = incremental nudge
-        // Diagonals included for POV hat wobble robustness
-        double step = Constants.TurretConstants.kTurretManualStepDeg;
-        Buttons.XboxDPadN.whileTrue(turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
-        Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
-        Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
-        Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
-        Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
+                // B: Eject
+                Buttons.XboxBButton.onTrue(
+                                intake.reverseIntakeCommand());
 
-        // Start: One-press auto-extend — raise elevator to top, then lock
-        // Buttons.XboxStartButton.onTrue(
-        // climber.extendCommand()
-        // .until(climber::isAtRaisedLimit)
-        // .andThen(climber.lockCommand()));
+                // Y: None
+                Buttons.XboxYButton.onTrue(
+                                Commands.none());
 
-        // Back: One-press auto-climb — retract to bottom, then lock
-        // Buttons.XboxBackButton.onTrue(
-        // climber.climbCommand()
-        // .until(climber::isAtLowered6Limit)
-        // .andThen(climber.lockCommand()));
-    }
+                // X: None
+                Buttons.XboxXButton.onTrue(Commands.none());
 
-    // ==================== PATHPLANNER ====================
-    private void configurePathPlannerCommands() {
-        NamedCommands.registerCommand("intake",
-                intake.runLowerIntakeArmCommand().andThen(
-                        intake.runIntakeCommand()));
-        NamedCommands.registerCommand("spinUp",
-                shooter.spinUpCommand()
-                        .until(shooter.isAtSpeedTrigger())
-                        .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
-        NamedCommands.registerCommand("shoot", Commands.sequence(
-                turret.aimTurretCommand(() -> 170).withTimeout(1.5),
-                ShootCommands.shootAtDistanceTimerCommand(
-                        shooter, hopper, turret, visionSubsystem::getHubDistance)));
-        NamedCommands.registerCommand("shootNoPoint", Commands.race(
-                Commands.waitSeconds(3),
-                ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, turret,
-                        visionSubsystem::getHubDistance)));
-        NamedCommands.registerCommand("shootWithBop",
-                ShootCommands.shootAtDistanceTimerWithBopCommand(
-                        shooter, hopper, intake, turret, visionSubsystem::getHubDistance));
-        NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
-        NamedCommands.registerCommand("intakeLob", ShootCommands.autonLobCommand(shooter, turret, hopper, intake));
-    }
+                // === D-pad: Turret manual control ===
+                // Up = snap to forward (170°), Left/Right = incremental nudge
+                // Diagonals included for POV hat wobble robustness
+                double step = Constants.TurretConstants.kTurretManualStepDeg;
+                Buttons.XboxDPadN.whileTrue(
+                                turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
+                Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
+                Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
+                Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
+                Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
 
-    // ==================== AUTO CHOOSER ====================
-    private void configureAutoChooser() {
-        autoChooser = AutoBuilder.buildAutoChooser();
+                // Start: One-press auto-extend — raise elevator to top, then lock
+                // Buttons.XboxStartButton.onTrue(
+                // climber.extendCommand()
+                // .until(climber::isAtRaisedLimit)
+                // .andThen(climber.lockCommand()));
 
-        if (Constants.SWERVE_TAB) {
-            // Swerve tuning commands (select from dashboard, run in auto mode)
-            autoChooser.addOption("Tune Rotation PID", TuningCommands.tuneRotationPIDCommand(swerve));
-            autoChooser.addOption("Tune Translation PID", TuningCommands.tuneTranslationPIDCommand(swerve));
-            autoChooser.addOption("Estimate MOI", TuningCommands.estimateMOICommand(swerve));
+                // Back: One-press auto-climb — retract to bottom, then lock
+                // Buttons.XboxBackButton.onTrue(
+                // climber.climbCommand()
+                // .until(climber::isAtLowered6Limit)
+                // .andThen(climber.lockCommand()));
         }
 
-        SmartDashboard.putData("Auto Chooser", autoChooser);
-    }
+        // ==================== PATHPLANNER ====================
+        private void configurePathPlannerCommands() {
+                NamedCommands.registerCommand("intake",
+                                intake.runLowerIntakeArmCommand().andThen(
+                                                intake.runIntakeCommand()));
+                NamedCommands.registerCommand("spinUp",
+                                shooter.spinUpCommand()
+                                                .until(shooter.isAtSpeedTrigger())
+                                                .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
+                NamedCommands.registerCommand("shoot", Commands.sequence(
+                                turret.aimTurretCommand(() -> 170).withTimeout(1.5),
+                                ShootCommands.shootAtDistanceTimerCommand(
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance)));
+                NamedCommands.registerCommand("legacyShoot",
+                                ShootCommands.shootAtDistanceTimerCommand(
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance));
+                NamedCommands.registerCommand("shootNoPoint", Commands.race(
+                                Commands.waitSeconds(3),
+                                ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, turret,
+                                                visionSubsystem::getHubDistance)));
+                NamedCommands.registerCommand("shootWithBop",
+                                ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance));
+                NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
+                NamedCommands.registerCommand("intakeLob",
+                                ShootCommands.autonLobCommand(shooter, turret, hopper, intake));
+        }
 
-    // ==================== DASHBOARD ====================
-    private void configureDashboard() {
-        Runnable tuning = DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
-        tuningPeriodic = tuning != null ? tuning : () -> {
-        };
-    }
+        // ==================== AUTO CHOOSER ====================
+        private void configureAutoChooser() {
+                autoChooser = AutoBuilder.buildAutoChooser();
 
-    /**
-     * Returns the tuning periodic callback. Safe to call every cycle (no-op when
-     * tuning disabled).
-     */
-    public Runnable getTuningPeriodic() {
-        return tuningPeriodic;
-    }
+                if (Constants.SWERVE_TAB) {
+                        // Swerve tuning commands (select from dashboard, run in auto mode)
+                        autoChooser.addOption("Tune Rotation PID", TuningCommands.tuneRotationPIDCommand(swerve));
+                        autoChooser.addOption("Tune Translation PID", TuningCommands.tuneTranslationPIDCommand(swerve));
+                        autoChooser.addOption("Estimate MOI", TuningCommands.estimateMOICommand(swerve));
+                }
 
-    public void onTeleopInit(boolean noAutoRan) {
-    }
+                SmartDashboard.putData("Auto Chooser", autoChooser);
+        }
 
-    public Command getAutonomousCommand() {
-        return autoChooser.getSelected();
-    }
+        // ==================== DASHBOARD ====================
+        private void configureDashboard() {
+                Runnable tuning = DashboardSetup.configure(swerve, intake, shooter, turret, hopper, climber,
+                                visionSubsystem);
+                tuningPeriodic = tuning != null ? tuning : () -> {
+                };
+                Dash.add("Auto-Track", () -> turret.isAutoTrackEnabled());
+        }
+
+        /**
+         * Returns the tuning periodic callback. Safe to call every cycle (no-op when
+         * tuning disabled).
+         */
+        public Runnable getTuningPeriodic() {
+                return tuningPeriodic;
+        }
+
+        public void onTeleopInit(boolean noAutoRan) {
+        }
+
+        public Command getAutonomousCommand() {
+                return autoChooser.getSelected();
+        }
 }

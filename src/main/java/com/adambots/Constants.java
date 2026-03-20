@@ -19,10 +19,10 @@ public final class Constants {
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
-    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && false;
+    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
-    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && true;
-    public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
+    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
+    public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
@@ -57,7 +57,7 @@ public final class Constants {
         public static final double kAutoRotationD = 0.0;
 
         /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
-        public static final double kTranslationScale = 0.9;
+        public static final double kTranslationScale = 1.0;
     }
 
     // ==================== ShooterConstants ====================

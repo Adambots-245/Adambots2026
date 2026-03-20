@@ -19,9 +19,9 @@ public final class Constants {
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
-    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
+    public static final boolean SHOOTER_TAB  = TUNING_ENABLED && false;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
-    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
+    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && true;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
@@ -93,7 +93,7 @@ public final class Constants {
         public static final double[][] kDefaultInterpolationTable = {
             {2.0, 45.0},
             {2.5, 49.0},
-            {3.0, 52.0},
+            {3.0, 53.5},
             {4.0, 58.0},
             {5.0, 68.0}
         };
@@ -385,8 +385,8 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.65;
 
-        public static final double kArmRaisedPosition = 130.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kArmRaisedPosition = 131.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
 

@@ -158,18 +158,14 @@ public class RobotContainer {
         // Buttons.JoystickButton10.onTrue(Commands.runOnce(() ->
         //
         // swerve.zeroGyroWithAlliance()));
-        Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
-
-        Buttons.XboxAButton.onTrue(Commands.runOnce(
-                () -> intake.stopIntakeCommand()));
-
+	
         // Trigger (1): Hold-to-shoot at vision distance (no timer)
         Buttons.JoystickButton1.whileTrue(
                 ShootCommands.holdShootAtDistanceCommand(
                         shooter, hopper, turret, visionSubsystem::getHubDistance));
 
-        // Button 2: Toggle bop
-        Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
+	// Button 2: Toggle bop
+	Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
 
         // Button 3: Toggle intake
         Buttons.JoystickButton3.onTrue(
@@ -178,6 +174,7 @@ public class RobotContainer {
                 //
                 // intentional/harmless.
                     intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
+
         Buttons.JoystickButton4.onTrue(
                     // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
                     // arm raising while roller winds down is intentional/harmless.
@@ -190,16 +187,35 @@ public class RobotContainer {
         Buttons.JoystickButton6.whileTrue(
                     intake.runLowerIntakeArmCommand());
 
+        // Button 7: None
+        Buttons.JoystickButton7.onTrue(Commands.none());
+	
+        // Button 8: None
+        Buttons.JoystickButton8.onTrue(Commands.none());
+
         // Button 9: Bop and run intake
         Buttons.JoystickButton9.whileTrue(intake.bopArmAndRunCommand());
 
         // Button 10: Lob
         Buttons.JoystickButton10.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
 
+	// Button 11: Zero Gyro
+        Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+
         // Button 12: Lower intake but do not run
         Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want this on the Xbox controller, however we have to many binds on that so we will have to discuss which to drop.
+									    
+        // Button 13: None
+        Buttons.JoystickButton13.onTrue(Commands.none());
+
+        // Button 14: None
+        Buttons.JoystickButton14.onTrue(Commands.none());
+
+        // Button 15: None
+        Buttons.JoystickButton15.onTrue(Commands.none());
 
         // === Operator (Xbox Controller) ===
+
         // R-L Triggers: Bop
         Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
         Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
@@ -211,6 +227,10 @@ public class RobotContainer {
         // Left Bumper: Eject (reverse hopper + uptake, stop flywheel)
         Buttons.XboxLeftBumper.onTrue(intake.runLowerIntakeArmCommand());
 
+	// Button A: Stop intake
+        Buttons.XboxAButton.onTrue(Commands.runOnce(
+                () -> intake.stopIntakeCommand()));
+
         // B: Stop all shooter systems
         Buttons.XboxBButton.onTrue(
                     ShootCommands.stopAllCommand(shooter, hopper));
@@ -218,6 +238,9 @@ public class RobotContainer {
         // Y: Hold turret at 90° while held — autoTrack resumes on release
         Buttons.XboxYButton.whileTrue(
                     turret.aimTurretCommand(() -> 90.0));
+
+        // X: Lock climber (stop motor + engage ratchet)
+        Buttons.XboxXButton.onTrue(climber.lockCommand());
 
         // === D-pad: Turret manual control ===
         // Up = snap to forward (170°), Left/Right = incremental nudge
@@ -228,8 +251,6 @@ public class RobotContainer {
         Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
         Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
         Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
-        // X: Lock climber (stop motor + engage ratchet)
-        Buttons.XboxXButton.onTrue(climber.lockCommand());
 
         // Back: One-press auto-extend — raise elevator to top, then lock
         Buttons.XboxBackButton.onTrue(

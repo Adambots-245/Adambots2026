@@ -6,6 +6,7 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.commands.IntakeCommands;
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
@@ -220,27 +221,25 @@ public class RobotContainer {
         Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
         Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
 
-        // Right Bumper: Feed hopper + uptake (manual)
-        Buttons.XboxRightBumper.whileTrue(
-                    hopper.feedCommand());
+        // Right Bumper: Intake up
+        Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
 
-        // Left Bumper: Eject (reverse hopper + uptake, stop flywheel)
+        // Left Bumper: Intake down
         Buttons.XboxLeftBumper.onTrue(intake.runLowerIntakeArmCommand());
 
-	// Button A: Stop intake
-        Buttons.XboxAButton.onTrue(Commands.runOnce(
-                () -> intake.stopIntakeCommand()));
+	    // Button A: None
+        Buttons.XboxAButton.onTrue(Commands.none());
 
-        // B: Stop all shooter systems
+        // B: Eject
         Buttons.XboxBButton.onTrue(
-                    ShootCommands.stopAllCommand(shooter, hopper));
+                    intake.reverseIntakeCommand());
 
-        // Y: Hold turret at 90° while held — autoTrack resumes on release
-        Buttons.XboxYButton.whileTrue(
-                    turret.aimTurretCommand(() -> 90.0));
+        // Y: None
+        Buttons.XboxYButton.onTrue(
+                    Commands.none());
 
-        // X: Lock climber (stop motor + engage ratchet)
-        Buttons.XboxXButton.onTrue(climber.lockCommand());
+        // X: None
+        Buttons.XboxXButton.onTrue(Commands.none());
 
         // === D-pad: Turret manual control ===
         // Up = snap to forward (170°), Left/Right = incremental nudge
@@ -252,14 +251,14 @@ public class RobotContainer {
         Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
         Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
 
-        // Back: One-press auto-extend — raise elevator to top, then lock
-        Buttons.XboxBackButton.onTrue(
+        // Start: One-press auto-extend — raise elevator to top, then lock
+        Buttons.XboxStartButton.onTrue(
                     climber.extendCommand()
                                 .until(climber::isAtRaisedLimit)
                                 .andThen(climber.lockCommand()));
 
-        // Start: One-press auto-climb — retract to bottom, then lock
-        Buttons.XboxStartButton.onTrue(
+        // Back: One-press auto-climb — retract to bottom, then lock
+        Buttons.XboxBackButton.onTrue(
                     climber.climbCommand()
                                 .until(climber::isAtLoweredLimit)
                                 .andThen(climber.lockCommand()));

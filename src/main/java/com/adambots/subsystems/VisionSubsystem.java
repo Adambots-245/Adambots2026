@@ -332,7 +332,8 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         // ==================== Hub Approach B: Pose-Based ====================
-        if (hasBackCameras) {
+        // Only compute when visionMode uses pose data (1=Pose-only, 2=Hybrid)
+        if (hasBackCameras && visionMode != 0) {
             Pose2d currentPose = poseSupplier.get();
             // Guard: skip if swerve pose is still at origin (no vision updates processed yet).
             // No camera dependency — Approach B is purely pose-based via swerve odometry.

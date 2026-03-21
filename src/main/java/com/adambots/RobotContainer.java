@@ -65,7 +65,7 @@ public class RobotContainer {
                                                 Constants.DriveConstants.kAutoRotationP,
                                                 Constants.DriveConstants.kAutoRotationI,
                                                 Constants.DriveConstants.kAutoRotationD)
-                                .withEncoderAutoSync(true, 1.0)
+                                // .withEncoderAutoSync(true, 1.0)
                                 .withTelemetryVerbosity(TelemetryVerbosity.POSE);
                 swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 

@@ -91,15 +91,15 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 45.0},
+            {2.0, 46.0},
             {2.5, 49.0},
             {3.0, 53.5},
             {4.0, 58.0},
-            {5.0, 68.0}
+            {5.0, 62.0}
         };
 
-        public static final double kMinRPS = 42.0;  // table minimum
-        public static final double kMaxRPS = 65.0;  // table maximum
+        public static final double kMinRPS = 46.0;  // table minimum
+        public static final double kMaxRPS = 68.0;  // table maximum
     }
 
     // ==================== TurretConstants ====================
@@ -127,18 +127,18 @@ public final class Constants {
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
         // Reference range — software-limited via pot + clamp in setTurretAngle()
-        public static final double kTurretMaxDegrees = 260.0;
+        public static final double kTurretMaxDegrees = 300.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
-        public static final double kTurretForwardDegrees = 170.0;
+        public static final double kTurretForwardDegrees = 210.0;
 
         public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
         // ==================== Potentiometer Calibration ====================
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 0.0;
+        public static final double kTurretPotAtZeroDeg = 0;
         /** Pot reading (degrees) when turret is at 180° — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2889.0;
+        public static final double kTurretPotAtMaxDeg = 3575.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -167,7 +167,7 @@ public final class Constants {
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
         public static final double kHopperSpeed = 0.25;
-        public static final double kUptakeSpeed = 0.8;
+        public static final double kUptakeSpeed = 0.6;
         public static final double kDetectionRange = 2.0; // cm
 
         // Current limits
@@ -362,17 +362,17 @@ public final class Constants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
-        public static final double kArmP = 35;    // Volts per rotation of error
+        public static final double kArmP = 20;    // 32 Volts per rotation of error
         public static final double kArmI = 0.0;     // Volts per rotation*second of error (almost never needed with proper kG)
         public static final double kArmD = 0.10;     // Volts per rotation/second of error (damping)
-        public static final double kArmKV = 0.12;   // Volts per rotation/second of velocity
-        public static final double kArmKS = 0.25;   // Volts to overcome static friction
-        public static final double kArmKA = 0.01;   // Volts per rotation/second^2 of acceleration
-        public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
+        public static final double kArmKV = 0.0;   // 0.12 Volts per rotation/second of velocity
+        public static final double kArmKS = 0.0;   // 0.22 Volts to overcome static friction
+        public static final double kArmKA = 0.00;   // Volts per rotation/second^2 of acceleration
+        public static final double kArmKG = 0.2;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 4.0;  // rotations per second
-        public static final double kArmAcceleration = 2.0;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 1.0;  // rotations per second
+        public static final double kArmAcceleration = 0.5;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -385,7 +385,7 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.65;
 
-        public static final double kArmRaisedPosition = 131.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmRaisedPosition = 160.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
@@ -395,7 +395,7 @@ public final class Constants {
         public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
-        public static final int kArmStatorCurrentLimit = 60;  // stator amps (torque limiting)
+        public static final int kArmStatorCurrentLimit = 45;  // stator amps (torque limiting)
         public static final int kArmSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */

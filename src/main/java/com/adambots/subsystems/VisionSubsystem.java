@@ -231,6 +231,7 @@ public class VisionSubsystem extends SubsystemBase {
             VisionConstants.kAmbiguityThreshold);
 
         if (Constants.VISION_TAB) setupDash();
+        Dash.add("Dist (m)", this::getHubDistance);
     }
 
     private void setupDash() {

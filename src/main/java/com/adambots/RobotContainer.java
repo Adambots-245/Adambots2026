@@ -6,6 +6,8 @@ package com.adambots;
 
 import java.io.File;
 
+import com.adambots.Constants.ShooterConstants;
+import com.adambots.Constants.TurretConstants;
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
@@ -184,7 +186,7 @@ public class RobotContainer {
                 Buttons.JoystickButton4.onTrue(
                                 // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
                                 // arm raising while roller winds down is intentional/harmless.
-                                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand()));
+                                intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand().withTimeout(1)));
 
                 // Button 5: Toggle auto-track on/off
                 Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
@@ -281,12 +283,16 @@ public class RobotContainer {
                 NamedCommands.registerCommand("intake",
                                 intake.runLowerIntakeArmCommand().andThen(
                                                 intake.runIntakeCommand()));
+
+                 NamedCommands.registerCommand("intakeTimer",
+                                intake.runLowerIntakeArmCommand().withTimeout(1));
+                                                
                 NamedCommands.registerCommand("spinUp",
                                 shooter.spinUpCommand()
                                                 .until(shooter.isAtSpeedTrigger())
                                                 .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
                 NamedCommands.registerCommand("shoot", Commands.sequence(
-                                turret.aimTurretCommand(() -> 170).withTimeout(1.5),
+                                turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5),
                                 ShootCommands.shootAtDistanceTimerCommand(
                                                 shooter, hopper, turret, visionSubsystem::getHubDistance)));
                 NamedCommands.registerCommand("legacyShoot",
@@ -302,6 +308,7 @@ public class RobotContainer {
                 NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
                 NamedCommands.registerCommand("intakeLob",
                                 ShootCommands.autonLobCommand(shooter, turret, hopper, intake));
+                NamedCommands.registerCommand("intakeUp", intake.runRaiseIntakeArmCommand());
         }
 
         // ==================== AUTO CHOOSER ====================

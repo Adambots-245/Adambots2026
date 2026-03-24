@@ -1,5 +1,6 @@
 package com.adambots.commands;
 
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 
 import com.adambots.subsystems.HopperSubsystem;
@@ -128,10 +129,13 @@ public final class ShootCommands {
             shooter.spinForDistanceCommand(distanceSupplier)
                 .until(shooter.isAtSpeedTrigger())
                 .withTimeout(kSpinUpTimeoutSeconds),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand()
-            ).withTimeout(kShootDurationSeconds),
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand()
+                ).withTimeout(kShootDurationSeconds);
+            }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
         );
         if (lowerIntake && intake != null) {
@@ -153,11 +157,14 @@ public final class ShootCommands {
             shooter.spinForDistanceCommand(visionDist)
                 .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
                 .withTimeout(kSpinUpTimeoutSeconds),
-            // Keep spinning while feeding
-            Commands.parallel(
-                shooter.spinForDistanceCommand(visionDist),
-                hopper.feedCommand()
-            ).withTimeout(kShootDurationSeconds),
+            // Snapshot distance and feed with locked RPS
+            Commands.defer(() -> {
+                double dist = visionDist.getAsDouble();
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand()
+                ).withTimeout(kShootDurationSeconds);
+            }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
         ).withName("Auto Shoot");
     }
@@ -223,9 +230,12 @@ public final class ShootCommands {
             shooter.spinForDistanceCommand(distanceSupplier)
                 .until(shooter.isAtSpeedTrigger())
                 .withTimeout(kSpinUpTimeoutSeconds),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand())
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand());
+            }, Set.of(shooter, hopper))
         ).finallyDo(() -> {
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance");
@@ -246,10 +256,13 @@ public final class ShootCommands {
                     .until(shooter.isAtSpeedTrigger())
                     .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand(),
-                intake.bopArmCommand())
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand(),
+                    intake.bopArmCommand());
+            }, Set.of(shooter, hopper, intake))
         ).finallyDo(() -> {
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance With Bop");
@@ -284,11 +297,14 @@ public final class ShootCommands {
                     .until(shooter.isAtSpeedTrigger())
                     .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand(),
-                intake.bopArmCommand()
-            ).withTimeout(kShootDurationSeconds),
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand(),
+                    intake.bopArmCommand()
+                ).withTimeout(kShootDurationSeconds);
+            }, Set.of(shooter, hopper, intake)),
             stopAllCommand(shooter, hopper)
         ).withName("Shoot At Distance With Bop");
     }

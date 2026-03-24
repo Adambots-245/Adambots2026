@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
@@ -362,17 +362,17 @@ public final class Constants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
-        public static final double kArmP = 20;    // 32 Volts per rotation of error
+        public static final double kArmP = 35;    // Volts per rotation of error
         public static final double kArmI = 0.0;     // Volts per rotation*second of error (almost never needed with proper kG)
         public static final double kArmD = 0.10;     // Volts per rotation/second of error (damping)
-        public static final double kArmKV = 0.0;   // 0.12 Volts per rotation/second of velocity
-        public static final double kArmKS = 0.0;   // 0.22 Volts to overcome static friction
-        public static final double kArmKA = 0.00;   // Volts per rotation/second^2 of acceleration
-        public static final double kArmKG = 0.2;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
+        public static final double kArmKV = 0.12;   // Volts per rotation/second of velocity
+        public static final double kArmKS = 0.25;   // Volts to overcome static friction
+        public static final double kArmKA = 0.01;   // Volts per rotation/second^2 of acceleration
+        public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 1.0;  // rotations per second
-        public static final double kArmAcceleration = 0.5;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 4.0;  // rotations per second
+        public static final double kArmAcceleration = 2.0;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -380,10 +380,10 @@ public final class Constants {
         // Stage 2: Belt-driven pulley from gearbox output to arm pivot
         // Total ratio = stage1 * stage2 (motor rotations per mechanism rotation)
         public static final double kArmPlanetaryRatio = 20.0;  // e.g., 5.0 for 5:1 planetary
-        public static final double kArmBeltRatio = 4.0;        // e.g., 2.0 for 36T:18T belt
+        public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kIntakeSpeed = 0.65;
+        public static final double kIntakeSpeed = 0.55;
 
         public static final double kArmRaisedPosition = 160.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE

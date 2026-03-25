@@ -81,26 +81,37 @@ public class HopperSubsystem extends SubsystemBase {
     public void periodic() {
         boolean currentlyFeeding = hopperMotor.getOutputPercent() > 0;
 
+        // --- REVERSING state: motors are running backward to clear a jam ---
         if (reversing) {
             if (reverseTimer.hasElapsed(HopperConstants.kJamReverseDuration)) {
+                // Reverse complete — return to feeding on next cycle.
+                // Restart timer as grace period so jam detection doesn't
+                // trigger immediately while motors spin back up.
                 reversing = false;
-                reverseTimer.restart(); // reuse as grace timer
+                reverseTimer.restart();
             }
             wasFeedingLastCycle = false;
             return;
         }
 
+        // --- FEEDING state: detect rising edge to start grace period ---
         if (currentlyFeeding && !wasFeedingLastCycle) {
-            reverseTimer.restart(); // feed just started — begin grace period
+            // Feed just started (transition from stopped/reversed to forward).
+            // Begin grace period — give motors time to spin up before
+            // checking for jams, otherwise low initial velocity triggers
+            // a false jam detection.
+            reverseTimer.restart();
         }
 
+        // --- JAM CHECK: only after grace period has elapsed ---
         if (currentlyFeeding
                 && reverseTimer.hasElapsed(HopperConstants.kJamGracePeriod)
                 && hopperMotor.getVelocity().in(RotationsPerSecond) < HopperConstants.kJamVelocityThreshold) {
+            // Agitator velocity dropped below threshold — jam detected.
+            // Reverse both motors to clear the blockage.
             reversing = true;
             reverseTimer.restart();
-            hopperMotor.set(-hopperSpeed);
-            uptakeMotor.set(-uptakeSpeed);
+            reverse();
         }
 
         wasFeedingLastCycle = currentlyFeeding;

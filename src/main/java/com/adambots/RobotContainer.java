@@ -196,7 +196,7 @@ public class RobotContainer {
                                 intake.runLowerIntakeArmCommand());
 
                 // Button 7: None
-                Buttons.JoystickButton7.onTrue(Commands.none());
+                Buttons.JoystickButton7.onTrue(ShootCommands.ejectCommand(shooter, hopper).withTimeout(0.5));
 
                 // Button 8: None
                 Buttons.JoystickButton8.onTrue(Commands.none());

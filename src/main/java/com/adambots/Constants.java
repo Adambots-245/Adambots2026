@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = false;
+    public static final boolean TUNING_ENABLED = true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -74,12 +74,12 @@ public final class Constants {
         public static final double kFlywheelDirection = -1.0;
 
         // ==================== Flywheel PID (tested on test board) ====================
-        public static final double kFlywheelP = 0.1;
+        public static final double kFlywheelP = 0.3;
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
         public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
 
-        public static final double kFlywheelToleranceRPS = 2.0;
+        public static final double kFlywheelToleranceRPS = 1.0;
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
         public static final double kLobShotRPS = 49.0;
@@ -92,7 +92,7 @@ public final class Constants {
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
             {2.0, 46.0},
-            {2.5, 49.0},
+            {2.5, 50.0},
             {3.0, 53.5},
             {4.0, 58.0},
             {5.0, 62.0}
@@ -167,7 +167,7 @@ public final class Constants {
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
         public static final double kHopperSpeed = 0.25;
-        public static final double kUptakeSpeed = 0.6;
+        public static final double kUptakeSpeed = 0.65;
         public static final double kDetectionRange = 2.0; // cm
 
         // Jam detection

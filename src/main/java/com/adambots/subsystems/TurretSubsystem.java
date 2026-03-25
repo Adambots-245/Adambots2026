@@ -265,21 +265,27 @@ public class TurretSubsystem extends SubsystemBase {
             double currentAngle = getTurretAngleDegrees();
 
             if (hubVisible.getAsBoolean()) {
-                // CAMERA MODE — hub visible (or in holdoff)
+                // CAMERA MODE — hub visible (camera detection or pose-derived)
                 trackingMode = TrackingMode.CAMERA;
                 // Remember which side the hub is for faster reacquisition
                 scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
-                if (hubFresh.getAsBoolean()) {
-                    // Fresh detection — update setpoint with exponential smoothing
-                    double fullTarget = MathUtil.clamp(
-                        currentAngle + cameraAngle.getAsDouble(),
-                        0, TurretConstants.kTurretMaxDegrees);
+                // Compute target from current angle + turret-relative offset
+                double rawTarget = currentAngle + cameraAngle.getAsDouble();
+                // If target is past mechanical limits, hub is unreachable from this position.
+                // Hold at the limit rather than tracking stale corrections against the stop.
+                if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
+                    setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
+                } else if (hubFresh.getAsBoolean()) {
+                    // Fresh camera detection — apply correction at full tracking gain
                     double smoothed = lastSetpointDegrees
-                        + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
+                        + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed + angVelLead);
                 } else {
-                    // Holdoff — hold last setpoint with rotation compensation
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    // No fresh camera frame — use pose-derived angle (via getHubAngle)
+                    // at half gain to slew toward hub without overshooting on stale data
+                    double smoothed = lastSetpointDegrees
+                        + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain * 0.5;
+                    setTurretAngle(smoothed + angVelLead);
                 }
             } else {
                 // SWEEP: continuous smooth scan, reverse at limits
@@ -321,12 +327,13 @@ public class TurretSubsystem extends SubsystemBase {
                 trackingMode = TrackingMode.CAMERA;
                 // Remember which side the hub is for faster reacquisition
                 scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
-                if (hubFresh.getAsBoolean()) {
-                    double fullTarget = MathUtil.clamp(
-                        currentAngle + cameraAngle.getAsDouble(),
-                        0, TurretConstants.kTurretMaxDegrees);
+                double rawTarget = currentAngle + cameraAngle.getAsDouble();
+                if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
+                    // Hub is past mechanical limits — hold at nearest limit
+                    setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
+                } else if (hubFresh.getAsBoolean()) {
                     double smoothed = lastSetpointDegrees
-                        + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
+                        + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed);
                 } else {
                     setTurretAngle(lastSetpointDegrees);

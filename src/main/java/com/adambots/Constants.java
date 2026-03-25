@@ -174,7 +174,6 @@ public final class Constants {
     public static final class HopperConstants {
         public static final double kHopperSpeed = 0.25;
         public static final double kUptakeSpeed = 0.65;
-        public static final double kDetectionRange = 2.0; // cm
 
         // Jam detection
         public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed

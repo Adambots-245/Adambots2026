@@ -1,43 +1,37 @@
 package com.adambots.subsystems;
 
-import static edu.wpi.first.units.Units.Centimeters;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.adambots.Constants;
 import com.adambots.Constants.HopperConstants;
 import com.adambots.lib.actuators.BaseMotor;
-import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.utils.Dash;
 
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
- * Hopper subsystem with hopper + uptake motors and CANRange distance sensor for piece detection.
+ * Hopper subsystem with hopper + uptake motors.
  * Hopper and uptake always run together, so they share a single subsystem to prevent scheduling conflicts.
  */
 public class HopperSubsystem extends SubsystemBase {
 
     private final BaseMotor hopperMotor;
     private final BaseMotor uptakeMotor;
-    private final BaseDistanceSensor hopperPieceSensor;
 
     // Tunable fields (hot-reloaded from Shuffleboard when TUNING_ENABLED)
     private double hopperSpeed = HopperConstants.kHopperSpeed;
     private double uptakeSpeed = HopperConstants.kUptakeSpeed;
-    private double detectionRange = HopperConstants.kDetectionRange;
 
     // Jam detection state
     private boolean reversing = false;
     private boolean wasFeedingLastCycle = false;
     private final Timer reverseTimer = new Timer();
 
-    public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor, BaseDistanceSensor hopperPieceSensor) {
+    public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor) {
         this.hopperMotor = hopperMotor;
         this.uptakeMotor = uptakeMotor;
-        this.hopperPieceSensor = hopperPieceSensor;
 
         hopperMotor.configure()
             .brakeMode(true)
@@ -55,9 +49,6 @@ public class HopperSubsystem extends SubsystemBase {
         }
     }
 
-    public boolean hasPiece() {
-        return hopperPieceSensor.getDistance().in(Centimeters) <= detectionRange;
-    }
 
     private void feed() {
         if (!reversing) {
@@ -117,14 +108,6 @@ public class HopperSubsystem extends SubsystemBase {
         wasFeedingLastCycle = currentlyFeeding;
     }
 
-    // ==================== Triggers ====================
-
-    public final Trigger hasPieceTrigger = new Trigger(this::hasPiece);
-
-    public Trigger isEmptyTrigger() {
-        return new Trigger(() -> !hasPiece());
-    }
-
     // ==================== Command Factories ====================
 
     public Command feedCommand() {
@@ -163,7 +146,4 @@ public class HopperSubsystem extends SubsystemBase {
         uptakeSpeed = speed;
     }
 
-    public void setDetectionRange(double range) {
-        detectionRange = range;
-    }
 }

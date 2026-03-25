@@ -71,7 +71,7 @@ public class TuningManager {
     private double lastAcceleration = IntakeConstants.kArmAcceleration;
 
     // ==================== Hopper entries ====================
-    private GenericEntry hopperSpeedEntry, uptakeSpeedEntry, detectionRangeEntry;
+    private GenericEntry hopperSpeedEntry, uptakeSpeedEntry;
 
     // ==================== Vision entries ====================
     private GenericEntry visionModeEntry;
@@ -212,7 +212,6 @@ public class TuningManager {
 
         hopperSpeedEntry = Dash.addTunable("Hopper Speed", HopperConstants.kHopperSpeed, 0, 2);
         uptakeSpeedEntry = Dash.addTunable("Uptake Speed", HopperConstants.kUptakeSpeed, 1, 2);
-        detectionRangeEntry = Dash.addTunable("Detection Range (cm)", HopperConstants.kDetectionRange, 2, 2);
 
         Dash.useDefaultTab();
     }
@@ -331,7 +330,6 @@ public class TuningManager {
     private void applyHopperTunables() {
         hopper.setHopperSpeed(hopperSpeedEntry.getDouble(HopperConstants.kHopperSpeed));
         hopper.setUptakeSpeed(uptakeSpeedEntry.getDouble(HopperConstants.kUptakeSpeed));
-        hopper.setDetectionRange(detectionRangeEntry.getDouble(HopperConstants.kDetectionRange));
     }
 
     private void applyVisionTunables() {

@@ -76,7 +76,7 @@ public class RobotContainer {
                                 RobotMap.kIntakeArmEncoder);
                 shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
                 turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
-                hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor, RobotMap.hopperSensor);
+                hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor);
                 climber = new ClimberSubsystem(RobotMap.kClimberElevatorMotor, RobotMap.kClimberRatchetSolenoid,
                                 RobotMap.kClimberRaisedLimit, RobotMap.kClimberLoweredLimit);
                 leds = RobotMap.LEDS_ENABLED

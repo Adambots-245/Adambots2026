@@ -1,6 +1,7 @@
 package com.adambots.subsystems;
 
 import static edu.wpi.first.units.Units.Centimeters;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.adambots.Constants;
 import com.adambots.Constants.HopperConstants;
@@ -8,6 +9,7 @@ import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.sensors.BaseDistanceSensor;
 import com.adambots.lib.utils.Dash;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -26,6 +28,11 @@ public class HopperSubsystem extends SubsystemBase {
     private double hopperSpeed = HopperConstants.kHopperSpeed;
     private double uptakeSpeed = HopperConstants.kUptakeSpeed;
     private double detectionRange = HopperConstants.kDetectionRange;
+
+    // Jam detection state
+    private boolean reversing = false;
+    private boolean wasFeedingLastCycle = false;
+    private final Timer reverseTimer = new Timer();
 
     public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor, BaseDistanceSensor hopperPieceSensor) {
         this.hopperMotor = hopperMotor;
@@ -53,8 +60,10 @@ public class HopperSubsystem extends SubsystemBase {
     }
 
     private void feed() {
-        hopperMotor.set(hopperSpeed);
-        uptakeMotor.set(uptakeSpeed);
+        if (!reversing) {
+            hopperMotor.set(hopperSpeed);
+            uptakeMotor.set(uptakeSpeed);
+        }
     }
 
     private void reverse() {
@@ -65,6 +74,36 @@ public class HopperSubsystem extends SubsystemBase {
     private void stop() {
         hopperMotor.set(0);
         uptakeMotor.set(0);
+        reversing = false;
+    }
+
+    @Override
+    public void periodic() {
+        boolean currentlyFeeding = hopperMotor.getOutputPercent() > 0;
+
+        if (reversing) {
+            if (reverseTimer.hasElapsed(HopperConstants.kJamReverseDuration)) {
+                reversing = false;
+                reverseTimer.restart(); // reuse as grace timer
+            }
+            wasFeedingLastCycle = false;
+            return;
+        }
+
+        if (currentlyFeeding && !wasFeedingLastCycle) {
+            reverseTimer.restart(); // feed just started — begin grace period
+        }
+
+        if (currentlyFeeding
+                && reverseTimer.hasElapsed(HopperConstants.kJamGracePeriod)
+                && hopperMotor.getVelocity().in(RotationsPerSecond) < HopperConstants.kJamVelocityThreshold) {
+            reversing = true;
+            reverseTimer.restart();
+            hopperMotor.set(-hopperSpeed);
+            uptakeMotor.set(-uptakeSpeed);
+        }
+
+        wasFeedingLastCycle = currentlyFeeding;
     }
 
     // ==================== Triggers ====================

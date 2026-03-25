@@ -170,6 +170,11 @@ public final class Constants {
         public static final double kUptakeSpeed = 0.6;
         public static final double kDetectionRange = 2.0; // cm
 
+        // Jam detection
+        public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed
+        public static final double kJamReverseDuration = 0.5;    // seconds to reverse when jam detected
+        public static final double kJamGracePeriod = 0.25;       // seconds before jam detection activates after feed starts
+
         // Current limits
         public static final double kHopperSupplyCurrentLimit = 50.0;
         public static final double kUptakeSupplyCurrentLimit = 40.0;

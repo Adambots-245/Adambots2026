@@ -100,6 +100,9 @@ public final class Constants {
 
         public static final double kMinRPS = 46.0;  // table minimum
         public static final double kMaxRPS = 68.0;  // table maximum
+
+        /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
+        public static final double kIdleRPS = 20.0;
     }
 
     // ==================== TurretConstants ====================
@@ -162,6 +165,9 @@ public final class Constants {
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
+        /** Anticipation time for angular velocity feedforward (seconds).
+         *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
+        public static final double kAngularVelLeadTime = 0.1;
     }
 
     // ==================== HopperConstants ====================
@@ -336,8 +342,11 @@ public final class Constants {
         /** Max distance to consider a target valid (meters) */
         public static final double kMaxDistanceMeters = 8.0;
 
-        /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback) */
+        /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
         public static final int kVisionMode = 0;
+
+        /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
+        public static final double kVisionBlendWeight = 0.6;
 
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.

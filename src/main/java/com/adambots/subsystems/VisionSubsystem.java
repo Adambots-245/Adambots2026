@@ -73,6 +73,10 @@ public class VisionSubsystem extends SubsystemBase {
     private double hubPoseAngleDegrees = 0;
     private boolean hubPoseHasTarget = false;
 
+    // Hub tracking — Mode 3 outputs (blended: weighted avg of camera + pose)
+    private double hubBlendedDistanceMeters = 0;
+    private double hubBlendedAngleDegrees = 0;
+
     // Hub tracking — shared
     private int hubVisibleTagCount = 0;
     private boolean prevHubCamHasTarget = false;
@@ -361,6 +365,19 @@ public class VisionSubsystem extends SubsystemBase {
             prevHubPoseHasTarget = hubPoseHasTarget;
         }
 
+        // Mode 3: compute weighted blend of camera and pose values
+        if (hubCamHasTarget && hubPoseHasTarget) {
+            double w = VisionConstants.kVisionBlendWeight;
+            hubBlendedDistanceMeters = w * hubCamDistanceMeters + (1.0 - w) * hubPoseDistanceMeters;
+            hubBlendedAngleDegrees = w * hubCamAngleDegrees + (1.0 - w) * hubPoseAngleDegrees;
+        } else if (hubCamHasTarget) {
+            hubBlendedDistanceMeters = hubCamDistanceMeters;
+            hubBlendedAngleDegrees = hubCamAngleDegrees;
+        } else if (hubPoseHasTarget) {
+            hubBlendedDistanceMeters = hubPoseDistanceMeters;
+            hubBlendedAngleDegrees = hubPoseAngleDegrees;
+        }
+
         // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
         if (Constants.VISION_TAB) {
             double now = Timer.getFPGATimestamp();
@@ -368,7 +385,7 @@ public class VisionSubsystem extends SubsystemBase {
                 lastLogTimestamp = now;
                 Pose2d p = poseSupplier.get();
                 int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
-                String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "?";
+                String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;
                 System.out.printf(
                     "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
@@ -494,18 +511,21 @@ public class VisionSubsystem extends SubsystemBase {
 
     /** Distance to hub center using the active vision mode. */
     public double getHubDistance() {
+        if (visionMode == 3) return hubBlendedDistanceMeters;
         if (visionMode == 2) return hubCamHasTarget ? hubCamDistanceMeters : hubPoseDistanceMeters;
         return visionMode == 0 ? hubCamDistanceMeters : hubPoseDistanceMeters;
     }
 
     /** Angle to hub center using the active vision mode (degrees, positive = left). */
     public double getHubAngle() {
+        if (visionMode == 3) return hubBlendedAngleDegrees;
         if (visionMode == 2) return hubCamHasTarget ? hubCamAngleDegrees : hubPoseAngleDegrees;
         return visionMode == 0 ? hubCamAngleDegrees : hubPoseAngleDegrees;
     }
 
     /** Whether the hub is visible using the active vision mode. */
     public boolean isHubVisible() {
+        if (visionMode == 3) return hubCamHasTarget || hubPoseHasTarget;
         if (visionMode == 2) return hubCamHasTarget || hubPoseHasTarget;
         return visionMode == 0 ? hubCamHasTarget : hubPoseHasTarget;
     }
@@ -626,12 +646,12 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== General Commands ====================
 
-    private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid"};
+    private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid", "Blended"};
 
     /** Logs current vision state — useful for debugging in autos. */
     public Command logVisionCommand() {
         return runOnce(() -> {
-            String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "Unknown";
+            String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "Unknown";
             System.out.println("[Vision] mode=" + modeName
                 + " hubVisible=" + isHubVisible()
                 + " hubDist=" + String.format("%.2f", getHubDistance())

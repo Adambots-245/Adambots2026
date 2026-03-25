@@ -28,6 +28,8 @@ public class ShooterSubsystem extends SubsystemBase {
     private final BaseMotor rightFlywheel;
     private final Supplier<Pose2d> robotPose;
 
+    private boolean idleEnabled = false;
+
     private double targetRPS = 0;
     private double flywheelToleranceCached = ShooterConstants.kFlywheelToleranceRPS;
 
@@ -191,5 +193,26 @@ public class ShooterSubsystem extends SubsystemBase {
     public Command stopFlywheelCommand() {
         return runOnce(this::stopFlywheel)
             .withName("Stop Flywheel");
+    }
+
+    // ==================== Idle Pre-Spin ====================
+
+    public void setIdleEnabled(boolean enabled) { idleEnabled = enabled; }
+    public boolean isIdleEnabled() { return idleEnabled; }
+
+    /**
+     * Default command: maintains low idle RPM when enabled, stops when disabled.
+     * Automatically interrupted by any shoot command (which requires this subsystem),
+     * and resumes when shooting ends.
+     */
+    public Command idleCommand() {
+        return run(() -> {
+            if (idleEnabled) {
+                setFlywheelRPS(ShooterConstants.kIdleRPS);
+            } else {
+                stopFlywheel();
+            }
+        }).finallyDo(() -> stopFlywheel())
+          .withName("Flywheel Idle");
     }
 }

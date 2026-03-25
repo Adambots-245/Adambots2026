@@ -22,6 +22,9 @@ public final class ShootCommands {
     /** Max time to wait for flywheel to reach target speed before feeding anyway. */
     public static final double kSpinUpTimeoutSeconds = 3.0;
 
+    /** Fire gate debounce — speed must hold steady for this long before feeding. */
+    public static final double kFireGateDebounceSeconds = 0.08;
+
     private ShootCommands() {}
 
     /**
@@ -78,7 +81,7 @@ public final class ShootCommands {
 
         Command sequence = Commands.sequence(
             spinUp
-                .until(shooter.isAtSpeedTrigger())
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.parallel(
                 spinUpFeed,
@@ -127,7 +130,7 @@ public final class ShootCommands {
             boolean lowerIntake) {
         Command sequence = Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier)
-                .until(shooter.isAtSpeedTrigger())
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
@@ -155,7 +158,7 @@ public final class ShootCommands {
         return Commands.sequence(
             // Track and spin up simultaneously (turret uses default command for tracking)
             shooter.spinForDistanceCommand(visionDist)
-                .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
+                .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()).debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
             // Snapshot distance and feed with locked RPS
             Commands.defer(() -> {
@@ -197,7 +200,7 @@ public final class ShootCommands {
             : shooter.spinUpCommand();
 
         return Commands.sequence(
-            spinUp.until(shooter.isAtSpeedTrigger()),
+            spinUp.until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds)),
             Commands.parallel(spinUpFeed, hopper.feedCommand())
         ).finallyDo(() -> {
             shooter.stopFlywheel();
@@ -228,7 +231,7 @@ public final class ShootCommands {
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier)
-                .until(shooter.isAtSpeedTrigger())
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
@@ -253,7 +256,7 @@ public final class ShootCommands {
         return Commands.sequence(
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier)
-                    .until(shooter.isAtSpeedTrigger())
+                    .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
             Commands.defer(() -> {
@@ -294,7 +297,7 @@ public final class ShootCommands {
         return Commands.sequence(
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier)
-                    .until(shooter.isAtSpeedTrigger())
+                    .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
             Commands.defer(() -> {

@@ -222,6 +222,15 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier hubVisible,
             BooleanSupplier hubFresh,
             BooleanSupplier inShootingZone) {
+        return autoTrackCommand(cameraAngle, hubVisible, hubFresh, inShootingZone, () -> 0.0);
+    }
+
+    public Command autoTrackCommand(
+            DoubleSupplier cameraAngle,
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh,
+            BooleanSupplier inShootingZone,
+            DoubleSupplier robotAngularVelDegPerSec) {
 
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
@@ -248,6 +257,11 @@ public class TurretSubsystem extends SubsystemBase {
                 return;
             }
 
+            // Angular velocity lead: compensate for robot rotation so turret holds aim.
+            // Robot rotating CW (positive omega) → turret must lead CCW (negative in turret frame).
+            double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
+                * TurretTrackingConstants.kAngularVelLeadTime;
+
             double currentAngle = getTurretAngleDegrees();
 
             if (hubVisible.getAsBoolean()) {
@@ -262,10 +276,10 @@ public class TurretSubsystem extends SubsystemBase {
                         0, TurretConstants.kTurretMaxDegrees);
                     double smoothed = lastSetpointDegrees
                         + (fullTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
-                    setTurretAngle(smoothed);
+                    setTurretAngle(smoothed + angVelLead);
                 } else {
-                    // Holdoff — hold last setpoint
-                    setTurretAngle(lastSetpointDegrees);
+                    // Holdoff — hold last setpoint with rotation compensation
+                    setTurretAngle(lastSetpointDegrees + angVelLead);
                 }
             } else {
                 // SWEEP: continuous smooth scan, reverse at limits

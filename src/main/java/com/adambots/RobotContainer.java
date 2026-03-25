@@ -154,10 +154,14 @@ public class RobotContainer {
                                         visionSubsystem::getHubCamAngle,
                                         visionSubsystem::isHubCamVisible,
                                         visionSubsystem::isHubCamFresh,
-                                        shooter::isInShootingZone));
+                                        shooter::isInShootingZone,
+                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }
+
+                // Flywheel idle pre-spin — maintains low RPM between shots when enabled
+                shooter.setDefaultCommand(shooter.idleCommand());
         }
 
         // ==================== BUTTON BINDINGS ====================
@@ -251,8 +255,9 @@ public class RobotContainer {
                 Buttons.XboxYButton.onTrue(
                                 Commands.none());
 
-                // X: None
-                Buttons.XboxXButton.onTrue(Commands.none());
+                // X: Toggle flywheel idle pre-spin
+                Buttons.XboxXButton.onTrue(
+                        Commands.runOnce(() -> shooter.setIdleEnabled(!shooter.isIdleEnabled())));
 
                 // === D-pad: Turret manual control ===
                 // Up = snap to forward (170°), Left/Right = incremental nudge

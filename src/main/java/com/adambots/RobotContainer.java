@@ -117,6 +117,7 @@ public class RobotContainer {
                                 RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
                 vision = visionSubsystem.getPhotonVision();
                 swerve.setupVision(vision);
+                visionSubsystem.setTurretAngleSupplier(turret::getTurretAngleDegrees);
         }
 
         // ==================== LEDS ====================
@@ -151,8 +152,8 @@ public class RobotContainer {
                 // Turret auto-track: visible → track, not visible → search
                 if (visionSubsystem != null) {
                         turret.setDefaultCommand(turret.autoTrackCommand(
-                                        visionSubsystem::getHubCamAngle,
-                                        visionSubsystem::isHubCamVisible,
+                                        visionSubsystem::getHubAngle,
+                                        visionSubsystem::isHubVisible,
                                         visionSubsystem::isHubCamFresh,
                                         shooter::isInShootingZone,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));

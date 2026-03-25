@@ -347,6 +347,8 @@ public final class Constants {
 
         /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
         public static final double kVisionBlendWeight = 0.6;
+        /** Max disagreement (degrees) between camera and pose before blend falls back to camera-only. */
+        public static final double kBlendDisagreementThreshold = 20.0;
 
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.

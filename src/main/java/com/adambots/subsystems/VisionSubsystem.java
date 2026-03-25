@@ -3,9 +3,11 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.*;
 
 import java.util.Optional;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.adambots.Constants;
+import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
@@ -58,6 +60,9 @@ public class VisionSubsystem extends SubsystemBase {
     // Which cameras are available
     private final boolean hasBackCameras;
     private final boolean hasShooterCamera;
+
+    // Turret angle supplier — needed to convert pose angle (robot-relative) to turret-relative
+    private DoubleSupplier turretAngleSupplier = () -> TurretConstants.kTurretForwardDegrees;
 
     // Precomputed hub centers (geometric center of all hub tags per alliance)
     private final Translation2d blueHubCenter;
@@ -291,6 +296,11 @@ public class VisionSubsystem extends SubsystemBase {
         runtimeAmbiguityThreshold = threshold;
     }
 
+    /** Set turret angle supplier so blended mode can convert pose angle to turret-relative. */
+    public void setTurretAngleSupplier(DoubleSupplier supplier) {
+        turretAngleSupplier = supplier;
+    }
+
     // Raw value getters for DashboardSetup to display behind TUNING_ENABLED
     public double getRawCamDist() { return rawCamDist; }
     public double getRawCamAngle() { return rawCamAngle; }
@@ -365,17 +375,34 @@ public class VisionSubsystem extends SubsystemBase {
             prevHubPoseHasTarget = hubPoseHasTarget;
         }
 
-        // Mode 3: compute weighted blend of camera and pose values
+        // Mode 3: compute weighted blend of camera and pose values.
+        // Camera angle is turret-relative (offset from boresight).
+        // Pose angle is robot-relative (bearing from robot heading to hub).
+        // Convert pose angle to turret-relative before blending:
+        //   turretRelativePoseAngle = poseAngle - (turretAngle - turretForwardDeg)
         if (hubCamHasTarget && hubPoseHasTarget) {
-            double w = VisionConstants.kVisionBlendWeight;
-            hubBlendedDistanceMeters = w * hubCamDistanceMeters + (1.0 - w) * hubPoseDistanceMeters;
-            hubBlendedAngleDegrees = w * hubCamAngleDegrees + (1.0 - w) * hubPoseAngleDegrees;
+            double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
+                - TurretConstants.kTurretForwardDegrees;
+            double poseAngleTurretRelative = hubPoseAngleDegrees - turretOffsetFromForward;
+            // Disagreement guard: if camera and pose angles differ by more than 20°,
+            // the sources are inconsistent (possible miscalibration or ambiguous tag).
+            // Fall back to camera-only which is the more direct measurement.
+            if (Math.abs(hubCamAngleDegrees - poseAngleTurretRelative) > VisionConstants.kBlendDisagreementThreshold) {
+                hubBlendedDistanceMeters = hubCamDistanceMeters;
+                hubBlendedAngleDegrees = hubCamAngleDegrees;
+            } else {
+                double w = VisionConstants.kVisionBlendWeight;
+                hubBlendedDistanceMeters = w * hubCamDistanceMeters + (1.0 - w) * hubPoseDistanceMeters;
+                hubBlendedAngleDegrees = w * hubCamAngleDegrees + (1.0 - w) * poseAngleTurretRelative;
+            }
         } else if (hubCamHasTarget) {
             hubBlendedDistanceMeters = hubCamDistanceMeters;
             hubBlendedAngleDegrees = hubCamAngleDegrees;
         } else if (hubPoseHasTarget) {
+            double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
+                - TurretConstants.kTurretForwardDegrees;
             hubBlendedDistanceMeters = hubPoseDistanceMeters;
-            hubBlendedAngleDegrees = hubPoseAngleDegrees;
+            hubBlendedAngleDegrees = hubPoseAngleDegrees - turretOffsetFromForward;
         }
 
         // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting

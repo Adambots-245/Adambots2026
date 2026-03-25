@@ -61,7 +61,7 @@ public class ClimberSubsystem extends SubsystemBase {
     }
 
     public boolean isRatchetEngaged() {
-        return ratchetSolenoid.get();
+        return !ratchetSolenoid.get();
     }
 
     // ==================== SECTION: LIMIT SWITCHES ====================
@@ -120,7 +120,7 @@ public class ClimberSubsystem extends SubsystemBase {
         return startRun(
             this::releaseRatchet,
             () -> {
-                if (!isAtRaisedLimit()) {
+                if (!isAtLoweredLimit()) {
                     elevatorMotor.set(ClimberConstants.kLowerSpeed);
                 } else {
                     elevatorMotor.set(0);

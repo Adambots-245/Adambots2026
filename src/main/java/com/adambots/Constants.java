@@ -27,6 +27,9 @@ public final class Constants {
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
+    /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
+    public static final boolean CURRENT_LOGGING = true;
+
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
     public static final int kShuffleboardCols = 10;
     public static final int kShuffleboardRows = 5;

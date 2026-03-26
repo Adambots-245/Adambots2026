@@ -1,5 +1,6 @@
 package com.adambots.subsystems;
 
+import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.adambots.Constants;
@@ -10,6 +11,8 @@ import com.adambots.lib.utils.Dash;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Hopper subsystem with hopper + uptake motors.
@@ -70,6 +73,11 @@ public class HopperSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Hopper/HopperCurrent", hopperMotor.getCurrentDraw().in(Amps));
+            Logger.recordOutput("Hopper/UptakeCurrent", uptakeMotor.getCurrentDraw().in(Amps));
+        }
+
         // ==================== Hopper jam detection ====================
         //
         // State fields:

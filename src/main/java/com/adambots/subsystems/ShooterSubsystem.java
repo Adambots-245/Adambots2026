@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.*;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
+import com.adambots.Constants;
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
@@ -17,6 +18,8 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Flywheel-only shooter subsystem with PID velocity control.
@@ -207,6 +210,13 @@ public class ShooterSubsystem extends SubsystemBase {
      * Automatically interrupted by any shoot command (which requires this subsystem),
      * and resumes when shooting ends.
      */
+    @Override
+    public void periodic() {
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Shooter/LeaderCurrent", leftFlywheel.getCurrentDraw().in(Amps));
+        }
+    }
+
     public Command idleCommand() {
         return run(() -> {
             if (idleEnabled) {

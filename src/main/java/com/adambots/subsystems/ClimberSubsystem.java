@@ -9,6 +9,8 @@ import com.adambots.Constants.ClimberConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseSolenoid;
 
+import static edu.wpi.first.units.Units.Amps;
+
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -166,6 +168,10 @@ public class ClimberSubsystem extends SubsystemBase {
         if ((output > 0 && isAtRaisedLimit()) || (output < 0 && isAtLoweredLimit())) {
             elevatorMotor.set(0);
             engageRatchet();
+        }
+
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Climber/ElevatorCurrent", elevatorMotor.getCurrentDraw().in(Amps));
         }
 
         if (Constants.TUNING_ENABLED) {

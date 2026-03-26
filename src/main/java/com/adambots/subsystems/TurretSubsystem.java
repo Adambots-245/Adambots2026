@@ -1,5 +1,6 @@
 package com.adambots.subsystems;
 
+import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 
@@ -22,6 +23,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Turret subsystem with position-controlled PID via onboard motor controller.
@@ -147,6 +150,10 @@ public class TurretSubsystem extends SubsystemBase {
     public void periodic() {
         // Pot seeds motor encoder on construction — no continuous re-sync needed.
         // Continuous re-sync fights the PID controller and causes oscillation.
+
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Turret/Current", turretMotor.getCurrentDraw().in(Amps));
+        }
 
         // Dashboard telemetry — only when tuning to reduce bandwidth
         if (Constants.TUNING_ENABLED) {

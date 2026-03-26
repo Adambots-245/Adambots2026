@@ -23,6 +23,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
+import org.littletonrobotics.junction.Logger;
+
 /**
  * Intake subsystem using TalonFX onboard PID with gravity compensation.
  *
@@ -455,6 +457,11 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Intake/RollerCurrent", intakeMotor.getCurrentDraw().in(Amps));
+            Logger.recordOutput("Intake/ArmCurrent", intakeArmMotor.getCurrentDraw().in(Amps));
+        }
+
         // ==================== Arm encoder re-sync ====================
         // Re-sync motor encoder from throughbore when arm has settled at a known
         // setpoint. Only re-syncs when: (1) arm is at target, (2) target is

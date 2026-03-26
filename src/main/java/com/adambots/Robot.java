@@ -59,6 +59,10 @@ public class Robot extends LoggedRobot {
         // 1. WPILib DataLogManager — logs DS data, joystick inputs to USB for post-match review
         DataLogManager.start();
 
+        // CTRE SignalLogger — logs all TalonFX signals (current, voltage, velocity) to .hoot file
+        // Runs on CANivore processor, no roboRIO CPU impact. Uncomment to enable.
+        // com.ctre.phoenix6.SignalLogger.start();
+
         // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
         Buttons.init(
             RobotMap.kDriverJoystickPort,

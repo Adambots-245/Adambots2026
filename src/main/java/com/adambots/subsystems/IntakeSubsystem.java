@@ -46,6 +46,11 @@ public class IntakeSubsystem extends SubsystemBase {
     private double bopAngle = IntakeConstants.kBopAngle;
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
 
+    // Roller jam detection state
+    private boolean rollerReversing = false;
+    private boolean wasRollerRunningLastCycle = false;
+    private final edu.wpi.first.wpilibj.Timer rollerJamTimer = new edu.wpi.first.wpilibj.Timer();
+
     // Cached PID gains for simulation voltage computation (updated by setArmPID)
     private double simP = IntakeConstants.kArmP;
     private double simD = IntakeConstants.kArmD;
@@ -56,7 +61,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Returns true when the intake roller is running (velocity above threshold).
      */
     public Trigger isRunningTrigger() {
-        return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > 0.1);
+        return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > IntakeConstants.kRollerRunningThreshold);
     }
 
     // Sign that maps encoder-increasing direction to motor direction.
@@ -184,7 +189,9 @@ public class IntakeSubsystem extends SubsystemBase {
      * Run the intake roller at the configured speed.
      */
     public void runIntake() {
-        intakeMotor.set(IntakeConstants.kIntakeSpeed);
+        if (!rollerReversing) {
+            intakeMotor.set(IntakeConstants.kIntakeSpeed);
+        }
     }
 
     /**
@@ -199,6 +206,7 @@ public class IntakeSubsystem extends SubsystemBase {
      */
     public void stopIntake() {
         intakeMotor.set(0);
+        rollerReversing = false;
     }
 
     /**
@@ -317,7 +325,7 @@ public class IntakeSubsystem extends SubsystemBase {
                         switchTime[0] = now;
                     double lowered = degreesToMechanismRotations(armLoweredPosition);
                     double raised = degreesToMechanismRotations(armLoweredPosition - bopAngle);
-                    if (now - switchTime[0] > 0.35) {
+                    if (now - switchTime[0] > IntakeConstants.kBopSwitchTimeSeconds) {
                         bopUp[0] = !bopUp[0];
                         switchTime[0] = now;
                     }
@@ -346,7 +354,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Hold to keep bopping; releases back to lowered on end.
      */
     public Command bopArmAndRunCommand() {
-        return bopCommandBase(() -> intakeMotor.set(IntakeConstants.kIntakeSpeed), "Bop Arm and Run");
+        return bopCommandBase(this::runIntake, "Bop Arm and Run");
     }
 
     private void setupSimulation() {
@@ -440,29 +448,72 @@ public class IntakeSubsystem extends SubsystemBase {
     private boolean isAtKnownSetpoint() {
         double raisedTarget = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
         double loweredTarget = degreesToMechanismRotations(armLoweredPosition);
-        double tolerance = 0.01; // mechanism rotations
+        double tolerance = IntakeConstants.kArmKnownSetpointTolerance;
         return Math.abs(targetPosition - raisedTarget) < tolerance
                 || Math.abs(targetPosition - loweredTarget) < tolerance;
     }
 
-    int count = 0;
-
     @Override
     public void periodic() {
+        // ==================== Arm encoder re-sync ====================
         // Re-sync motor encoder from throughbore when arm has settled at a known
-        // setpoint.
-        // Only re-sync when velocity is near zero and at raised/lowered position,
-        // not during bop oscillation where it could cause position jumps.
-        // if (count > 1) {
-        //     count = 0;
-            if (isArmAtTarget() && isAtKnownSetpoint()
-                    && Math.abs(intakeArmMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
-                double absoluteDeg = armEncoder.getPosition().in(Degrees);
-                intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
-            }
-        // } else {
-        //     count++;
-        // }
+        // setpoint. Only re-syncs when: (1) arm is at target, (2) target is
+        // raised or lowered (not mid-bop), (3) velocity is near zero.
+        // Prevents position jumps during motion.
+        if (isArmAtTarget() && isAtKnownSetpoint()
+                && Math.abs(intakeArmMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
+            double absoluteDeg = armEncoder.getPosition().in(Degrees);
+            intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
+        }
 
+        // ==================== Roller jam detection ====================
+        //
+        // State fields:
+        //   rollerReversing        — true while motors run backward to clear a jam
+        //   wasRollerRunningLastCycle — tracks rising edge (stopped → running) to start grace period
+        //   rollerJamTimer         — reused for both reverse duration and grace period timing
+        //
+        // Normal sequence:
+        //   1. runIntakeCommand() starts → runIntake() sets motor forward each cycle
+        //   2. periodic() detects rising edge → restarts timer (grace period begins)
+        //   3. After grace period (0.25s): motor has spun up, jam check activates
+        //   4. If velocity stays above threshold → no jam, roller runs normally
+        //   5. Command ends → stopIntake() sets motor to 0 and clears rollerReversing
+        //
+        // Jam sequence:
+        //   1. Ball jams roller → velocity drops below threshold (0.5 RPS)
+        //   2. periodic() detects jam → sets rollerReversing=true, calls reverseIntake()
+        //   3. runIntake() sees rollerReversing → skips forward set → reverse continues
+        //   4. After reverse duration (0.3s) → rollerReversing=false, timer restarts (grace)
+        //   5. Next runIntake() call resumes forward → grace period prevents immediate re-trigger
+        //   6. If jam persists → cycle repeats (buzzes back and forth as operator feedback)
+        //
+        boolean rollerRunning = intakeMotor.getOutputPercent() > 0;
+
+        // --- REVERSING state: roller is running backward to clear a jam ---
+        if (rollerReversing) {
+            if (rollerJamTimer.hasElapsed(IntakeConstants.kRollerJamReverseDuration)) {
+                rollerReversing = false;
+                rollerJamTimer.restart(); // reuse as grace timer
+            }
+            wasRollerRunningLastCycle = false;
+            return;
+        }
+
+        // --- RUNNING state: detect rising edge to start grace period ---
+        if (rollerRunning && !wasRollerRunningLastCycle) {
+            rollerJamTimer.restart();
+        }
+
+        // --- JAM CHECK: only after grace period has elapsed ---
+        if (rollerRunning
+                && rollerJamTimer.hasElapsed(IntakeConstants.kRollerJamGracePeriod)
+                && intakeMotor.getVelocity().in(RotationsPerSecond) < IntakeConstants.kRollerJamVelocityThreshold) {
+            rollerReversing = true;
+            rollerJamTimer.restart();
+            reverseIntake();
+        }
+
+        wasRollerRunningLastCycle = rollerRunning;
     }
 }

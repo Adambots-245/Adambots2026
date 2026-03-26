@@ -70,6 +70,28 @@ public class HopperSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        // ==================== Hopper jam detection ====================
+        //
+        // State fields:
+        //   reversing              — true while motors run backward to clear a jam
+        //   wasFeedingLastCycle    — tracks rising edge (stopped → feeding) to start grace period
+        //   reverseTimer           — reused for both reverse duration and grace period timing
+        //
+        // Normal sequence:
+        //   1. feedCommand() starts → feed() sets both motors forward each cycle
+        //   2. periodic() detects rising edge → restarts timer (grace period begins)
+        //   3. After grace period (0.25s): motors have spun up, jam check activates
+        //   4. If hopper velocity stays above threshold → no jam, feeding continues
+        //   5. Command ends → stop() sets motors to 0 and clears reversing
+        //
+        // Jam sequence:
+        //   1. Ball jams hopper → hopper motor velocity drops below threshold (0.5 RPS)
+        //   2. periodic() detects jam → sets reversing=true, calls reverse()
+        //   3. feed() sees reversing → skips forward set → reverse continues
+        //   4. After reverse duration (0.5s) → reversing=false, timer restarts (grace)
+        //   5. Next feed() call resumes forward → grace period prevents immediate re-trigger
+        //   6. If jam persists → cycle repeats (buzzes back and forth as operator feedback)
+        //
         boolean currentlyFeeding = hopperMotor.getOutputPercent() > 0;
 
         // --- REVERSING state: motors are running backward to clear a jam ---

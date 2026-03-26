@@ -403,7 +403,15 @@ public final class Constants {
         public static final double kArmRaisedPosition = 160.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
+        public static final double kArmKnownSetpointTolerance = 0.01; // mechanism rotations — re-sync guard
+        public static final double kRollerRunningThreshold = 0.1; // RPS — above this = roller is spinning
+
+        // Roller jam detection
+        public static final double kRollerJamVelocityThreshold = 0.5; // RPS — below this = jammed
+        public static final double kRollerJamReverseDuration = 0.3;   // seconds to reverse when jam detected
+        public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)

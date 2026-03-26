@@ -114,7 +114,8 @@ public class RobotContainer {
 
                 visionSubsystem = new VisionSubsystem(
                                 swerve::getPose, swerve.getField(),
-                                RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED);
+                                RobotMap.BACK_CAMERAS_ENABLED, RobotMap.SHOOTER_CAMERA_ENABLED,
+                                RobotMap.FRONT_CAMERA_ENABLED);
                 vision = visionSubsystem.getPhotonVision();
                 swerve.setupVision(vision);
                 visionSubsystem.setTurretAngleSupplier(turret::getTurretAngleDegrees);

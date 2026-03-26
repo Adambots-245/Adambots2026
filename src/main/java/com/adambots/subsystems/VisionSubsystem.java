@@ -126,7 +126,8 @@ public class VisionSubsystem extends SubsystemBase {
      * @param shooterCameraEnabled whether the shooter alignment camera is present
      */
     public VisionSubsystem(Supplier<Pose2d> poseSupplier, Field2d field,
-                           boolean backCamerasEnabled, boolean shooterCameraEnabled) {
+                           boolean backCamerasEnabled, boolean shooterCameraEnabled,
+                           boolean frontCameraEnabled) {
         this.poseSupplier = poseSupplier;
         this.hasBackCameras = backCamerasEnabled;
         this.hasShooterCamera = shooterCameraEnabled;
@@ -192,7 +193,9 @@ public class VisionSubsystem extends SubsystemBase {
                 .done();
         }
 
-                builder.addCamera(VisionConstants.kFrontCameraName)
+        if (frontCameraEnabled) {
+            // Front LifeCam (forward-facing, pitched 27° up for hub tag visibility)
+            builder.addCamera(VisionConstants.kFrontCameraName)
                 .position(Meters.of(VisionConstants.kFrontCameraX),
                           Meters.of(VisionConstants.kFrontCameraY),
                           Meters.of(VisionConstants.kFrontCameraZ))
@@ -208,7 +211,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
                 .done();
-
+        }
 
         VisionSystemConfig config = builder
             .ambiguityThreshold(VisionConstants.kAmbiguityThreshold)
@@ -289,6 +292,7 @@ public class VisionSubsystem extends SubsystemBase {
     // ==================== Tuning Setters (called by TuningManager) ====================
 
     public void setVisionMode(int mode) {
+        mode = Math.max(0, Math.min(3, mode)); // clamp to valid range
         visionMode = hasShooterCamera ? mode : 1;
     }
 
@@ -323,7 +327,7 @@ public class VisionSubsystem extends SubsystemBase {
         int[] hubTagIds = isRed ? VisionConstants.kRedHubTags : VisionConstants.kBlueHubTags;
 
         // Hub tag count
-        hubVisibleTagCount = photonVision.getVisibleTagCount(hubTagIds, VisionConstants.kAmbiguityThreshold);
+        hubVisibleTagCount = photonVision.getVisibleTagCount(hubTagIds, runtimeAmbiguityThreshold);
 
         // ==================== Hub Approach A: Camera-Only ====================
         if (hasShooterCamera) {
@@ -380,11 +384,9 @@ public class VisionSubsystem extends SubsystemBase {
         // Pose angle is robot-relative (bearing from robot heading to hub).
         // Convert pose angle to turret-relative before blending:
         //   turretRelativePoseAngle = poseAngle - (turretAngle - turretForwardDeg)
+        double poseAngleTurretRelative = poseAngleToTurretRelative(hubPoseAngleDegrees);
         if (hubCamHasTarget && hubPoseHasTarget) {
-            double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
-                - TurretConstants.kTurretForwardDegrees;
-            double poseAngleTurretRelative = hubPoseAngleDegrees - turretOffsetFromForward;
-            // Disagreement guard: if camera and pose angles differ by more than 20°,
+            // Disagreement guard: if camera and pose angles differ by more than threshold,
             // the sources are inconsistent (possible miscalibration or ambiguous tag).
             // Fall back to camera-only which is the more direct measurement.
             if (Math.abs(hubCamAngleDegrees - poseAngleTurretRelative) > VisionConstants.kBlendDisagreementThreshold) {
@@ -399,10 +401,8 @@ public class VisionSubsystem extends SubsystemBase {
             hubBlendedDistanceMeters = hubCamDistanceMeters;
             hubBlendedAngleDegrees = hubCamAngleDegrees;
         } else if (hubPoseHasTarget) {
-            double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
-                - TurretConstants.kTurretForwardDegrees;
             hubBlendedDistanceMeters = hubPoseDistanceMeters;
-            hubBlendedAngleDegrees = hubPoseAngleDegrees - turretOffsetFromForward;
+            hubBlendedAngleDegrees = poseAngleTurretRelative;
         }
 
         // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
@@ -672,6 +672,13 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     // ==================== General Commands ====================
+
+    /** Convert robot-relative pose angle to turret-relative offset for blending with camera angle. */
+    private double poseAngleToTurretRelative(double poseAngleDeg) {
+        double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
+            - TurretConstants.kTurretForwardDegrees;
+        return poseAngleDeg - turretOffsetFromForward;
+    }
 
     private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid", "Blended"};
 

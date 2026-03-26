@@ -244,7 +244,7 @@ public final class Constants {
         //      0 = forward, 90 = left, 180 = backward, -90 = right.
         //
         // Back swerve modules are at (-0.28m, ±0.28m) from center per swerve config.
-        // TODO: Fine-tune all positions with actual measurements from the robot
+        // Camera positions measured from robot
 
         // Back-Left ArduCam (on top of back-left swerve module, facing backward)
          // Back-Left ArduCam (on top of back-left swerve module, facing backward)
@@ -268,7 +268,7 @@ public final class Constants {
         public static final double kShooterCameraY = 0.0;      // centered
         public static final double kShooterCameraZ = 0.53;     // on top of shooter (~20in up)
         public static final double kShooterCameraRoll = 0.0;
-        public static final double kShooterCameraPitch = 27.0;  // level
+        public static final double kShooterCameraPitch = 27.0;  // pitched up to see hub tags
         public static final double kShooterCameraYaw = 0.0;     // facing forward
 
         // Shooter LifeCam (on top of climb, facing forward)

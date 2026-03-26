@@ -67,7 +67,7 @@ public final class Constants {
      */
     public static final class ShooterConstants {
         // ==================== Flywheel Motor Specs ====================
-        public static final double kMotorFreeSpeedRPS = 100.0; // Kraken X60: 6000 RPM = 100 RPS
+        public static final double kMotorFreeSpeedRPS = 96.4; // Kraken X60 FOC: 5784 RPM = 96.4 RPS
         public static final double kNominalVoltage = 12.0;
 
         // Set to -1.0 to reverse flywheel direction (workaround for setInverted issue)
@@ -103,6 +103,10 @@ public final class Constants {
 
         /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
         public static final double kIdleRPS = 20.0;
+
+        // Shooting zone bounds — robot X position that defines "near the hub"
+        public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
+        public static final double kBlueShootingZoneMaxX = 4.54;  // Blue hub at x≈4.54
     }
 
     // ==================== TurretConstants ====================

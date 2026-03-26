@@ -10,6 +10,7 @@ import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -107,7 +108,8 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public double getRPSFromTable(double distanceMeters) {
-        return interpolationTable.get(distanceMeters);
+        return MathUtil.clamp(interpolationTable.get(distanceMeters),
+            ShooterConstants.kMinRPS, ShooterConstants.kMaxRPS);
     }
 
     // ==================== Telemetry Getters ====================
@@ -143,8 +145,8 @@ public class ShooterSubsystem extends SubsystemBase {
         double robotX = robotPose.get().getX();
         boolean isRed = DriverStation.getAlliance()
             .orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Red;
-        // Red hub at x≈12.0 (Red wall at x=16.54), Blue hub at x≈4.54 (Blue wall at x=0)
-        return isRed ? robotX > 12.0 : robotX < 4.54;
+        return isRed ? robotX > ShooterConstants.kRedShootingZoneMinX
+                     : robotX < ShooterConstants.kBlueShootingZoneMaxX;
     }
 
     // ==================== Triggers ====================

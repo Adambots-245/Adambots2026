@@ -140,7 +140,7 @@ public final class Constants {
         // ==================== Potentiometer Calibration ====================
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
         public static final double kTurretPotAtZeroDeg = 0;
-        /** Pot reading (degrees) when turret is at 180° — determine empirically via dashboard */
+        /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
         public static final double kTurretPotAtMaxDeg = 3575.0;
 
         // ==================== Current Limits ====================
@@ -155,12 +155,6 @@ public final class Constants {
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
         public static final double kCameraTrackingGain = 0.3;
-        /** Degrees between search positions during hub acquisition sweep */
-        public static final double kSearchStepDeg = 30.0;
-        /** Frames to dwell at each search position (1s at 50Hz — gives 20 FPS camera ~20 frames) */
-        public static final int kSearchDwellFrames = 50;
-        /** Frames to dwell during manual align (0.5s — with charge rate 10, 1 valid frame suffices) */
-        public static final int kManualAlignDwellFrames = 25;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */

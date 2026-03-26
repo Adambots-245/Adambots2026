@@ -82,10 +82,12 @@ public class IntakeSubsystem extends SubsystemBase {
         configureMotors();
 
         // Seed motor encoder from throughbore absolute position so Motion Magic targets
-        // are correct
-        double absoluteDeg = armEncoder.getPosition().in(Degrees);
-        intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
-        targetPosition = degreesToMechanismRotations(absoluteDeg);
+        // are correct. Skip when using external encoder — FXS reads throughbore directly.
+        if (!IntakeConstants.kUseExternalEncoder) {
+            double absoluteDeg = armEncoder.getPosition().in(Degrees);
+            intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
+            targetPosition = degreesToMechanismRotations(absoluteDeg);
+        }
 
         if (Constants.INTAKE_TAB) {
             setupDash();
@@ -118,6 +120,13 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
+        // When throughbore is hardwired to TalonFXS data port, use it as the feedback source.
+        // FXS reads PWM signal directly at 1kHz — eliminates DIO polling and re-sync.
+        // Ratio = 1.0 because throughbore is on the mechanism side (post-gearbox).
+        if (IntakeConstants.kUseExternalEncoder) {
+            intakeArmMotor.configureExternalPulseWidthSensor(1.0, 0.0, 1.0);
+        }
+
         // Set extended PID with feedforward gains (kV, kS, kA, kG)
         intakeArmMotor.setPID(0,
                 IntakeConstants.kArmP, IntakeConstants.kArmI, IntakeConstants.kArmD,
@@ -136,15 +145,22 @@ public class IntakeSubsystem extends SubsystemBase {
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
         Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
-        Dash.add("Arm Encoder (deg)", () -> armEncoder.getPosition().in(Degrees), 3, 0);
+        // DIO throughbore when using roboRIO; FXS position converted to degrees when external
+        Dash.add("Arm Encoder (deg)", () -> IntakeConstants.kUseExternalEncoder
+            ? intakeArmMotor.getPosition() * 360.0
+            : armEncoder.getPosition().in(Degrees), 3, 0);
         Dash.add("Arm Mech Pos (rot)", () -> intakeArmMotor.getPosition(), 4, 0);
         Dash.add("Arm Target (mech rot)", () -> targetPosition, 5, 0);
-        Dash.add("Arm Direction", () -> kArmDirection, 8, 0);
-        Dash.add("Target (deg)", () -> targetPosition / kArmDirection * 360.0, 9, 0);
+        Dash.add("Arm At Target", () -> isArmAtTarget(), 6, 0);
+        Dash.add("Arm Direction", () -> kArmDirection, 7, 0);
+        Dash.add("Target (deg)", () -> targetPosition / kArmDirection * 360.0, 8, 0);
+        Dash.add("Ext Encoder", () -> IntakeConstants.kUseExternalEncoder, 9, 0);
+        Dash.add("Roller Current", () -> intakeMotor.getCurrentDraw().in(Amps), 10, 0);
+        Dash.add("Arm Current", () -> intakeArmMotor.getCurrentDraw().in(Amps), 11, 0);
 
         // Row 0 (cont.): Sim diagnostics (only meaningful in simulation)
-        Dash.add("Sim Voltage", () -> simMotorVoltage, 6, 0);
-        Dash.add("Sim Angle Deg", () -> simArmAngleDeg, 7, 0);
+        Dash.add("Sim Voltage", () -> simMotorVoltage, 12, 0);
+        Dash.add("Sim Angle Deg", () -> simArmAngleDeg, 13, 0);
 
         // Row 1: Commands
         Dash.addCommand("Start Intake", runIntakeCommand(), 0, 1);
@@ -232,7 +248,9 @@ public class IntakeSubsystem extends SubsystemBase {
      * Uses Motion Magic to maintain gravity compensation.
      */
     public void stopIntakeArm() {
-        targetPosition = degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
+        targetPosition = IntakeConstants.kUseExternalEncoder
+            ? intakeArmMotor.getPosition()
+            : degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -244,10 +262,12 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Get the intake arm position in degrees from the throughbore encoder.
+     * Get the intake arm position in degrees.
      */
     public double getIntakeArmPosition() {
-        return armEncoder.getPosition().in(Degrees);
+        return IntakeConstants.kUseExternalEncoder
+            ? intakeArmMotor.getPosition() * 360.0
+            : armEncoder.getPosition().in(Degrees);
     }
 
     /**
@@ -438,7 +458,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * target.
      */
     private boolean isArmAtTarget() {
-        double currentDeg = armEncoder.getPosition().in(Degrees);
+        double currentDeg = getIntakeArmPosition();
         double targetDeg = targetPosition / kArmDirection * 360.0;
         return Math.abs(currentDeg - targetDeg) < IntakeConstants.kArmAtTargetThreshold;
     }
@@ -467,7 +487,9 @@ public class IntakeSubsystem extends SubsystemBase {
         // setpoint. Only re-syncs when: (1) arm is at target, (2) target is
         // raised or lowered (not mid-bop), (3) velocity is near zero.
         // Prevents position jumps during motion.
-        if (isArmAtTarget() && isAtKnownSetpoint()
+        // Skip when using external encoder — FXS reads throughbore directly, no drift.
+        if (!IntakeConstants.kUseExternalEncoder
+                && isArmAtTarget() && isAtKnownSetpoint()
                 && Math.abs(intakeArmMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
             double absoluteDeg = armEncoder.getPosition().in(Degrees);
             intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));

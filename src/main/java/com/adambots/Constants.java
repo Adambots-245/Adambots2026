@@ -424,6 +424,10 @@ public final class Constants {
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;
+
+        /** Set true when throughbore encoder is hardwired to TalonFXS data port (PWM).
+         *  When true, FXS reads the encoder directly at 1kHz — no DIO re-sync needed. */
+        public static final boolean kUseExternalEncoder = false;
     }
 
      // ==================== TuningConstants ====================

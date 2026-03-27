@@ -33,6 +33,7 @@ public class ShooterSubsystem extends SubsystemBase {
     private final Supplier<Pose2d> robotPose;
 
     private boolean idleEnabled = false;
+    private boolean shotBoostActive = false;
 
     private double targetRPS = 0;
     private double flywheelToleranceCached = ShooterConstants.kFlywheelToleranceRPS;
@@ -95,7 +96,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public void setFlywheelRPS(double rps) {
         targetRPS = rps;
-        leftFlywheel.set(ControlMode.VELOCITY, rps * ShooterConstants.kFlywheelDirection);
+        double effectiveRPS = rps + (shotBoostActive ? ShooterConstants.kShotBoostRPS : 0);
+        leftFlywheel.set(ControlMode.VELOCITY, effectiveRPS * ShooterConstants.kFlywheelDirection);
     }
 
     public void stopFlywheel() {
@@ -204,6 +206,9 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public void setIdleEnabled(boolean enabled) { idleEnabled = enabled; }
     public boolean isIdleEnabled() { return idleEnabled; }
+
+    public void setShotBoost(boolean active) { shotBoostActive = active; }
+    public boolean isShotBoostActive() { return shotBoostActive; }
 
     /**
      * Default command: maintains low idle RPM when enabled, stops when disabled.

@@ -305,6 +305,20 @@ public class VisionSubsystem extends SubsystemBase {
         turretAngleSupplier = supplier;
     }
 
+    /**
+     * Enable/disable shooting mode tag filter. When enabled, pose estimation
+     * only uses hub tags — prevents non-hub tags from corrupting the pose during shots.
+     */
+    public void setShootingMode(boolean shooting) {
+        if (shooting) {
+            int[] hubTags = Utils.isOnRedAlliance()
+                ? VisionConstants.kRedHubTags : VisionConstants.kBlueHubTags;
+            photonVision.setTagFilter(hubTags);
+        } else {
+            photonVision.setTagFilter(null);
+        }
+    }
+
     // Raw value getters for DashboardSetup to display behind TUNING_ENABLED
     public double getRawCamDist() { return rawCamDist; }
     public double getRawCamAngle() { return rawCamAngle; }

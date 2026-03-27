@@ -7,6 +7,7 @@ import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
+import com.adambots.subsystems.VisionSubsystem;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -33,12 +34,20 @@ public final class ShootCommands {
      * Restores the previous auto-track state when the command ends.
      */
     private static Command withAutoTrackSuppressed(Command shootCommand, TurretSubsystem turret) {
-        final boolean[] wasAutoTracking = {false}; //lambda requires effectively final, so use array to capture state
+        return withAutoTrackSuppressed(shootCommand, turret, null);
+    }
+
+    private static Command withAutoTrackSuppressed(Command shootCommand, TurretSubsystem turret, VisionSubsystem vision) {
+        final boolean[] wasAutoTracking = {false};
         return Commands.runOnce(() -> {
             wasAutoTracking[0] = turret.isAutoTrackEnabled();
             turret.setAutoTrack(false);
+            if (vision != null) vision.setShootingMode(true);
         }).andThen(shootCommand)
-          .finallyDo(() -> { if (wasAutoTracking[0]) turret.setAutoTrack(true); });
+          .finallyDo(() -> {
+              if (wasAutoTracking[0]) turret.setAutoTrack(true);
+              if (vision != null) vision.setShootingMode(false);
+          });
     }
 
     /**
@@ -113,8 +122,17 @@ public final class ShootCommands {
             HopperSubsystem hopper,
             TurretSubsystem turret,
             DoubleSupplier distanceSupplier) {
+        return shootAtDistanceTimerCommand(shooter, hopper, turret, distanceSupplier, null);
+    }
+
+    public static Command shootAtDistanceTimerCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier,
+            VisionSubsystem vision) {
         return withAutoTrackSuppressed(
-            shootAtDistanceTimerCommand(shooter, hopper, distanceSupplier), turret)
+            shootAtDistanceTimerCommand(shooter, hopper, distanceSupplier), turret, vision)
             .withName("Shoot At Distance");
     }
 
@@ -134,13 +152,14 @@ public final class ShootCommands {
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
                     hopper.feedCommand()
                 ).withTimeout(kShootDurationSeconds);
             }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
-        );
+        ).finallyDo(() -> shooter.setShotBoost(false));
         if (lowerIntake && intake != null) {
             sequence = intake.runLowerIntakeArmCommand().andThen(sequence);
         }
@@ -160,16 +179,18 @@ public final class ShootCommands {
             shooter.spinForDistanceCommand(visionDist)
                 .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()).debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
-            // Snapshot distance and feed with locked RPS
+            // Snapshot distance and feed with locked RPS + shot boost
             Commands.defer(() -> {
                 double dist = visionDist.getAsDouble();
+                shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
                     hopper.feedCommand()
                 ).withTimeout(kShootDurationSeconds);
             }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
-        ).withName("Auto Shoot");
+        ).finallyDo(() -> shooter.setShotBoost(false))
+         .withName("Auto Shoot");
     }
 
     // ==================== HOLD-TO-SHOOT (no timer) ====================
@@ -216,8 +237,17 @@ public final class ShootCommands {
             HopperSubsystem hopper,
             TurretSubsystem turret,
             DoubleSupplier distanceSupplier) {
+        return holdShootAtDistanceCommand(shooter, hopper, turret, distanceSupplier, null);
+    }
+
+    public static Command holdShootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier,
+            VisionSubsystem vision) {
         return withAutoTrackSuppressed(
-            holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret)
+            holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision)
             .withName("Hold Shoot At Distance");
     }
 
@@ -235,11 +265,13 @@ public final class ShootCommands {
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
                     hopper.feedCommand());
             }, Set.of(shooter, hopper))
         ).finallyDo(() -> {
+            shooter.setShotBoost(false);
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance");
     }
@@ -261,12 +293,14 @@ public final class ShootCommands {
                 intake.bopArmCommand()),
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
                     hopper.feedCommand(),
                     intake.bopArmCommand());
             }, Set.of(shooter, hopper, intake))
         ).finallyDo(() -> {
+            shooter.setShotBoost(false);
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance With Bop");
     }
@@ -280,8 +314,18 @@ public final class ShootCommands {
             IntakeSubsystem intake,
             TurretSubsystem turret,
             DoubleSupplier distanceSupplier) {
+        return shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, turret, distanceSupplier, null);
+    }
+
+    public static Command shootAtDistanceTimerWithBopCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier,
+            VisionSubsystem vision) {
         return withAutoTrackSuppressed(
-            shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, distanceSupplier), turret)
+            shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, distanceSupplier), turret, vision)
             .withName("Shoot At Distance With Bop");
     }
 
@@ -302,6 +346,7 @@ public final class ShootCommands {
                 intake.bopArmCommand()),
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
                     hopper.feedCommand(),
@@ -309,7 +354,8 @@ public final class ShootCommands {
                 ).withTimeout(kShootDurationSeconds);
             }, Set.of(shooter, hopper, intake)),
             stopAllCommand(shooter, hopper)
-        ).withName("Shoot At Distance With Bop");
+        ).finallyDo(() -> shooter.setShotBoost(false))
+         .withName("Shoot At Distance With Bop");
     }
 
     /**

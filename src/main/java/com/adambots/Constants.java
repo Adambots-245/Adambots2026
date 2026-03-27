@@ -107,6 +107,9 @@ public final class Constants {
         /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
         public static final double kIdleRPS = 20.0;
 
+        /** Extra RPS added during feed to compensate for ball energy transfer to flywheel. */
+        public static final double kShotBoostRPS = 3.0;
+
         // Shooting zone bounds — robot X position that defines "near the hub"
         public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
         public static final double kBlueShootingZoneMaxX = 4.54;  // Blue hub at x≈4.54
@@ -349,6 +352,9 @@ public final class Constants {
         public static final double kVisionBlendWeight = 0.6;
         /** Max disagreement (degrees) between camera and pose before blend falls back to camera-only. */
         public static final double kBlendDisagreementThreshold = 20.0;
+
+        /** Vision std dev scaling per m/s of robot speed. At 2 m/s: stdDevs *= 1 + 2*1.0 = 3x. */
+        public static final double kVisionSpeedScaling = 1.0;
 
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.

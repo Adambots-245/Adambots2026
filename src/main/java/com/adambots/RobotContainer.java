@@ -8,6 +8,7 @@ import java.io.File;
 
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
+import com.adambots.Constants.VisionConstants;
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
@@ -16,6 +17,7 @@ import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
+
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
@@ -119,6 +121,14 @@ public class RobotContainer {
                 vision = visionSubsystem.getPhotonVision();
                 swerve.setupVision(vision);
                 visionSubsystem.setTurretAngleSupplier(turret::getTurretAngleDegrees);
+
+                // Scale vision std devs by robot speed — trust vision less when driving fast
+                vision.setStdDevScaler(() -> {
+                        double speed = Math.hypot(
+                                swerve.getRobotVelocity().vxMetersPerSecond,
+                                swerve.getRobotVelocity().vyMetersPerSecond);
+                        return 1.0 + speed * VisionConstants.kVisionSpeedScaling;
+                });
         }
 
         // ==================== LEDS ====================
@@ -136,6 +146,10 @@ public class RobotContainer {
                 // Flash green when hub becomes active
                 HubActivation.ourHubActiveTrigger()
                                 .onTrue(LEDCommands.hubActivatedFlashCommand(leds));
+
+                // Rumble operator controller when 5 seconds until shift change
+                HubActivation.shiftChangeSoonTrigger(5.0)
+                                .onTrue(Commands.runOnce(() -> Buttons.rumbleOperator(1000, 1.0)));
         }
 
         // ==================== DEFAULT COMMANDS ====================
@@ -176,7 +190,7 @@ public class RobotContainer {
                 // Trigger (1): Hold-to-shoot at vision distance (no timer)
                 Buttons.JoystickButton1.whileTrue(
                                 ShootCommands.holdShootAtDistanceCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance));
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem));
 
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
@@ -301,17 +315,17 @@ public class RobotContainer {
                 NamedCommands.registerCommand("shoot", Commands.sequence(
                                 turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5),
                                 ShootCommands.shootAtDistanceTimerCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance)));
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem)));
                 NamedCommands.registerCommand("legacyShoot",
                                 ShootCommands.shootAtDistanceTimerCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance));
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem));
                 NamedCommands.registerCommand("shootNoPoint", Commands.race(
                                 Commands.waitSeconds(3),
                                 ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, turret,
-                                                visionSubsystem::getHubDistance)));
+                                                visionSubsystem::getHubDistance, visionSubsystem)));
                 NamedCommands.registerCommand("shootWithBop",
                                 ShootCommands.shootAtDistanceTimerWithBopCommand(
-                                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance));
+                                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem));
                 NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
                 NamedCommands.registerCommand("intakeLob",
                                 ShootCommands.autonLobCommand(shooter, turret, hopper, intake));

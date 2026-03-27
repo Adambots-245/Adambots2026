@@ -4,10 +4,6 @@
 
 package com.adambots;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
  * constants. This class should not be used for any other purpose. All constants should be declared
@@ -26,19 +22,22 @@ public final class Constants {
     public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
-    public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
+    public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
+
+    /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
+    public static final boolean CURRENT_LOGGING = true;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
     public static final int kShuffleboardCols = 10;
     public static final int kShuffleboardRows = 5;
 
     /** LED strip configuration — update kLEDStripLength once strip is wired. */
-    public static final int kLEDStripLength = 100;
+    public static final int kLEDStripLength = 105;
     public static final int kProgressStartIndex = 8;    // first external LED (after 8 onboard)
-    public static final int kProgressLEDCount = 100;    // LEDs used for the progress bar
+    public static final int kProgressLEDCount = 97;    // LEDs used for the progress bar
 
     // ==================== DriveConstants ====================
     /**
@@ -61,7 +60,7 @@ public final class Constants {
         public static final double kAutoRotationD = 0.0;
 
         /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
-        public static final double kTranslationScale = 0.8;
+        public static final double kTranslationScale = 1.0;
     }
 
     // ==================== ShooterConstants ====================
@@ -71,19 +70,19 @@ public final class Constants {
      */
     public static final class ShooterConstants {
         // ==================== Flywheel Motor Specs ====================
-        public static final double kMotorFreeSpeedRPS = 100.0; // Kraken X60: 6000 RPM = 100 RPS
+        public static final double kMotorFreeSpeedRPS = 96.4; // Kraken X60 FOC: 5784 RPM = 96.4 RPS
         public static final double kNominalVoltage = 12.0;
 
         // Set to -1.0 to reverse flywheel direction (workaround for setInverted issue)
         public static final double kFlywheelDirection = -1.0;
 
         // ==================== Flywheel PID (tested on test board) ====================
-        public static final double kFlywheelP = 0.1;
+        public static final double kFlywheelP = 0.3;
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
         public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
 
-        public static final double kFlywheelToleranceRPS = 2.0;
+        public static final double kFlywheelToleranceRPS = 1.0;
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
         public static final double kLobShotRPS = 49.0;
@@ -95,15 +94,25 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 45.0},
-            {2.5, 47.5},
-            {3.0, 52.0},
-            {4.0, 55.0},
-            {5.0, 65.0}
+            {2.0, 46.0},
+            {2.5, 50.0},
+            {3.0, 53.5},
+            {4.0, 58.0},
+            {5.0, 62.0}
         };
 
-        public static final double kMinRPS = 42.0;  // table minimum
-        public static final double kMaxRPS = 65.0;  // table maximum
+        public static final double kMinRPS = 46.0;  // table minimum
+        public static final double kMaxRPS = 68.0;  // table maximum
+
+        /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
+        public static final double kIdleRPS = 20.0;
+
+        /** Extra RPS added during feed to compensate for ball energy transfer to flywheel. */
+        public static final double kShotBoostRPS = 3.0;
+
+        // Shooting zone bounds — robot X position that defines "near the hub"
+        public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
+        public static final double kBlueShootingZoneMaxX = 4.54;  // Blue hub at x≈4.54
     }
 
     // ==================== TurretConstants ====================
@@ -131,18 +140,18 @@ public final class Constants {
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
         // Reference range — software-limited via pot + clamp in setTurretAngle()
-        public static final double kTurretMaxDegrees = 260.0;
+        public static final double kTurretMaxDegrees = 300.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
-        public static final double kTurretForwardDegrees = 170.0;
+        public static final double kTurretForwardDegrees = 210.0;
 
         public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
         // ==================== Potentiometer Calibration ====================
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 0.0;
-        /** Pot reading (degrees) when turret is at 180° — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2889.0;
+        public static final double kTurretPotAtZeroDeg = 0;
+        /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
+        public static final double kTurretPotAtMaxDeg = 3575.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -156,26 +165,27 @@ public final class Constants {
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
         public static final double kCameraTrackingGain = 0.3;
-        /** Degrees between search positions during hub acquisition sweep */
-        public static final double kSearchStepDeg = 30.0;
-        /** Frames to dwell at each search position (1s at 50Hz — gives 20 FPS camera ~20 frames) */
-        public static final int kSearchDwellFrames = 50;
-        /** Frames to dwell during manual align (0.5s — with charge rate 10, 1 valid frame suffices) */
-        public static final int kManualAlignDwellFrames = 25;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
-        /** Voltage for sweep motor output (higher = faster sweep, 1.0V ≈ 180°/sec) */
-        public static final double kScanVoltage = 1.0;
+        /** Degrees to move per cycle during continuous scan sweep */
+        public static final double kScanStepDeg = 4.5;
+        /** Anticipation time for angular velocity feedforward (seconds).
+         *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
+        public static final double kAngularVelLeadTime = 0.1;
     }
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.13;
-        public static final double kUptakeSpeed = 0.5;
-        public static final double kDetectionRange = 2.0; // cm
+        public static final double kHopperSpeed = 0.25;
+        public static final double kUptakeSpeed = 0.65;
+
+        // Jam detection
+        public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed
+        public static final double kJamReverseDuration = 0.5;    // seconds to reverse when jam detected
+        public static final double kJamGracePeriod = 0.25;       // seconds before jam detection activates after feed starts
 
         // Current limits
-        public static final double kHopperSupplyCurrentLimit = 20.0;
+        public static final double kHopperSupplyCurrentLimit = 50.0;
         public static final double kUptakeSupplyCurrentLimit = 40.0;
     }
 
@@ -210,6 +220,10 @@ public final class Constants {
         /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
         public static final String kShooterCameraName = "shooter_cam";
 
+        /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
+        public static final String kFrontCameraName = "forward_camera";
+
+
         // ==================== Camera Positions ====================
         // All measurements are in METERS from the robot center to the camera lens.
         // Robot center = the point on the floor exactly between the four swerve modules.
@@ -234,34 +248,43 @@ public final class Constants {
         //      0 = forward, 90 = left, 180 = backward, -90 = right.
         //
         // Back swerve modules are at (-0.28m, ±0.28m) from center per swerve config.
-        // TODO: Fine-tune all positions with actual measurements from the robot
+        // Camera positions measured from robot
 
         // Back-Left ArduCam (on top of back-left swerve module, facing backward)
          // Back-Left ArduCam (on top of back-left swerve module, facing backward)
         public static final double kBackLeftCameraX = -0.32;   // back of robot
-        public static final double kBackLeftCameraY = 0.24;    // left side
+        public static final double kBackLeftCameraY = 0.27;    // left side
         public static final double kBackLeftCameraZ = 0.18;    // on top of module (~8.5in up)
         public static final double kBackLeftCameraRoll = 0.0;
-        public static final double kBackLeftCameraPitch = 20.0;  // slightly up to see AprilTags
+        public static final double kBackLeftCameraPitch = 22.5;  // slightly up to see AprilTags
         public static final double kBackLeftCameraYaw = 170.0;   // facing backward
 
         // Back-Right ArduCam (on top of back-right swerve module, facing backward)
-        public static final double kBackRightCameraX = -0.32;  // back of robot
-        public static final double kBackRightCameraY = -0.24;  // right side
+        public static final double kBackRightCameraX = -0.33;  // back of robot
+        public static final double kBackRightCameraY = -0.27;  // right side
         public static final double kBackRightCameraZ = 0.18;   // on top of module (~8.5in up)
         public static final double kBackRightCameraRoll = 0.0;
-        public static final double kBackRightCameraPitch = 22.0;  // slightly up to see AprilTags
-        public static final double kBackRightCameraYaw = -166.0;  // facing backward
+        public static final double kBackRightCameraPitch = 22.5;  // slightly up to see AprilTags
+        public static final double kBackRightCameraYaw = -170.0;  // facing backward
 
         // Shooter LifeCam (on top of shooter at back of robot, facing forward)
         public static final double kShooterCameraX = -0.20;   // behind center (shooter is at back)
         public static final double kShooterCameraY = 0.0;      // centered
         public static final double kShooterCameraZ = 0.53;     // on top of shooter (~20in up)
         public static final double kShooterCameraRoll = 0.0;
-        public static final double kShooterCameraPitch = 27.0;  // level
+        public static final double kShooterCameraPitch = 27.0;  // pitched up to see hub tags
         public static final double kShooterCameraYaw = 0.0;     // facing forward
         /** Turret angle (degrees) at which the camera faces robot-forward — equals kTurretForwardDegrees. */
-        public static final double kShooterCameraTurretOffset = 170.0;
+        public static final double kShooterCameraTurretOffset = TurretConstants.kTurretForwardDegrees;
+
+        // Shooter LifeCam (on top of climb, facing forward)
+        public static final double kFrontCameraX = -0.155;   // behind center (climb is at back)
+        public static final double kFrontCameraY = 0.13;
+        public static final double kFrontCameraZ = 0.48;     // on top of climb
+        public static final double kFrontCameraRoll = 0.0;
+        public static final double kFrontCameraPitch = 0.0;  // level
+        public static final double kFrontCameraYaw = 0.0;     // facing forward
+
 
         // ==================== Pose Estimation Parameters ====================
 
@@ -324,16 +347,21 @@ public final class Constants {
         /** Max distance to consider a target valid (meters) */
         public static final double kMaxDistanceMeters = 8.0;
 
-        /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback) */
+        /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
         public static final int kVisionMode = 0;
 
+        /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
+        public static final double kVisionBlendWeight = 0.6;
+        /** Max disagreement (degrees) between camera and pose before blend falls back to camera-only. */
+        public static final double kBlendDisagreementThreshold = 20.0;
+
+        /** Vision std dev scaling per m/s of robot speed. At 2 m/s: stdDevs *= 1 + 2*1.0 = 3x. */
+        public static final double kVisionSpeedScaling = 1.0;
+
         // ==================== Vision Filtering ====================
-        /** Median filter window size — rejects outlier spikes. Odd numbers work best. */
-        public static final int kMedianFilterSize = 5;
-        /** Low-pass filter time constant (seconds). Higher = smoother but laggier. */
-        public static final double kLowPassTimeConstant = 0.15;
-        /** Robot loop period (seconds) — used for low-pass filter calculation. */
-        public static final double kLoopPeriod = 0.02;
+        /** Exponential weighted average alpha — fraction of new measurement per frame.
+         *  0.04 = 4% new, 96% prior (à la 6328). Higher = more responsive but noisier. */
+        public static final double kVisionAlpha = 0.04;
 
         // ==================== Hub Visibility Holdoff ====================
         /** Max value for charge/decay holdoff counter.
@@ -367,8 +395,8 @@ public final class Constants {
         public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 2.0;  // rotations per second
-        public static final double kArmAcceleration = 1.0;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 4.0;  // rotations per second
+        public static final double kArmAcceleration = 2.0;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -381,21 +409,33 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.55;
 
-        public static final double kArmRaisedPosition = 136.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 251.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
-        public static final double kBopAngle = 15.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kArmRaisedPosition = 160.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
+        public static final double kArmKnownSetpointTolerance = 0.01; // mechanism rotations — re-sync guard
+        public static final double kRollerRunningThreshold = 0.1; // RPS — above this = roller is spinning
+
+        // Roller jam detection
+        public static final double kRollerJamVelocityThreshold = 0.5; // RPS — below this = jammed
+        public static final double kRollerJamReverseDuration = 0.3;   // seconds to reverse when jam detected
+        public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
         public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)
-        public static final int kRollerSupplyCurrentLimit = 50;  // supply amps (must be ≤ PDH breaker)
+        public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
-        public static final int kArmStatorCurrentLimit = 60;  // stator amps (torque limiting)
+        public static final int kArmStatorCurrentLimit = 45;  // stator amps (torque limiting)
         public static final int kArmSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;
+
+        /** Set true when throughbore encoder is hardwired to TalonFXS data port (PWM).
+         *  When true, FXS reads the encoder directly at 1kHz — no DIO re-sync needed. */
+        public static final boolean kUseExternalEncoder = false;
     }
 
      // ==================== TuningConstants ====================
@@ -440,46 +480,31 @@ public final class Constants {
     }
 
     // ==================== SimulationConstants ====================
-    /**
-     * Constants for 3D simulation with AdvantageScope, including FUEL physics
-     * and PhotonVision camera simulation parameters.
-     */
     public static final class SimulationConstants {
-        // === FUEL Game Piece Physics (2026) ===
+        // FUEL Game Piece Physics (2026)
         public static final double kFuelDiameterMeters = 0.15;
         public static final double kFuelMassKg = 0.227;
         public static final double kFuelDragCoefficient = 0.47;
 
-        // === Shooter Physics ===
+        // Shooter Physics
         public static final double kHoodAngleDegrees = 60.0;
-        public static final double kLaunchHeightMeters = 0.45; // TODO: waiting for exit height from mechanical
+        public static final double kLaunchHeightMeters = 0.45;
         public static final double kFlywheelRadiusMeters = 0.0508;
         public static final double kExitVelocityMultiplier = 0.85;
 
-        // === Camera Simulation ===
+        // Camera Simulation
         public static final int kCameraResolutionWidth = 640;
         public static final int kCameraResolutionHeight = 480;
-        public static final double kCameraFOVDegrees = 68.5; // LifeCam HD-3000
+        public static final double kCameraFOVDegrees = 68.5;
         public static final double kCameraFPS = 20.0;
         public static final double kCameraAvgLatencyMs = 35.0;
         public static final double kCameraLatencyStdDevMs = 5.0;
 
-        // === Turret Sim Physics ===
-        public static final double kTurretMOI = 0.5; // kg*m² (estimate)
+        // Turret Sim Physics
+        public static final double kTurretMOI = 0.5; // kg*m²
 
-        // === Target Heights (2026 Hub) ===
+        // Target Heights (2026 Hub)
         public static final double kLowHubHeightMeters = 1.04;
         public static final double kHighHubHeightMeters = 1.83;
-    }
-
-    // ==================== HangConstants ====================
-    public static final class HangConstants {
-        public static final double kRearCameraXMeters = -0.28;
-        public static final double kRearCameraYMeters = 0.0;
-        public static final double kRearCameraZMeters = 0.30;
-        public static final double kRearCameraPitchDegrees = 5.0;
-        public static final double kRearCameraYawDegrees = 180.0;
-        public static final String kRearCameraName = "hang_camera";
-        public static final double kTargetDistanceFromWall = 0.60;
     }
 }

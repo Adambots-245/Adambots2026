@@ -7,28 +7,9 @@ package com.adambots;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.ironmaple.simulation.SimulatedArena;
-
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.ControllerType;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.simulation.DriverStationSim;
-
-import edu.wpi.first.epilogue.Epilogue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.NotLogged;
-import edu.wpi.first.epilogue.logging.EpilogueBackend;
-import edu.wpi.first.epilogue.logging.FileBackend;
-import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
-import edu.wpi.first.epilogue.logging.errors.ErrorHandler;
-import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -44,18 +25,13 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
  * the TimedRobot documentation. If you change the name of this class or the package after
  * creating this project, you must also update the Main.java file in the project.
  */
-@Logged
 public class Robot extends LoggedRobot {
     private Command autonomousCommand;
 
-    @Logged
     private RobotContainer container;
 
     // For tracking command execution times
     private final Map<Command, Double> commandStartTimes = new HashMap<>();
-
-    // Epilogue backend for logging (since we can't use bind() with LoggedRobot)
-    private EpilogueBackend epilogueBackend;
 
     /**
      * Constructor - AdvantageKit Logger MUST be configured here, before LoggedRobot initialization.
@@ -68,8 +44,8 @@ public class Robot extends LoggedRobot {
             // In simulation only — publish to NT for live AdvantageScope viewing.
             Logger.addDataReceiver(new NT4Publisher());
         }
-        // On real robot: no data receivers = AdvantageKit logging fully disabled.
-        // Re-enable WPILOGWriter once connection stability is resolved.
+        // Log to USB stick on real robot for post-match analysis in AdvantageScope
+        Logger.addDataReceiver(new WPILOGWriter());
 
         Logger.start();
     }
@@ -80,34 +56,26 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotInit() {
-        // 1. WPILib DataLogManager disabled to reduce disk I/O — re-enable once stable
-        // DataLogManager.start();
+        // 1. WPILib DataLogManager — logs DS data, joystick inputs to USB for post-match review
+        DataLogManager.start();
 
-        // 2. Initialize buttons with Xbox controllers for both driver and operator
-        // NOTE: Changed driver from EXTREME_3D_PRO to XBOX for simulation testing
+        // CTRE SignalLogger — logs all TalonFX signals (current, voltage, velocity) to .hoot file
+        // Runs on CANivore processor, no roboRIO CPU impact. Uncomment to enable.
+        // com.ctre.phoenix6.SignalLogger.start();
+
+        // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
         Buttons.init(
             RobotMap.kDriverJoystickPort,
             RobotMap.kOperatorXboxPort,
-            ControllerType.XBOX,
+            ControllerType.EXTREME_3D_PRO,
             ControllerType.XBOX
         );
 
         // 3. Create RobotContainer (creates all subsystems)
         container = new RobotContainer();
 
-        // 4. CommandScheduler timing hooks disabled — re-enable once connection stability is resolved
+        // 4. CommandScheduler timing hooks disabled — high overhead from per-command logging
         // setupCommandSchedulerHooks();
-
-        // 5. Epilogue disabled to reduce CPU/IO load — re-enable once connection stability is resolved
-        // epilogueBackend = isReal()
-        //     ? new FileBackend(DataLogManager.getLog())
-        //     : new NTEpilogueBackend(NetworkTableInstance.getDefault());
-        //
-        // Epilogue.getConfig().errorHandler = (error, logger) -> {
-        //     if (!(error instanceof NullPointerException)) {
-        //         ErrorHandler.printErrorMessages().handle(error, logger);
-        //     }
-        // };
     }
 
     /**
@@ -130,14 +98,7 @@ public class Robot extends LoggedRobot {
         container.getTuningPeriodic().run();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
-        // Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
-
-        // Epilogue logging disabled — re-enable once connection stability is resolved
-        // try {
-        //     Epilogue.robotLogger.tryUpdate(epilogueBackend.getNested("Robot"), this, Epilogue.getConfig().errorHandler);
-        // } catch (NoSuchFieldError e) {
-        //     // Epilogue class mismatch — harmless in simulation, logging is best-effort
-        // }
+        Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
     }
 
     /** This function is called once each time the robot enters Disabled mode. */
@@ -172,19 +133,6 @@ public class Robot extends LoggedRobot {
             autonomousCommand.cancel();
         }
         container.onTeleopInit(autonomousCommand == null);
-
-        // In sim, reset odometry to alliance-correct starting position
-        // (alliance isn't available during simulationInit, only after DS connects)
-        if (!isReal()) {
-            Pose2d startPose = new Pose2d(1.6, 4.0, Rotation2d.fromDegrees(0));
-            if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red) {
-                double fieldLength = 16.54;
-                startPose = new Pose2d(
-                    fieldLength - startPose.getX(), startPose.getY(),
-                    startPose.getRotation().plus(Rotation2d.fromDegrees(180)));
-            }
-            container.getSwerve().resetOdometry(startPose);
-        }
     }
 
     /** This function is called periodically during operator control. */
@@ -204,10 +152,11 @@ public class Robot extends LoggedRobot {
     /** This function is called once when the robot is first started up. */
     @Override
     public void simulationInit() {
-        SimulatedArena.getInstance();
-        DriverStationSim.setAllianceStationId(edu.wpi.first.hal.AllianceStationID.Red1);
-        DriverStationSim.setEnabled(true);
-        DriverStationSim.notifyNewData();
+        org.ironmaple.simulation.SimulatedArena.getInstance();
+        edu.wpi.first.wpilibj.simulation.DriverStationSim.setAllianceStationId(
+            edu.wpi.first.hal.AllianceStationID.Red1);
+        edu.wpi.first.wpilibj.simulation.DriverStationSim.setEnabled(true);
+        edu.wpi.first.wpilibj.simulation.DriverStationSim.notifyNewData();
         System.out.println("[SIM] Auto-enabled as Red1");
     }
 
@@ -216,19 +165,27 @@ public class Robot extends LoggedRobot {
     public void simulationPeriodic() {
         var robotPose = container.getSwerve().getPose();
         double turretAngle = container.getTurretAngle();
-        container.getVision().simulationPeriodic(robotPose, turretAngle);
-        SimulatedArena.getInstance().simulationPeriodic();
+        if (container.getVision() != null) {
+            container.getVision().simulationPeriodic(robotPose, turretAngle);
+        }
+        org.ironmaple.simulation.SimulatedArena.getInstance().simulationPeriodic();
 
         // Publish field-relative camera pose for AdvantageScope Camera Override
         double robotYaw = robotPose.getRotation().getRadians();
-        double camYaw = robotYaw + Math.toRadians(Constants.VisionConstants.kShooterCameraTurretOffset - turretAngle);
-        double camX = robotPose.getX() + Constants.VisionConstants.kShooterCameraX * Math.cos(camYaw)
-                     - Constants.VisionConstants.kShooterCameraY * Math.sin(camYaw);
-        double camY = robotPose.getY() + Constants.VisionConstants.kShooterCameraX * Math.sin(camYaw)
-                     + Constants.VisionConstants.kShooterCameraY * Math.cos(camYaw);
-        Logger.recordOutput("CameraPose", new Pose3d(
-            new Translation3d(camX, camY, Constants.VisionConstants.kShooterCameraZ),
-            new Rotation3d(0, Math.toRadians(-Constants.VisionConstants.kShooterCameraPitch), camYaw)));
+        double camYaw = robotYaw + Math.toRadians(
+            Constants.VisionConstants.kShooterCameraTurretOffset - turretAngle);
+        double camX = robotPose.getX()
+            + Constants.VisionConstants.kShooterCameraX * Math.cos(camYaw)
+            - Constants.VisionConstants.kShooterCameraY * Math.sin(camYaw);
+        double camY = robotPose.getY()
+            + Constants.VisionConstants.kShooterCameraX * Math.sin(camYaw)
+            + Constants.VisionConstants.kShooterCameraY * Math.cos(camYaw);
+        org.littletonrobotics.junction.Logger.recordOutput("CameraPose",
+            new edu.wpi.first.math.geometry.Pose3d(
+                new edu.wpi.first.math.geometry.Translation3d(
+                    camX, camY, Constants.VisionConstants.kShooterCameraZ),
+                new edu.wpi.first.math.geometry.Rotation3d(
+                    0, Math.toRadians(-Constants.VisionConstants.kShooterCameraPitch), camYaw)));
     }
 
     /**

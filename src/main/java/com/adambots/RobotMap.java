@@ -11,9 +11,6 @@ import com.adambots.lib.actuators.DummySolenoid;
 import com.adambots.lib.actuators.ElectricalSolenoid;
 import com.adambots.lib.actuators.MinionMotor;
 import com.adambots.lib.actuators.TalonFXMotor;
-import com.adambots.lib.sensors.BaseDistanceSensor;
-import com.adambots.lib.sensors.DummyDistanceSensor;
-
 import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import com.adambots.lib.sensors.DummyAbsoluteEncoder;
 import com.adambots.lib.sensors.Potentiometer;
@@ -45,6 +42,7 @@ public class RobotMap {
     public static final boolean LEDS_ENABLED = true;
     public static final boolean BACK_CAMERAS_ENABLED = true;
     public static final boolean SHOOTER_CAMERA_ENABLED = true;
+    public static final boolean FRONT_CAMERA_ENABLED = true;
 
     // ==================== CONTROLLER PORTS ====================
     /** Driver controller port - Logitech Extreme 3D Pro joystick */
@@ -95,16 +93,11 @@ public class RobotMap {
     // Port assignments - on CANivore
     private static final int kHopperPort = 26;
     private static final int kUptakePort = 34;        // Kraken X44
-    private static final int kHopperSensorPort = 27;  // CANRange sensor
 
     public static final BaseMotor hopperMotor = HOPPER_ENABLED
         ? new TalonFXMotor(kHopperPort, true, true) : new DummyMotor();
     public static final BaseMotor uptakeMotor = HOPPER_ENABLED
         ? new TalonFXMotor(kUptakePort, true, true) : new DummyMotor();
-    // TODO: Re-enable when CANRange is wired in
-    // public static final BaseDistanceSensor hopperSensor = HOPPER_ENABLED
-    //     ? new CANRangeSensor(kHopperSensorPort, true) : new DummyDistanceSensor();
-    public static final BaseDistanceSensor hopperSensor = new DummyDistanceSensor();
 
     // ==================== CLIMBER ====================
     // Port assignments - On CANivore

@@ -350,7 +350,7 @@ public final class Constants {
         public static final double kMaxDistanceMeters = 8.0;
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
-        public static final int kVisionMode = 0; // 0=Camera, 1=Pose, 2=Hybrid, 3=Blended
+        public static final int kVisionMode = 3; // 0=Camera, 1=Pose, 2=Hybrid, 3=Blended
 
         /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
         public static final double kVisionBlendWeight = 0.6;

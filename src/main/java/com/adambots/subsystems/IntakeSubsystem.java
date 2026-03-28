@@ -48,6 +48,9 @@ public class IntakeSubsystem extends SubsystemBase {
     private double bopAngle = IntakeConstants.kBopAngle;
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
 
+    // Coast-when-lowered: arm goes loose at lowered position for compliance
+    private boolean armInCoast = false;
+
     // Roller jam detection state
     private boolean rollerReversing = false;
     private boolean wasRollerRunningLastCycle = false;
@@ -210,6 +213,11 @@ public class IntakeSubsystem extends SubsystemBase {
         if (!rollerReversing) {
             intakeMotor.set(IntakeConstants.kIntakeSpeed);
         }
+        // Coast arm for compliance during active intake
+        if (!armInCoast) {
+            intakeArmMotor.setBrakeMode(false);
+            armInCoast = true;
+        }
     }
 
     /**
@@ -225,6 +233,7 @@ public class IntakeSubsystem extends SubsystemBase {
     public void stopIntake() {
         intakeMotor.set(0);
         rollerReversing = false;
+        restoreBrakeMode();
     }
 
     /**
@@ -239,6 +248,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Raise the intake arm using onboard Motion Magic with gravity compensation.
      */
     public void raiseIntakeArm() {
+        restoreBrakeMode();
         targetPosition = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
@@ -248,6 +258,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Uses Motion Magic to maintain gravity compensation.
      */
     public void stopIntakeArm() {
+        restoreBrakeMode();
         targetPosition = IntakeConstants.kUseExternalEncoder
             ? intakeArmMotor.getPosition()
             : degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
@@ -328,6 +339,14 @@ public class IntakeSubsystem extends SubsystemBase {
     public Command stopIntakeArmCommand() {
         return runOnce(this::stopIntakeArm)
                 .withName("Stop Intake Arm");
+    }
+
+    /** Restore brake mode if currently in coast (for raising, bopping, or holding). */
+    private void restoreBrakeMode() {
+        if (armInCoast) {
+            intakeArmMotor.setBrakeMode(true);
+            armInCoast = false;
+        }
     }
 
     /**

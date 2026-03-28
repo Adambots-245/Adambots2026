@@ -1,7 +1,5 @@
 package com.adambots.utils;
 
-import static edu.wpi.first.units.Units.Centimeters;
-
 import com.adambots.Constants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.RobotMap;
@@ -52,7 +50,9 @@ public final class DashboardSetup {
         if (Constants.INTAKE_TAB && tuningManager != null)  tuningManager.setupIntakeTunables();
         if (Constants.HOPPER_TAB && tuningManager != null)  tuningManager.setupHopperTunables();
 
-        configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
+        if (Constants.TUNING_ENABLED) {
+            configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
+        }
 
         return tuningManager != null ? tuningManager::periodic : null;
     }
@@ -338,9 +338,6 @@ public final class DashboardSetup {
         Dash.addCommand("Lock Climber", climber.lockCommand(), col, row);
         if (++col >= sysCols) { col = 0; row++; }
 
-        // Live sensor
-        Dash.add("Hopper Sensor (cm)",
-            () -> RobotMap.hopperSensor.getDistance().in(Centimeters), col, row);
         Dash.useDefaultTab();
     }
 }

@@ -3,9 +3,11 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.*;
 
 import java.util.Optional;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.adambots.Constants;
+import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
@@ -59,6 +61,9 @@ public class VisionSubsystem extends SubsystemBase {
     private final boolean hasBackCameras;
     private final boolean hasShooterCamera;
 
+    // Turret angle supplier — needed to convert pose angle (robot-relative) to turret-relative
+    private DoubleSupplier turretAngleSupplier = () -> TurretConstants.kTurretForwardDegrees;
+
     // Precomputed hub centers (geometric center of all hub tags per alliance)
     private final Translation2d blueHubCenter;
     private final Translation2d redHubCenter;
@@ -72,6 +77,10 @@ public class VisionSubsystem extends SubsystemBase {
     private double hubPoseDistanceMeters = 0;
     private double hubPoseAngleDegrees = 0;
     private boolean hubPoseHasTarget = false;
+
+    // Hub tracking — Mode 3 outputs (blended: weighted avg of camera + pose)
+    private double hubBlendedDistanceMeters = 0;
+    private double hubBlendedAngleDegrees = 0;
 
     // Hub tracking — shared
     private int hubVisibleTagCount = 0;
@@ -117,7 +126,8 @@ public class VisionSubsystem extends SubsystemBase {
      * @param shooterCameraEnabled whether the shooter alignment camera is present
      */
     public VisionSubsystem(Supplier<Pose2d> poseSupplier, Field2d field,
-                           boolean backCamerasEnabled, boolean shooterCameraEnabled) {
+                           boolean backCamerasEnabled, boolean shooterCameraEnabled,
+                           boolean frontCameraEnabled) {
         this.poseSupplier = poseSupplier;
         this.hasBackCameras = backCamerasEnabled;
         this.hasShooterCamera = shooterCameraEnabled;
@@ -183,7 +193,9 @@ public class VisionSubsystem extends SubsystemBase {
                 .done();
         }
 
-                builder.addCamera(VisionConstants.kFrontCameraName)
+        if (frontCameraEnabled) {
+            // Front LifeCam (forward-facing, pitched 27° up for hub tag visibility)
+            builder.addCamera(VisionConstants.kFrontCameraName)
                 .position(Meters.of(VisionConstants.kFrontCameraX),
                           Meters.of(VisionConstants.kFrontCameraY),
                           Meters.of(VisionConstants.kFrontCameraZ))
@@ -199,7 +211,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
                 .done();
-
+        }
 
         VisionSystemConfig config = builder
             .ambiguityThreshold(VisionConstants.kAmbiguityThreshold)
@@ -231,6 +243,7 @@ public class VisionSubsystem extends SubsystemBase {
             VisionConstants.kAmbiguityThreshold);
 
         if (Constants.VISION_TAB) setupDash();
+        Dash.add("Dist (m)", this::getHubDistance);
     }
 
     private void setupDash() {
@@ -279,11 +292,31 @@ public class VisionSubsystem extends SubsystemBase {
     // ==================== Tuning Setters (called by TuningManager) ====================
 
     public void setVisionMode(int mode) {
+        mode = Math.max(0, Math.min(3, mode)); // clamp to valid range
         visionMode = hasShooterCamera ? mode : 1;
     }
 
     public void setAmbiguityThreshold(double threshold) {
         runtimeAmbiguityThreshold = threshold;
+    }
+
+    /** Set turret angle supplier so blended mode can convert pose angle to turret-relative. */
+    public void setTurretAngleSupplier(DoubleSupplier supplier) {
+        turretAngleSupplier = supplier;
+    }
+
+    /**
+     * Enable/disable shooting mode tag filter. When enabled, pose estimation
+     * only uses hub tags — prevents non-hub tags from corrupting the pose during shots.
+     */
+    public void setShootingMode(boolean shooting) {
+        if (shooting) {
+            int[] hubTags = Utils.isOnRedAlliance()
+                ? VisionConstants.kRedHubTags : VisionConstants.kBlueHubTags;
+            photonVision.setTagFilter(hubTags);
+        } else {
+            photonVision.setTagFilter(null);
+        }
     }
 
     // Raw value getters for DashboardSetup to display behind TUNING_ENABLED
@@ -294,7 +327,9 @@ public class VisionSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        SmartDashboard.putNumber("Vision/Mode", visionMode);
+        if (Constants.TUNING_ENABLED) {
+            SmartDashboard.putNumber("Vision/Mode", visionMode);
+        }
 
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache
@@ -306,7 +341,7 @@ public class VisionSubsystem extends SubsystemBase {
         int[] hubTagIds = isRed ? VisionConstants.kRedHubTags : VisionConstants.kBlueHubTags;
 
         // Hub tag count
-        hubVisibleTagCount = photonVision.getVisibleTagCount(hubTagIds, VisionConstants.kAmbiguityThreshold);
+        hubVisibleTagCount = photonVision.getVisibleTagCount(hubTagIds, runtimeAmbiguityThreshold);
 
         // ==================== Hub Approach A: Camera-Only ====================
         if (hasShooterCamera) {
@@ -323,12 +358,15 @@ public class VisionSubsystem extends SubsystemBase {
             hubCamHoldoffCounter = Math.max(hubCamHoldoffCounter - 1, 0);
         }
         hubCamSticky = hubCamHoldoffCounter > 0;
-        SmartDashboard.putNumber("Vision/HoldoffCounter", hubCamHoldoffCounter);
-        SmartDashboard.putBoolean("Vision/HubSticky", hubCamSticky);
-        SmartDashboard.putBoolean("Vision/HubFresh", hubCamHasTarget);
+        if (Constants.TUNING_ENABLED) {
+            SmartDashboard.putNumber("Vision/HoldoffCounter", hubCamHoldoffCounter);
+            SmartDashboard.putBoolean("Vision/HubSticky", hubCamSticky);
+            SmartDashboard.putBoolean("Vision/HubFresh", hubCamHasTarget);
+        }
 
         // ==================== Hub Approach B: Pose-Based ====================
-        if (hasBackCameras) {
+        // Only compute when visionMode uses pose data (1=Pose-only, 2=Hybrid)
+        if (hasBackCameras && visionMode != 0) {
             Pose2d currentPose = poseSupplier.get();
             // Guard: skip if swerve pose is still at origin (no vision updates processed yet).
             // No camera dependency — Approach B is purely pose-based via swerve odometry.
@@ -355,6 +393,32 @@ public class VisionSubsystem extends SubsystemBase {
             prevHubPoseHasTarget = hubPoseHasTarget;
         }
 
+        // Mode 3: compute weighted blend of camera and pose values.
+        // Camera angle is turret-relative (offset from boresight).
+        // Pose angle is robot-relative (bearing from robot heading to hub).
+        // Convert pose angle to turret-relative before blending:
+        //   turretRelativePoseAngle = poseAngle - (turretAngle - turretForwardDeg)
+        double poseAngleTurretRelative = poseAngleToTurretRelative(hubPoseAngleDegrees);
+        if (hubCamHasTarget && hubPoseHasTarget) {
+            // Disagreement guard: if camera and pose angles differ by more than threshold,
+            // the sources are inconsistent (possible miscalibration or ambiguous tag).
+            // Fall back to camera-only which is the more direct measurement.
+            if (Math.abs(hubCamAngleDegrees - poseAngleTurretRelative) > VisionConstants.kBlendDisagreementThreshold) {
+                hubBlendedDistanceMeters = hubCamDistanceMeters;
+                hubBlendedAngleDegrees = hubCamAngleDegrees;
+            } else {
+                double w = VisionConstants.kVisionBlendWeight;
+                hubBlendedDistanceMeters = w * hubCamDistanceMeters + (1.0 - w) * hubPoseDistanceMeters;
+                hubBlendedAngleDegrees = w * hubCamAngleDegrees + (1.0 - w) * poseAngleTurretRelative;
+            }
+        } else if (hubCamHasTarget) {
+            hubBlendedDistanceMeters = hubCamDistanceMeters;
+            hubBlendedAngleDegrees = hubCamAngleDegrees;
+        } else if (hubPoseHasTarget) {
+            hubBlendedDistanceMeters = hubPoseDistanceMeters;
+            hubBlendedAngleDegrees = poseAngleTurretRelative;
+        }
+
         // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
         if (Constants.VISION_TAB) {
             double now = Timer.getFPGATimestamp();
@@ -362,7 +426,7 @@ public class VisionSubsystem extends SubsystemBase {
                 lastLogTimestamp = now;
                 Pose2d p = poseSupplier.get();
                 int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
-                String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "?";
+                String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;
                 System.out.printf(
                     "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
@@ -488,18 +552,21 @@ public class VisionSubsystem extends SubsystemBase {
 
     /** Distance to hub center using the active vision mode. */
     public double getHubDistance() {
+        if (visionMode == 3) return hubBlendedDistanceMeters;
         if (visionMode == 2) return hubCamHasTarget ? hubCamDistanceMeters : hubPoseDistanceMeters;
         return visionMode == 0 ? hubCamDistanceMeters : hubPoseDistanceMeters;
     }
 
     /** Angle to hub center using the active vision mode (degrees, positive = left). */
     public double getHubAngle() {
+        if (visionMode == 3) return hubBlendedAngleDegrees;
         if (visionMode == 2) return hubCamHasTarget ? hubCamAngleDegrees : hubPoseAngleDegrees;
         return visionMode == 0 ? hubCamAngleDegrees : hubPoseAngleDegrees;
     }
 
     /** Whether the hub is visible using the active vision mode. */
     public boolean isHubVisible() {
+        if (visionMode == 3) return hubCamHasTarget || hubPoseHasTarget;
         if (visionMode == 2) return hubCamHasTarget || hubPoseHasTarget;
         return visionMode == 0 ? hubCamHasTarget : hubPoseHasTarget;
     }
@@ -620,12 +687,19 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== General Commands ====================
 
-    private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid"};
+    /** Convert robot-relative pose angle to turret-relative offset for blending with camera angle. */
+    private double poseAngleToTurretRelative(double poseAngleDeg) {
+        double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
+            - TurretConstants.kTurretForwardDegrees;
+        return poseAngleDeg - turretOffsetFromForward;
+    }
+
+    private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid", "Blended"};
 
     /** Logs current vision state — useful for debugging in autos. */
     public Command logVisionCommand() {
         return runOnce(() -> {
-            String modeName = (visionMode >= 0 && visionMode <= 2) ? MODE_NAMES[visionMode] : "Unknown";
+            String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "Unknown";
             System.out.println("[Vision] mode=" + modeName
                 + " hubVisible=" + isHubVisible()
                 + " hubDist=" + String.format("%.2f", getHubDistance())

@@ -5,30 +5,35 @@ import static edu.wpi.first.units.Units.*;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
+import com.adambots.Constants;
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Flywheel-only shooter subsystem with PID velocity control.
  * Uses an interpolation table to map distance (meters) to flywheel RPS.
  * All closed-loop control runs on the motor controller at 1kHz.
  */
-@Logged
 public class ShooterSubsystem extends SubsystemBase {
 
     private final BaseMotor leftFlywheel;
     private final BaseMotor rightFlywheel;
     private final Supplier<Pose2d> robotPose;
+
+    private boolean idleEnabled = false;
+    private boolean shotBoostActive = false;
 
     private double targetRPS = 0;
     private double flywheelToleranceCached = ShooterConstants.kFlywheelToleranceRPS;
@@ -91,7 +96,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public void setFlywheelRPS(double rps) {
         targetRPS = rps;
-        leftFlywheel.set(ControlMode.VELOCITY, rps * ShooterConstants.kFlywheelDirection);
+        double effectiveRPS = rps + (shotBoostActive ? ShooterConstants.kShotBoostRPS : 0);
+        leftFlywheel.set(ControlMode.VELOCITY, effectiveRPS * ShooterConstants.kFlywheelDirection);
     }
 
     public void stopFlywheel() {
@@ -107,7 +113,8 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public double getRPSFromTable(double distanceMeters) {
-        return interpolationTable.get(distanceMeters);
+        return MathUtil.clamp(interpolationTable.get(distanceMeters),
+            ShooterConstants.kMinRPS, ShooterConstants.kMaxRPS);
     }
 
     // ==================== Telemetry Getters ====================
@@ -143,8 +150,8 @@ public class ShooterSubsystem extends SubsystemBase {
         double robotX = robotPose.get().getX();
         boolean isRed = DriverStation.getAlliance()
             .orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Red;
-        // Red hub at x≈12.0 (Red wall at x=16.54), Blue hub at x≈4.54 (Blue wall at x=0)
-        return isRed ? robotX > 12.0 : robotX < 4.54;
+        return isRed ? robotX > ShooterConstants.kRedShootingZoneMinX
+                     : robotX < ShooterConstants.kBlueShootingZoneMaxX;
     }
 
     // ==================== Triggers ====================
@@ -193,5 +200,36 @@ public class ShooterSubsystem extends SubsystemBase {
     public Command stopFlywheelCommand() {
         return runOnce(this::stopFlywheel)
             .withName("Stop Flywheel");
+    }
+
+    // ==================== Idle Pre-Spin ====================
+
+    public void setIdleEnabled(boolean enabled) { idleEnabled = enabled; }
+    public boolean isIdleEnabled() { return idleEnabled; }
+
+    public void setShotBoost(boolean active) { shotBoostActive = active; }
+    public boolean isShotBoostActive() { return shotBoostActive; }
+
+    /**
+     * Default command: maintains low idle RPM when enabled, stops when disabled.
+     * Automatically interrupted by any shoot command (which requires this subsystem),
+     * and resumes when shooting ends.
+     */
+    @Override
+    public void periodic() {
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Shooter/LeaderCurrent", leftFlywheel.getCurrentDraw().in(Amps));
+        }
+    }
+
+    public Command idleCommand() {
+        return run(() -> {
+            if (idleEnabled) {
+                setFlywheelRPS(ShooterConstants.kIdleRPS);
+            } else {
+                stopFlywheel();
+            }
+        }).finallyDo(() -> stopFlywheel())
+          .withName("Flywheel Idle");
     }
 }

@@ -73,7 +73,7 @@ public final class LEDCommands {
                     int b = (int) (c.blue * 255);
 
                     // fraction=1.0 means just went inactive (all lit), 0.0 means about to activate (none lit)
-                    int litCount = (int) ((1.0 - fraction) * numLEDs);
+                    int litCount = (int) (fraction * numLEDs);
 
                     // Lit LEDs at the bottom (start of strip), dark at the top
                     if (litCount > 0) {

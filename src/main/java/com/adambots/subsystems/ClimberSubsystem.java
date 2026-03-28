@@ -4,11 +4,13 @@
 
 package com.adambots.subsystems;
 
+import com.adambots.Constants;
 import com.adambots.Constants.ClimberConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseSolenoid;
 
-import edu.wpi.first.epilogue.Logged;
+import static edu.wpi.first.units.Units.Amps;
+
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -22,7 +24,6 @@ import org.littletonrobotics.junction.Logger;
  * <p>The ratchet is spring-return: de-energized = engaged (holds position),
  * energized = released (allows motor movement).
  */
-@Logged
 public class ClimberSubsystem extends SubsystemBase {
 
     // ==================== SECTION: HARDWARE ====================
@@ -62,7 +63,7 @@ public class ClimberSubsystem extends SubsystemBase {
     }
 
     public boolean isRatchetEngaged() {
-        return ratchetSolenoid.get();
+        return !ratchetSolenoid.get();
     }
 
     // ==================== SECTION: LIMIT SWITCHES ====================
@@ -121,7 +122,7 @@ public class ClimberSubsystem extends SubsystemBase {
         return startRun(
             this::releaseRatchet,
             () -> {
-                if (!isAtRaisedLimit()) {
+                if (!isAtLoweredLimit()) {
                     elevatorMotor.set(ClimberConstants.kLowerSpeed);
                 } else {
                     elevatorMotor.set(0);
@@ -169,11 +170,16 @@ public class ClimberSubsystem extends SubsystemBase {
             engageRatchet();
         }
 
-        Logger.recordOutput("Climber/Position", elevatorMotor.getPosition());
-        Logger.recordOutput("Climber/RatchetEngaged", isRatchetEngaged());
-        Logger.recordOutput("Climber/RaisedLimit", isAtRaisedLimit());
-        Logger.recordOutput("Climber/LoweredLimit", isAtLoweredLimit());
+        if (Constants.CURRENT_LOGGING) {
+            Logger.recordOutput("Climber/ElevatorCurrent", elevatorMotor.getCurrentDraw().in(Amps));
+        }
 
-        Logger.recordOutput("Timing/ClimberSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
+        if (Constants.TUNING_ENABLED) {
+            Logger.recordOutput("Climber/Position", elevatorMotor.getPosition());
+            Logger.recordOutput("Climber/RatchetEngaged", isRatchetEngaged());
+            Logger.recordOutput("Climber/RaisedLimit", isAtRaisedLimit());
+            Logger.recordOutput("Climber/LoweredLimit", isAtLoweredLimit());
+            Logger.recordOutput("Timing/ClimberSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
+        }
     }
 }

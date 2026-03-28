@@ -1,11 +1,13 @@
 package com.adambots.commands;
 
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
+import com.adambots.subsystems.VisionSubsystem;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -21,7 +23,32 @@ public final class ShootCommands {
     /** Max time to wait for flywheel to reach target speed before feeding anyway. */
     public static final double kSpinUpTimeoutSeconds = 3.0;
 
+    /** Fire gate debounce — speed must hold steady for this long before feeding. */
+    public static final double kFireGateDebounceSeconds = 0.08;
+
     private ShootCommands() {}
+
+    /**
+     * Wraps a shoot command to suppress turret auto-tracking while shooting.
+     * Prevents the turret from sweeping if vision drops momentarily during a shot.
+     * Restores the previous auto-track state when the command ends.
+     */
+    private static Command withAutoTrackSuppressed(Command shootCommand, TurretSubsystem turret) {
+        return withAutoTrackSuppressed(shootCommand, turret, null);
+    }
+
+    private static Command withAutoTrackSuppressed(Command shootCommand, TurretSubsystem turret, VisionSubsystem vision) {
+        final boolean[] wasAutoTracking = {false};
+        return Commands.runOnce(() -> {
+            wasAutoTracking[0] = turret.isAutoTrackEnabled();
+            turret.setAutoTrack(false);
+            if (vision != null) vision.setShootingMode(true);
+        }).andThen(shootCommand)
+          .finallyDo(() -> {
+              if (wasAutoTracking[0]) turret.setAutoTrack(true);
+              if (vision != null) vision.setShootingMode(false);
+          });
+    }
 
     /**
      * Spin up → once at speed (or timeout), keep spinning + feed hopper in parallel → stop all.
@@ -63,7 +90,7 @@ public final class ShootCommands {
 
         Command sequence = Commands.sequence(
             spinUp
-                .until(shooter.isAtSpeedTrigger())
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.parallel(
                 spinUpFeed,
@@ -88,6 +115,28 @@ public final class ShootCommands {
     }
 
     /**
+     * Spin for vision distance with turret auto-track suppression → stop all.
+     */
+    public static Command shootAtDistanceTimerCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return shootAtDistanceTimerCommand(shooter, hopper, turret, distanceSupplier, null);
+    }
+
+    public static Command shootAtDistanceTimerCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier,
+            VisionSubsystem vision) {
+        return withAutoTrackSuppressed(
+            shootAtDistanceTimerCommand(shooter, hopper, distanceSupplier), turret, vision)
+            .withName("Shoot At Distance");
+    }
+
+    /**
      * Spin for vision distance → once at speed (or timeout), keep spinning + feed → stop all.
      * Optionally lowers the intake arm (without running rollers) at the start of the sequence.
      */
@@ -99,14 +148,18 @@ public final class ShootCommands {
             boolean lowerIntake) {
         Command sequence = Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier)
-                .until(shooter.isAtSpeedTrigger())
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand()
-            ).withTimeout(kShootDurationSeconds),
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand()
+                ).withTimeout(kShootDurationSeconds);
+            }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
-        );
+        ).finallyDo(() -> shooter.setShotBoost(false));
         if (lowerIntake && intake != null) {
             sequence = intake.runLowerIntakeArmCommand().andThen(sequence);
         }
@@ -124,15 +177,20 @@ public final class ShootCommands {
         return Commands.sequence(
             // Track and spin up simultaneously (turret uses default command for tracking)
             shooter.spinForDistanceCommand(visionDist)
-                .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()))
+                .until(shooter.isAtSpeedTrigger().and(turret.isAtTargetTrigger()).debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
-            // Keep spinning while feeding
-            Commands.parallel(
-                shooter.spinForDistanceCommand(visionDist),
-                hopper.feedCommand()
-            ).withTimeout(kShootDurationSeconds),
+            // Snapshot distance and feed with locked RPS + shot boost
+            Commands.defer(() -> {
+                double dist = visionDist.getAsDouble();
+                shooter.setShotBoost(true);
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand()
+                ).withTimeout(kShootDurationSeconds);
+            }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
-        ).withName("Auto Shoot");
+        ).finallyDo(() -> shooter.setShotBoost(false))
+         .withName("Auto Shoot");
     }
 
     // ==================== HOLD-TO-SHOOT (no timer) ====================
@@ -163,11 +221,34 @@ public final class ShootCommands {
             : shooter.spinUpCommand();
 
         return Commands.sequence(
-            spinUp.until(shooter.isAtSpeedTrigger()),
+            spinUp.until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds)),
             Commands.parallel(spinUpFeed, hopper.feedCommand())
         ).finallyDo(() -> {
             shooter.stopFlywheel();
         }).withName("Hold Shoot");
+    }
+
+    /**
+     * Hold-to-shoot at vision distance with turret auto-track suppression.
+     * Disables turret sweep while shooting, restores when released.
+     */
+    public static Command holdShootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return holdShootAtDistanceCommand(shooter, hopper, turret, distanceSupplier, null);
+    }
+
+    public static Command holdShootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier,
+            VisionSubsystem vision) {
+        return withAutoTrackSuppressed(
+            holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision)
+            .withName("Hold Shoot At Distance");
     }
 
     /**
@@ -180,12 +261,17 @@ public final class ShootCommands {
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
             shooter.spinForDistanceCommand(distanceSupplier)
-                .until(shooter.isAtSpeedTrigger())
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                 .withTimeout(kSpinUpTimeoutSeconds),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand())
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand());
+            }, Set.of(shooter, hopper))
         ).finallyDo(() -> {
+            shooter.setShotBoost(false);
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance");
     }
@@ -202,16 +288,45 @@ public final class ShootCommands {
         return Commands.sequence(
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier)
-                    .until(shooter.isAtSpeedTrigger())
+                    .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand(),
-                intake.bopArmCommand())
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand(),
+                    intake.bopArmCommand());
+            }, Set.of(shooter, hopper, intake))
         ).finallyDo(() -> {
+            shooter.setShotBoost(false);
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance With Bop");
+    }
+
+    /**
+     * Timer-based shoot at distance with bop and turret auto-track suppression.
+     */
+    public static Command shootAtDistanceTimerWithBopCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, turret, distanceSupplier, null);
+    }
+
+    public static Command shootAtDistanceTimerWithBopCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            IntakeSubsystem intake,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier,
+            VisionSubsystem vision) {
+        return withAutoTrackSuppressed(
+            shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, distanceSupplier), turret, vision)
+            .withName("Shoot At Distance With Bop");
     }
 
     /**
@@ -226,16 +341,21 @@ public final class ShootCommands {
         return Commands.sequence(
             Commands.parallel(
                 shooter.spinForDistanceCommand(distanceSupplier)
-                    .until(shooter.isAtSpeedTrigger())
+                    .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),
                 intake.bopArmCommand()),
-            Commands.parallel(
-                shooter.spinForDistanceCommand(distanceSupplier),
-                hopper.feedCommand(),
-                intake.bopArmCommand()
-            ).withTimeout(kShootDurationSeconds),
+            Commands.defer(() -> {
+                double dist = distanceSupplier.getAsDouble();
+                shooter.setShotBoost(true);
+                return Commands.parallel(
+                    shooter.spinForDistanceCommand(() -> dist),
+                    hopper.feedCommand(),
+                    intake.bopArmCommand()
+                ).withTimeout(kShootDurationSeconds);
+            }, Set.of(shooter, hopper, intake)),
             stopAllCommand(shooter, hopper)
-        ).withName("Shoot At Distance With Bop");
+        ).finallyDo(() -> shooter.setShotBoost(false))
+         .withName("Shoot At Distance With Bop");
     }
 
     /**

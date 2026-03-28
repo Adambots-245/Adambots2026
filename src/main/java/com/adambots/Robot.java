@@ -182,7 +182,7 @@ public class Robot extends LoggedRobot {
         // Red hub center at x≈11.9, y≈4.0
         container.getSwerve().resetOdometry(
             new edu.wpi.first.math.geometry.Pose2d(
-                13.5, 4.0,
+                14.5, 4.0,
                 edu.wpi.first.math.geometry.Rotation2d.fromDegrees(0)));
     }
 
@@ -198,8 +198,9 @@ public class Robot extends LoggedRobot {
 
         // Publish field-relative camera pose for AdvantageScope Camera Override
         double robotYaw = robotPose.getRotation().getRadians();
+        // Camera faces backward on turret: turret rotation + 180° offset from forward
         double camYaw = robotYaw + Math.toRadians(
-            Constants.VisionConstants.kShooterCameraTurretOffset - turretAngle);
+            turretAngle - Constants.VisionConstants.kShooterCameraTurretOffset + 180);
         double camX = robotPose.getX()
             + Constants.VisionConstants.kShooterCameraX * Math.cos(camYaw)
             - Constants.VisionConstants.kShooterCameraY * Math.sin(camYaw);

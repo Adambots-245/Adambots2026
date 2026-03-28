@@ -167,9 +167,9 @@ public class RobotContainer {
                 // Turret auto-track: visible → track, not visible → search
                 if (visionSubsystem != null) {
                         turret.setDefaultCommand(turret.autoTrackCommand(
-                                        visionSubsystem::getHubCamAngle,
-                                        visionSubsystem::isHubCamVisible,
-                                        visionSubsystem::isHubCamFresh,
+                                        visionSubsystem::getHubAngle,
+                                        visionSubsystem::isHubVisible,
+                                        visionSubsystem::isHubVisible,
                                         shooter::isInShootingZone,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));
                 } else {

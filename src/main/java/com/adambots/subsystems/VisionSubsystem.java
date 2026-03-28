@@ -294,7 +294,7 @@ public class VisionSubsystem extends SubsystemBase {
             new Rotation3d(
                 0,
                 Math.toRadians(-VisionConstants.kShooterCameraPitch),
-                0));  // yaw=0 when turret is at forward position
+                Math.toRadians(180)));  // camera faces backward when turret is at forward
         visionSim.addCamera(shooterCamSim, robotToCamera);
         System.out.println("[Vision] Simulation initialized with shooter camera sim");
     }
@@ -310,7 +310,7 @@ public class VisionSubsystem extends SubsystemBase {
             new Rotation3d(
                 0,
                 Math.toRadians(-VisionConstants.kShooterCameraPitch),
-                Math.toRadians(VisionConstants.kShooterCameraTurretOffset - turretAngleDeg)));
+                Math.toRadians(turretAngleDeg - VisionConstants.kShooterCameraTurretOffset + 180)));
         visionSim.adjustCamera(shooterCamSim, robotToCamera);
         visionSim.update(robotPose);
 
@@ -592,9 +592,7 @@ public class VisionSubsystem extends SubsystemBase {
             for (int id : hubTagIds) {
                 if (target.getFiducialId() == id) { isHubTag = true; break; }
             }
-            // In sim, accept all tags for tracking (hub tag geometry makes some tags
-            // invisible from typical sim positions due to facing direction)
-            if (!isHubTag && !RobotBase.isSimulation()) {
+            if (!isHubTag) {
                 diagTagsRejectedNotHub++;
                 continue;
             }
@@ -777,11 +775,20 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== General Commands ====================
 
-    /** Convert robot-relative pose angle to turret-relative offset for blending with camera angle. */
+    /**
+     * Convert robot-relative pose angle to camera-relative offset for blending with camera yaw.
+     * The camera faces backward on the turret (180° from turret forward), so we subtract 180°
+     * to express the angle relative to the camera boresight — matching the sign convention of
+     * PhotonVision's target.getYaw() used in camera-only tracking.
+     */
     private double poseAngleToTurretRelative(double poseAngleDeg) {
         double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
             - TurretConstants.kTurretForwardDegrees;
-        return poseAngleDeg - turretOffsetFromForward;
+        double raw = poseAngleDeg - turretOffsetFromForward - 180.0;
+        // Wrap to [-180, 180] so turret takes the shortest path
+        while (raw > 180) raw -= 360;
+        while (raw < -180) raw += 360;
+        return raw;
     }
 
     private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid", "Blended"};

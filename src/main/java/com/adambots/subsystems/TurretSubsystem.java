@@ -49,16 +49,16 @@ public class TurretSubsystem extends SubsystemBase {
     private double trackingToleranceDeg = TurretTrackingConstants.kTrackingToleranceDeg;
 
     // Track last setpoint for isAtTarget()
-    private double lastSetpointDegrees = 0;
+    private double lastSetpointDegrees = TurretConstants.kTurretForwardDegrees;
 
     // Potentiometer calibration: pot reading at turret 0° and 180° (tunable via dashboard)
     private double potAtZeroDeg = TurretConstants.kTurretPotAtZeroDeg;
     private double potAtMaxDeg = TurretConstants.kTurretPotAtMaxDeg;
 
     // Auto-track toggle (driver opts in via Button 5)
-    private boolean autoTrackEnabled = RobotBase.isSimulation();
+    private boolean autoTrackEnabled = true;
     private boolean wasAutoTracking = false;
-    private double holdAngleDegrees = 0.0;
+    private double holdAngleDegrees = TurretConstants.kTurretForwardDegrees;
 
     // Current tracking mode for telemetry
     private TrackingMode trackingMode = TrackingMode.HOLD;
@@ -230,9 +230,12 @@ public class TurretSubsystem extends SubsystemBase {
             Math.toRadians(-TurretConstants.kTurretMaxDegrees),
             Math.toRadians(TurretConstants.kTurretMaxDegrees),
             false, // no gravity for horizontal turret
-            0.0); // start at 0 — sim and encoder must be synced
-        // In sim, seed motor encoder to 0 (no physical pot)
-        turretMotor.setPosition(0);
+            0.0); // sim 0° maps to turret forward via encoder offset
+        // Seed encoder offset so sim 0° reads as turret forward (210°)
+        double fwdRot = (TurretConstants.kTurretForwardDegrees / 360.0) * TurretConstants.kTurretGearRatio;
+        turretMotor.setPosition(fwdRot);
+        System.out.printf("[TURRET-SETUP] simStart=0.0 fwdRot=%.4f encoderDeg=%.1f holdAngle=%.1f%n",
+            fwdRot, getTurretAngleDegrees(), holdAngleDegrees);
     }
 
     @Override
@@ -333,8 +336,8 @@ public class TurretSubsystem extends SubsystemBase {
             DoubleSupplier robotAngularVelDegPerSec) {
 
         return run(() -> {
-            // Auto-track toggle (Button 5) — skip in sim (no controller to toggle)
-            if (!autoTrackEnabled && !RobotBase.isSimulation()) {
+            // Auto-track toggle (Button 5)
+            if (!autoTrackEnabled) {
                 if (wasAutoTracking) {
                     holdAngleDegrees = getTurretAngleDegrees();
                     wasAutoTracking = false;

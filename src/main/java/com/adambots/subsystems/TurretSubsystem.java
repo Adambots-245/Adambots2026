@@ -42,16 +42,16 @@ public class TurretSubsystem extends SubsystemBase {
     private double trackingToleranceDeg = TurretTrackingConstants.kTrackingToleranceDeg;
 
     // Track last setpoint for isAtTarget()
-    private double lastSetpointDegrees = 0;
+    private double lastSetpointDegrees = TurretConstants.kTurretForwardDegrees;
 
     // Potentiometer calibration: pot reading at turret 0° and 180° (tunable via dashboard)
     private double potAtZeroDeg = TurretConstants.kTurretPotAtZeroDeg;
     private double potAtMaxDeg = TurretConstants.kTurretPotAtMaxDeg;
 
     // Auto-track toggle (driver opts in via Button 5)
-    private boolean autoTrackEnabled = false;
+    private boolean autoTrackEnabled = true;
     private boolean wasAutoTracking = false;
-    private double holdAngleDegrees = 0.0;
+    private double holdAngleDegrees = TurretConstants.kTurretForwardDegrees;
 
     // Current tracking mode for telemetry
     private TrackingMode trackingMode = TrackingMode.HOLD;

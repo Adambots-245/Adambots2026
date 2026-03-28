@@ -687,11 +687,20 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== General Commands ====================
 
-    /** Convert robot-relative pose angle to turret-relative offset for blending with camera angle. */
+    /**
+     * Convert robot-relative pose angle to camera-relative offset for blending with camera yaw.
+     * The camera faces backward on the turret (180° from turret forward), so we subtract 180°
+     * to express the angle relative to the camera boresight — matching the sign convention of
+     * PhotonVision's target.getYaw() used in camera-only tracking.
+     */
     private double poseAngleToTurretRelative(double poseAngleDeg) {
         double turretOffsetFromForward = turretAngleSupplier.getAsDouble()
             - TurretConstants.kTurretForwardDegrees;
-        return poseAngleDeg - turretOffsetFromForward;
+        double raw = poseAngleDeg - turretOffsetFromForward - 180.0;
+        // Wrap to [-180, 180] so turret takes the shortest path
+        while (raw > 180) raw -= 360;
+        while (raw < -180) raw += 360;
+        return raw;
     }
 
     private static final String[] MODE_NAMES = {"Camera", "Pose", "Hybrid", "Blended"};

@@ -11,7 +11,7 @@
               {
                 "type": "path",
                 "data": {
-                  "pathName": "Disrupt-part1"
+                  "pathName": "Right-Disrupt-part1"
                 }
               },
               {
@@ -32,7 +32,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Distrupt-part2"
+            "pathName": "Right-Distrupt-part2"
           }
         }
       ]

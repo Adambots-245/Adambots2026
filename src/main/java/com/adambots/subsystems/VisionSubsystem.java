@@ -568,7 +568,14 @@ public class VisionSubsystem extends SubsystemBase {
     public boolean isHubVisible() {
         if (visionMode == 3) return hubCamHasTarget || hubPoseHasTarget;
         if (visionMode == 2) return hubCamHasTarget || hubPoseHasTarget;
-        return visionMode == 0 ? hubCamHasTarget : hubPoseHasTarget;
+        return visionMode == 0 ? hubCamSticky : hubPoseHasTarget;
+    }
+
+    /** Mode-aware freshness: camera-only modes require actual detection per frame;
+     *  blended/pose modes treat pose data as always fresh. */
+    public boolean isTrackingDataFresh() {
+        if (visionMode == 0) return hubCamHasTarget;
+        return isHubVisible();
     }
 
     // ==================== Hub Approach A Getters (camera-only) ====================

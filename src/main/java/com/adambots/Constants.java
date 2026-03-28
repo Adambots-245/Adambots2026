@@ -164,7 +164,7 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.3;
+        public static final double kCameraTrackingGain = 0.15;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */

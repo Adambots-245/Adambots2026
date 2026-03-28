@@ -160,10 +160,11 @@ public final class Constants {
 
     // ==================== TurretTrackingConstants ====================
     public static final class TurretTrackingConstants {
-        /** Degrees tolerance to consider turret "on target" for tracking */
+        /** Degrees tolerance to consider turret "on target" for tracking (dead zone).
+         *  Camera offsets smaller than this are ignored to prevent chasing noise. */
         public static final double kTrackingToleranceDeg = 2.0;
         /** Proportional gain applied to camera yaw for turret correction.
-         *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
+         *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
         public static final double kCameraTrackingGain = 0.15;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
@@ -172,6 +173,15 @@ public final class Constants {
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
         public static final double kAngularVelLeadTime = 0.1;
+        /** Consecutive frames outside dead zone before applying correction.
+         *  Filters single-frame jitter from camera noise. */
+        public static final int kTrackingDebounceFrames = 3;
+        /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
+         *  Lets turret decelerate before tracking starts, preventing overshoot. */
+        public static final int kCameraBrakeFrames = 15;
+        /** Frames to hold at forward before allowing sweep on startup.
+         *  Gives vision time to initialize and detect hub tags. */
+        public static final int kSweepWarmupFrames = 50;
     }
 
     // ==================== HopperConstants ====================

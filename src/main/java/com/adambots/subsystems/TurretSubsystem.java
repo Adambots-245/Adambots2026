@@ -61,10 +61,8 @@ public class TurretSubsystem extends SubsystemBase {
 
     // Tracking improvements: dead zone, debounce, brake, warmup
     private int trackingDebounceCount = 0;
-    private static final int TRACKING_DEBOUNCE_FRAMES = 3;
     private int cameraBrakeFrames = 0;
-    private static final int CAMERA_BRAKE_FRAMES = 15;
-    private int sweepWarmupFrames = 50;
+    private int sweepWarmupFrames = TurretTrackingConstants.kSweepWarmupFrames;
 
     public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
         this.turretMotor = turretMotor;
@@ -283,7 +281,7 @@ public class TurretSubsystem extends SubsystemBase {
                 if (trackingMode != TrackingMode.CAMERA) {
                     // Entering CAMERA from SWEEP/HOLD — brake first, then seed setpoint
                     lastSetpointDegrees = currentAngle;
-                    cameraBrakeFrames = CAMERA_BRAKE_FRAMES;
+                    cameraBrakeFrames = TurretTrackingConstants.kCameraBrakeFrames;
                     trackingDebounceCount = 0;
                 }
                 trackingMode = TrackingMode.CAMERA;
@@ -303,7 +301,7 @@ public class TurretSubsystem extends SubsystemBase {
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
                     setTurretAngle(lastSetpointDegrees + angVelLead);
-                } else if (++trackingDebounceCount < TRACKING_DEBOUNCE_FRAMES) {
+                } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
                     setTurretAngle(lastSetpointDegrees + angVelLead);
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
                     setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));

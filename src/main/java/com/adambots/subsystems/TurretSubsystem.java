@@ -56,7 +56,7 @@ public class TurretSubsystem extends SubsystemBase {
     private double potAtMaxDeg = TurretConstants.kTurretPotAtMaxDeg;
 
     // Auto-track toggle (driver opts in via Button 5)
-    private boolean autoTrackEnabled = false;
+    private boolean autoTrackEnabled = RobotBase.isSimulation();
     private boolean wasAutoTracking = false;
     private double holdAngleDegrees = 0.0;
 
@@ -68,6 +68,7 @@ public class TurretSubsystem extends SubsystemBase {
 
     // Simulation
     private SingleJointedArmSim turretSim;
+    private int simDebugCounter = 0;
 
     public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
         this.turretMotor = turretMotor;
@@ -117,6 +118,23 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     // ==================== Turret Control ====================
+
+    /**
+     * Sweep turret at constant voltage. Enforces position limits.
+     * Used in SWEEP mode for smooth continuous scanning in sim.
+     */
+    public void sweepTurret(double voltage) {
+        double angle = getTurretAngleDegrees();
+        if (voltage > 0 && angle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) {
+            stopTurret();
+            return;
+        }
+        if (voltage < 0 && angle <= TurretTrackingConstants.kScanMarginDeg) {
+            stopTurret();
+            return;
+        }
+        turretMotor.set(ControlMode.VOLTAGE, voltage);
+    }
 
     public void setTurretAngle(double degrees) {
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
@@ -169,6 +187,24 @@ public class TurretSubsystem extends SubsystemBase {
             Logger.recordOutput("Turret/Current", turretMotor.getCurrentDraw().in(Amps));
         }
 
+        // Publish turret component pose every cycle (for AdvantageScope 3D)
+        // Use raw encoder angle — matches old sim branch and config.json zeroedRotations
+        if (RobotBase.isSimulation()) {
+            Logger.recordOutput("Components", new Pose3d[] {
+                new Pose3d(
+                    new Translation3d(0, 0, 0.15),
+                    new Rotation3d(0, 0, Math.toRadians(getTurretAngleDegrees())))
+            });
+        }
+
+        if (RobotBase.isSimulation()) {
+            var cmd = getCurrentCommand();
+            if (simDebugCounter++ % 50 == 0) {
+                System.out.printf("[TURRET-PERIODIC] cmd=%s angle=%.1f%n",
+                    cmd != null ? cmd.getName() : "NONE", getTurretAngleDegrees());
+            }
+        }
+
         // Dashboard telemetry — only when tuning to reduce bandwidth
         if (Constants.TUNING_ENABLED) {
             double currentAngle = getTurretAngleDegrees();
@@ -194,7 +230,8 @@ public class TurretSubsystem extends SubsystemBase {
             Math.toRadians(-TurretConstants.kTurretMaxDegrees),
             Math.toRadians(TurretConstants.kTurretMaxDegrees),
             false, // no gravity for horizontal turret
-            0.0);
+            0.0); // start at 0 — sim and encoder must be synced
+        // In sim, seed motor encoder to 0 (no physical pot)
         turretMotor.setPosition(0);
     }
 
@@ -206,16 +243,18 @@ public class TurretSubsystem extends SubsystemBase {
         turretSim.setInputVoltage(voltage);
         turretSim.update(0.02);
 
-        double angleRot = Math.toDegrees(turretSim.getAngleRads()) / 360.0 * TurretConstants.kTurretGearRatio;
+        double simAngleDeg = Math.toDegrees(turretSim.getAngleRads());
+        double angleRot = (simAngleDeg / 360.0) * TurretConstants.kTurretGearRatio;
         double velRotPerSec = Math.toDegrees(turretSim.getVelocityRadPerSec()) / 360.0 * TurretConstants.kTurretGearRatio;
         turretMotor.setSimPosition(angleRot);
         turretMotor.setSimVelocity(velRotPerSec);
 
-        Logger.recordOutput("Components", new Pose3d[] {
-            new Pose3d(
-                new Translation3d(0, 0, 0.15),
-                new Rotation3d(0, 0, Math.toRadians(getTurretAngleDegrees())))
-        });
+        if (simDebugCounter % 25 == 0) {
+            System.out.printf("[TURRET-SIM] voltage=%.2f simAngle=%.1f encoderAngle=%.1f%n",
+                voltage, Math.toDegrees(turretSim.getAngleRads()), getTurretAngleDegrees());
+        }
+
+        // Component pose published in periodic() for consistent 50Hz updates
     }
 
     // ==================== Command Factories ====================
@@ -261,6 +300,11 @@ public class TurretSubsystem extends SubsystemBase {
         return autoTrackEnabled;
     }
 
+    /** Returns the turret angle from sim physics (for sim camera transform). */
+    public double getSimAngleDegrees() {
+        return turretSim != null ? Math.toDegrees(turretSim.getAngleRads()) : getTurretAngleDegrees();
+    }
+
     // ==================== Vision Tracking Commands ====================
 
     /**
@@ -288,14 +332,9 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier inShootingZone,
             DoubleSupplier robotAngularVelDegPerSec) {
 
-        return Commands.runOnce(() -> {
-            holdAngleDegrees = getTurretAngleDegrees();
-            wasAutoTracking = false;
-            scanDirection = 1;
-        }, this)
-        .andThen(run(() -> {
-            // Auto-track toggle (Button 5)
-            if (!autoTrackEnabled) {
+        return run(() -> {
+            // Auto-track toggle (Button 5) — skip in sim (no controller to toggle)
+            if (!autoTrackEnabled && !RobotBase.isSimulation()) {
                 if (wasAutoTracking) {
                     holdAngleDegrees = getTurretAngleDegrees();
                     wasAutoTracking = false;
@@ -311,6 +350,16 @@ public class TurretSubsystem extends SubsystemBase {
                 trackingMode = TrackingMode.HOLD;
                 setTurretAngle(TurretConstants.kTurretForwardDegrees);
                 return;
+            }
+
+            // Debug: periodic sim state (every 25 cycles ≈ 2Hz at 50Hz)
+            if (RobotBase.isSimulation()) {
+                simDebugCounter++;
+                if (simDebugCounter % 25 == 0) {
+                    System.out.printf("[TURRET] mode=%s angle=%.1f setpt=%.1f visible=%s inZone=%s%n",
+                        trackingMode, getTurretAngleDegrees(), lastSetpointDegrees,
+                        hubVisible.getAsBoolean(), inShootingZone.getAsBoolean());
+                }
             }
 
             // Angular velocity lead: compensate for robot rotation so turret holds aim.
@@ -337,20 +386,17 @@ public class TurretSubsystem extends SubsystemBase {
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed + angVelLead);
                 } else {
-                    // No fresh camera frame — use pose-derived angle (via getHubAngle)
-                    // at half gain to slew toward hub without overshooting on stale data
-                    double smoothed = lastSetpointDegrees
-                        + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain * 0.5;
-                    setTurretAngle(smoothed + angVelLead);
+                    // No fresh camera frame — hold last setpoint with rotation compensation
+                    setTurretAngle(lastSetpointDegrees + angVelLead);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: voltage-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                sweepTurret(scanDirection * TurretTrackingConstants.kScanVoltage);
             }
-        }))
+        })
         .finallyDo(interrupted -> {
             setTurretAngle(getTurretAngleDegrees());
         })
@@ -395,11 +441,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: voltage-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                sweepTurret(scanDirection * TurretTrackingConstants.kScanVoltage);
             }
         }))
         .finallyDo(interrupted -> {

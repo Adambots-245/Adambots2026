@@ -226,12 +226,13 @@ public final class DashboardSetup {
         if (visionSubsystem != null) {
             Dash.addCommand("Auto Track",
                 turret.toggleAutoTrackCommand(), col++, row);
-            Dash.addCommand("Manual Align",
-                turret.manualAlignCommand(
-                    visionSubsystem::getHubCamAngle,
-                    visionSubsystem::isHubCamVisible,
-                    visionSubsystem::isHubCamFresh)
-                    .withName("Manual Align"), col++, row);
+            // Manual Align disabled — auto-starts in sim and blocks default command
+            // Dash.addCommand("Manual Align",
+            //     turret.manualAlignCommand(
+            //         visionSubsystem::getHubCamAngle,
+            //         visionSubsystem::isHubCamVisible,
+            //         visionSubsystem::isHubCamFresh)
+            //         .withName("Manual Align"), col++, row);
         }
 
         // Climber commands

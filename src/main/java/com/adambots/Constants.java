@@ -22,7 +22,7 @@ public final class Constants {
     public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
-    public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
+    public static final boolean COMMANDS_TAB = TUNING_ENABLED && true;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
@@ -169,6 +169,8 @@ public final class Constants {
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
+        /** Voltage for sweep motor output (higher = faster sweep) */
+        public static final double kScanVoltage = 1.0;
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
         public static final double kAngularVelLeadTime = 0.1;
@@ -348,7 +350,7 @@ public final class Constants {
         public static final double kMaxDistanceMeters = 8.0;
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
-        public static final int kVisionMode = 0;
+        public static final int kVisionMode = 3; // 0=Camera, 1=Pose, 2=Hybrid, 3=Blended
 
         /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
         public static final double kVisionBlendWeight = 0.6;

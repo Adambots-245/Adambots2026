@@ -167,8 +167,8 @@ public class RobotContainer {
                 // Turret auto-track: visible → track, not visible → search
                 if (visionSubsystem != null) {
                         turret.setDefaultCommand(turret.autoTrackCommand(
-                                        visionSubsystem::getHubAngle,
-                                        visionSubsystem::isHubVisible,
+                                        visionSubsystem::getHubCamAngle,
+                                        visionSubsystem::isHubCamVisible,
                                         visionSubsystem::isHubCamFresh,
                                         shooter::isInShootingZone,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));
@@ -182,10 +182,11 @@ public class RobotContainer {
 
         // ==================== BUTTON BINDINGS ====================
         private void configureButtonBindings() {
-                // === Driver (Thrustmaster) ===
-                // Buttons.JoystickButton10.onTrue(Commands.runOnce(() ->
-                //
-                // swerve.zeroGyroWithAlliance()));
+                // === Driver (Thrustmaster / Xbox mapped) ===
+                // Guard: JoystickButton bindings only if controller is present
+                if (Buttons.JoystickButton1 == null) {
+                        System.out.println("[BINDINGS] No driver joystick — skipping joystick bindings");
+                } else {
 
                 // Trigger (1): Hold-to-shoot at vision distance (no timer)
                 Buttons.JoystickButton1.whileTrue(
@@ -247,6 +248,7 @@ public class RobotContainer {
 
                 // Button 15: None
                 Buttons.JoystickButton15.onTrue(Commands.none());
+                } // end joystick guard
 
                 // === Operator (Xbox Controller) ===
 

@@ -118,7 +118,9 @@ public class VisionSubsystem extends SubsystemBase {
     private int visionMode = VisionConstants.kVisionMode;
 
     // Tunable ambiguity threshold (default from constants, overridable via TuningManager)
-    private double runtimeAmbiguityThreshold = VisionConstants.kAmbiguityThreshold;
+    // In sim, disable ambiguity filtering — simulated camera produces very high ambiguity
+    private double runtimeAmbiguityThreshold = RobotBase.isSimulation()
+        ? Double.MAX_VALUE : VisionConstants.kAmbiguityThreshold;
 
     // Simulation
     private VisionSystemSim visionSim;
@@ -292,7 +294,7 @@ public class VisionSubsystem extends SubsystemBase {
             new Rotation3d(
                 0,
                 Math.toRadians(-VisionConstants.kShooterCameraPitch),
-                Math.toRadians(VisionConstants.kShooterCameraTurretOffset)));
+                0));  // yaw=0 when turret is at forward position
         visionSim.addCamera(shooterCamSim, robotToCamera);
         System.out.println("[Vision] Simulation initialized with shooter camera sim");
     }
@@ -311,6 +313,13 @@ public class VisionSubsystem extends SubsystemBase {
                 Math.toRadians(VisionConstants.kShooterCameraTurretOffset - turretAngleDeg)));
         visionSim.adjustCamera(shooterCamSim, robotToCamera);
         visionSim.update(robotPose);
+
+        if (System.currentTimeMillis() % 2000 < 20) {
+            double camYawDeg = Math.toDegrees(VisionConstants.kShooterCameraTurretOffset - turretAngleDeg);
+            System.out.printf("[CAMERA-SIM] turretAngle=%.1f camYawDeg=%.1f robotYaw=%.1f pos=(%.1f,%.1f)%n",
+                turretAngleDeg, camYawDeg, robotPose.getRotation().getDegrees(),
+                robotPose.getX(), robotPose.getY());
+        }
     }
 
     private void setupDash() {
@@ -533,6 +542,13 @@ public class VisionSubsystem extends SubsystemBase {
         cam.getEstimatedGlobalPose();
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
+        if (RobotBase.isSimulation() && System.currentTimeMillis() % 2000 < 20) {
+            System.out.printf("[VISION-SIM] cam=%s hasResult=%s visionSim=%s%n",
+                cam != null ? "present" : "null",
+                resultOpt.isPresent() ? "YES(targets=" + (resultOpt.get().hasTargets() ? resultOpt.get().getTargets().size() : 0) + ")" : "NO",
+                visionSim != null ? "active" : "null");
+        }
+
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
@@ -561,6 +577,11 @@ public class VisionSubsystem extends SubsystemBase {
             double ambiguity = target.getPoseAmbiguity();
             if (ambiguity >= 0) diagLastAmbiguity = ambiguity;
 
+            if (RobotBase.isSimulation() && System.currentTimeMillis() % 3000 < 20) {
+                System.out.printf("[VISION-FILTER] tagId=%d ambiguity=%.3f threshold=%.3f%n",
+                    target.getFiducialId(), ambiguity, runtimeAmbiguityThreshold);
+            }
+
             if (ambiguity > runtimeAmbiguityThreshold) {
                 diagTagsRejectedAmbiguity++;
                 continue;
@@ -571,7 +592,9 @@ public class VisionSubsystem extends SubsystemBase {
             for (int id : hubTagIds) {
                 if (target.getFiducialId() == id) { isHubTag = true; break; }
             }
-            if (!isHubTag) {
+            // In sim, accept all tags for tracking (hub tag geometry makes some tags
+            // invisible from typical sim positions due to facing direction)
+            if (!isHubTag && !RobotBase.isSimulation()) {
                 diagTagsRejectedNotHub++;
                 continue;
             }

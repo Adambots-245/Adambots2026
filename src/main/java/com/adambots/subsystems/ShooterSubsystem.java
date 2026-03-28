@@ -147,6 +147,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Hub X positions from 2026 AprilTag field layout.
      */
     public boolean isInShootingZone() {
+        if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) return true;
         double robotX = robotPose.get().getX();
         boolean isRed = DriverStation.getAlliance()
             .orElse(DriverStation.Alliance.Blue) == DriverStation.Alliance.Red;

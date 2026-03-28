@@ -158,6 +158,32 @@ public class Robot extends LoggedRobot {
         edu.wpi.first.wpilibj.simulation.DriverStationSim.setEnabled(true);
         edu.wpi.first.wpilibj.simulation.DriverStationSim.notifyNewData();
         System.out.println("[SIM] Auto-enabled as Red1");
+
+        // Print hub tag positions for debugging
+        try {
+            var layout = edu.wpi.first.apriltag.AprilTagFieldLayout.loadField(
+                edu.wpi.first.apriltag.AprilTagFields.kDefaultField);
+            int[] redHub = {2, 3, 4, 5, 8, 9, 10, 11};
+            int[] blueHub = {18, 19, 20, 21, 24, 25, 26, 27};
+            for (int id : redHub) {
+                var pose = layout.getTagPose(id);
+                if (pose.isPresent()) {
+                    var t = pose.get().getTranslation();
+                    System.out.printf("[FIELD] Red hub tag %d: x=%.2f y=%.2f z=%.2f%n", id, t.getX(), t.getY(), t.getZ());
+                } else {
+                    System.out.printf("[FIELD] Red hub tag %d: NOT FOUND in field layout%n", id);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[FIELD] Could not load field layout: " + e.getMessage());
+        }
+
+        // Start robot ~3m from Red hub, facing toward it (0° = positive X)
+        // Red hub center at x≈11.9, y≈4.0
+        container.getSwerve().resetOdometry(
+            new edu.wpi.first.math.geometry.Pose2d(
+                13.5, 4.0,
+                edu.wpi.first.math.geometry.Rotation2d.fromDegrees(0)));
     }
 
     /** This function is called periodically whilst in simulation. */

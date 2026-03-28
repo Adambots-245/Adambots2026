@@ -294,7 +294,7 @@ public class VisionSubsystem extends SubsystemBase {
             new Rotation3d(
                 0,
                 Math.toRadians(-VisionConstants.kShooterCameraPitch),
-                Math.toRadians(180)));  // camera faces backward when turret is at forward
+                Math.toRadians(VisionConstants.kShooterCameraTurretOffset)));  // old working sim formula
         visionSim.addCamera(shooterCamSim, robotToCamera);
         System.out.println("[Vision] Simulation initialized with shooter camera sim");
     }
@@ -310,7 +310,7 @@ public class VisionSubsystem extends SubsystemBase {
             new Rotation3d(
                 0,
                 Math.toRadians(-VisionConstants.kShooterCameraPitch),
-                Math.toRadians(turretAngleDeg - VisionConstants.kShooterCameraTurretOffset + 180)));
+                Math.toRadians(VisionConstants.kShooterCameraTurretOffset - turretAngleDeg)));
         visionSim.adjustCamera(shooterCamSim, robotToCamera);
         visionSim.update(robotPose);
 
@@ -542,11 +542,15 @@ public class VisionSubsystem extends SubsystemBase {
         cam.getEstimatedGlobalPose();
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
-        if (RobotBase.isSimulation() && System.currentTimeMillis() % 2000 < 20) {
-            System.out.printf("[VISION-SIM] cam=%s hasResult=%s visionSim=%s%n",
-                cam != null ? "present" : "null",
-                resultOpt.isPresent() ? "YES(targets=" + (resultOpt.get().hasTargets() ? resultOpt.get().getTargets().size() : 0) + ")" : "NO",
-                visionSim != null ? "active" : "null");
+        if (RobotBase.isSimulation() && System.currentTimeMillis() % 1000 < 20) {
+            int nTargets = resultOpt.isPresent() && resultOpt.get().hasTargets() ? resultOpt.get().getTargets().size() : 0;
+            StringBuilder tagIds = new StringBuilder();
+            if (nTargets > 0) {
+                for (var t : resultOpt.get().getTargets()) tagIds.append(t.getFiducialId()).append(" ");
+            }
+            System.out.printf("[VISION-DBG] targets=%d ids=[%s] hubCamHas=%s sticky=%s holdoff=%d turretAngle=%.1f%n",
+                nTargets, tagIds.toString().trim(), hubCamHasTarget, hubCamSticky, hubCamHoldoffCounter,
+                turretAngleSupplier.getAsDouble());
         }
 
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
@@ -656,7 +660,7 @@ public class VisionSubsystem extends SubsystemBase {
     public boolean isHubVisible() {
         if (visionMode == 3) return hubCamHasTarget || hubPoseHasTarget;
         if (visionMode == 2) return hubCamHasTarget || hubPoseHasTarget;
-        return visionMode == 0 ? hubCamHasTarget : hubPoseHasTarget;
+        return visionMode == 0 ? hubCamSticky : hubPoseHasTarget;
     }
 
     // ==================== Hub Approach A Getters (camera-only) ====================
@@ -667,6 +671,13 @@ public class VisionSubsystem extends SubsystemBase {
     public boolean isHubCamVisible() { return hubCamSticky; }
     /** Raw per-frame detection — true only when PV actually sees hub tags this frame. */
     public boolean isHubCamFresh() { return hubCamHasTarget; }
+
+    /** Mode-aware freshness: camera-only modes require actual detection per frame;
+     *  blended/pose modes treat pose data as always fresh. */
+    public boolean isTrackingDataFresh() {
+        if (visionMode == 0) return hubCamHasTarget;
+        return isHubVisible();
+    }
 
     // ==================== Hub Approach B Getters (pose-based) ====================
 

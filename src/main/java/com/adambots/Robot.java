@@ -198,9 +198,9 @@ public class Robot extends LoggedRobot {
 
         // Publish field-relative camera pose for AdvantageScope Camera Override
         double robotYaw = robotPose.getRotation().getRadians();
-        // Camera faces backward on turret: turret rotation + 180° offset from forward
+        // Match PhotonVision sim camera direction (old working formula)
         double camYaw = robotYaw + Math.toRadians(
-            turretAngle - Constants.VisionConstants.kShooterCameraTurretOffset + 180);
+            Constants.VisionConstants.kShooterCameraTurretOffset - turretAngle);
         double camX = robotPose.getX()
             + Constants.VisionConstants.kShooterCameraX * Math.cos(camYaw)
             - Constants.VisionConstants.kShooterCameraY * Math.sin(camYaw);

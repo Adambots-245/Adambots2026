@@ -169,7 +169,7 @@ public class RobotContainer {
                         turret.setDefaultCommand(turret.autoTrackCommand(
                                         visionSubsystem::getHubAngle,
                                         visionSubsystem::isHubVisible,
-                                        visionSubsystem::isHubVisible,
+                                        visionSubsystem::isTrackingDataFresh,
                                         shooter::isInShootingZone,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));
                 } else {

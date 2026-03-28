@@ -66,6 +66,17 @@ public class TurretSubsystem extends SubsystemBase {
     // Scan direction for SWEEP mode: +1 = toward max, -1 = toward zero
     private int scanDirection = 1;
 
+    // Warmup: hold at forward for N cycles before allowing sweep (gives vision time to detect)
+    private int sweepWarmupFrames = 50; // ~1s at 50Hz
+
+    // Debounce: require N consecutive frames outside dead zone before updating setpoint
+    private int trackingDebounceCount = 0;
+    private static final int TRACKING_DEBOUNCE_FRAMES = 3;
+
+    // Brake frames: stop motor briefly when transitioning from SWEEP to CAMERA
+    private int cameraBrakeFrames = 0;
+    private static final int CAMERA_BRAKE_FRAMES = 15;
+
     // Simulation
     private SingleJointedArmSim turretSim;
     private int simDebugCounter = 0;
@@ -374,27 +385,59 @@ public class TurretSubsystem extends SubsystemBase {
 
             if (hubVisible.getAsBoolean()) {
                 // CAMERA MODE — hub visible (camera detection or pose-derived)
+                if (trackingMode != TrackingMode.CAMERA) {
+                    // Entering CAMERA from SWEEP/HOLD — brake first, then seed setpoint
+                    lastSetpointDegrees = currentAngle;
+                    cameraBrakeFrames = CAMERA_BRAKE_FRAMES;
+                    trackingDebounceCount = 0;
+                }
                 trackingMode = TrackingMode.CAMERA;
+                // Brake: stop motor to decelerate from sweep before tracking
+                if (cameraBrakeFrames > 0) {
+                    cameraBrakeFrames--;
+                    stopTurret();
+                    return;
+                }
+                sweepWarmupFrames = 0; // reset warmup on detection
                 // Remember which side the hub is for faster reacquisition
                 scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
                 // Compute target from current angle + turret-relative offset
-                double rawTarget = currentAngle + cameraAngle.getAsDouble();
-                // If target is past mechanical limits, hub is unreachable from this position.
-                // Hold at the limit rather than tracking stale corrections against the stop.
-                if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
+                double camAngle = cameraAngle.getAsDouble();
+                double rawTarget = currentAngle + camAngle;
+
+                if (RobotBase.isSimulation() && simDebugCounter % 5 == 0) {
+                    System.out.printf("[TRACK] camYaw=%.2f cur=%.1f setpt=%.1f raw=%.1f debounce=%d%n",
+                        camAngle, currentAngle, lastSetpointDegrees, rawTarget, trackingDebounceCount);
+                }
+
+                // Dead zone + debounce: hold steady unless offset exceeds tolerance for N frames
+                if (Math.abs(camAngle) < trackingToleranceDeg) {
+                    trackingDebounceCount = 0;
+                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                } else if (++trackingDebounceCount < TRACKING_DEBOUNCE_FRAMES) {
+                    // Outside dead zone but not yet debounced — hold position
+                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
+                    // Target past mechanical limits — hold at limit
                     setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
                 } else if (hubFresh.getAsBoolean()) {
-                    // Fresh camera detection — apply correction at full tracking gain
+                    // Fresh detection — apply correction at tracking gain
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed + angVelLead);
                 } else {
-                    // No fresh camera frame — hold last setpoint with rotation compensation
+                    // No fresh frame — hold last setpoint with rotation compensation
                     setTurretAngle(lastSetpointDegrees + angVelLead);
                 }
             } else {
                 // SWEEP: voltage-based smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
+                // Warmup: hold at forward before sweeping to give camera time to detect hub
+                if (sweepWarmupFrames > 0) {
+                    sweepWarmupFrames--;
+                    setTurretAngle(holdAngleDegrees);
+                    return;
+                }
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
                 sweepTurret(scanDirection * TurretTrackingConstants.kScanVoltage);

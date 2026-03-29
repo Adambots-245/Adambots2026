@@ -3,12 +3,15 @@ package com.adambots.commands;
 import java.util.Set;
 import java.util.function.DoubleSupplier;
 
+import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 
@@ -228,26 +231,17 @@ public final class ShootCommands {
         }).withName("Hold Shoot");
     }
 
-    /**
-     * Hold-to-shoot at vision distance with turret auto-track suppression.
-     * Disables turret sweep while shooting, restores when released.
-     */
     public static Command holdShootAtDistanceCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
             TurretSubsystem turret,
-            DoubleSupplier distanceSupplier) {
-        return holdShootAtDistanceCommand(shooter, hopper, turret, distanceSupplier, null);
-    }
-
-    public static Command holdShootAtDistanceCommand(
-            ShooterSubsystem shooter,
-            HopperSubsystem hopper,
-            TurretSubsystem turret,
+            SwerveSubsystem swerve,
             DoubleSupplier distanceSupplier,
             VisionSubsystem vision) {
-        return withAutoTrackSuppressed(
-            holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision)
+        return Commands.parallel(
+            withAutoTrackSuppressed(
+                holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision),
+            shakeCommand(swerve))
             .withName("Hold Shoot At Distance");
     }
 
@@ -404,4 +398,29 @@ public final class ShootCommands {
             lobShotCommand(shooter, hopper, intake)
         ).withName("autonLob");
     }
+
+    // ==================== Chassis Shake ====================
+
+    /** Side-to-side speed for chassis shake (m/s). */
+    private static final double kShakeSpeed = 0.3;
+    /** Period of one full shake cycle (seconds). */
+    private static final double kShakePeriodSeconds = 0.2;
+
+    /**
+     * Shake command: oscillates the chassis side-to-side to settle balls into the carousel.
+     * Requires the swerve subsystem — interrupts default drive while active.
+     * Robot stays roughly in place since movement alternates direction each half-period.
+     */
+    public static Command shakeCommand(SwerveSubsystem swerve) {
+        Timer shakeTimer = new Timer();
+        return Commands.runOnce(shakeTimer::restart)
+            .andThen(swerve.driveFieldOrientedCommand(() -> {
+                double elapsed = shakeTimer.get() % kShakePeriodSeconds;
+                double direction = (elapsed < kShakePeriodSeconds / 2) ? 1.0 : -1.0;
+                return new ChassisSpeeds(0, direction * kShakeSpeed, 0);
+            }))
+            .finallyDo(interrupted -> swerve.setChassisSpeeds(new ChassisSpeeds()))
+            .withName("Chassis Shake");
+    }
+
 }

@@ -22,6 +22,7 @@ import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import edu.wpi.first.wpilibj.Timer;
 
 import org.littletonrobotics.junction.Logger;
 
@@ -54,7 +55,7 @@ public class IntakeSubsystem extends SubsystemBase {
     // Roller jam detection state
     private boolean rollerReversing = false;
     private boolean wasRollerRunningLastCycle = false;
-    private final edu.wpi.first.wpilibj.Timer rollerJamTimer = new edu.wpi.first.wpilibj.Timer();
+    private final Timer rollerJamTimer = new Timer();
 
     // Cached PID gains for simulation voltage computation (updated by setArmPID)
     private double simP = IntakeConstants.kArmP;
@@ -146,7 +147,6 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // Row 0: Telemetry
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
-        Dash.add("Roller Position", () -> intakeMotor.getPosition(), 1, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
         // DIO throughbore when using roboRIO; FXS position converted to degrees when external
         Dash.add("Arm Encoder (deg)", () -> IntakeConstants.kUseExternalEncoder
@@ -361,7 +361,7 @@ public class IntakeSubsystem extends SubsystemBase {
         double[] switchTime = { 0 };
         return runEnd(
                 () -> {
-                    double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+                    double now = Timer.getFPGATimestamp();
                     if (switchTime[0] == 0)
                         switchTime[0] = now;
                     double lowered = degreesToMechanismRotations(armLoweredPosition);

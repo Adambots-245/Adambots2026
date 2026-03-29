@@ -187,10 +187,10 @@ public class RobotContainer {
                 //
                 // swerve.zeroGyroWithAlliance()));
 
-                // Trigger (1): Hold-to-shoot at vision distance (no timer)
+                // Trigger (1): Hold-to-shoot at vision distance with chassis shake (no timer)
                 Buttons.JoystickButton1.whileTrue(
                                 ShootCommands.holdShootAtDistanceCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem));
+                                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
 
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());

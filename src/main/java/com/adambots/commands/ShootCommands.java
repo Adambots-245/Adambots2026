@@ -3,6 +3,7 @@ package com.adambots.commands;
 import java.util.Set;
 import java.util.function.DoubleSupplier;
 
+import com.adambots.Constants;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
@@ -408,10 +409,14 @@ public final class ShootCommands {
 
     /**
      * Shake command: oscillates the chassis side-to-side to settle balls into the carousel.
+     * Returns a no-op when {@code ShooterConstants.kShakeEnabled} is false.
      * Requires the swerve subsystem — interrupts default drive while active.
      * Robot stays roughly in place since movement alternates direction each half-period.
      */
     public static Command shakeCommand(SwerveSubsystem swerve) {
+        if (!Constants.ShooterConstants.kShakeEnabled) {
+            return Commands.none();
+        }
         Timer shakeTimer = new Timer();
         return Commands.runOnce(shakeTimer::restart)
             .andThen(swerve.driveFieldOrientedCommand(() -> {

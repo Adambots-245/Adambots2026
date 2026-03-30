@@ -64,6 +64,10 @@ public class TurretSubsystem extends SubsystemBase {
     private int cameraBrakeFrames = 0;
     private int sweepWarmupFrames = TurretTrackingConstants.kSweepWarmupFrames;
 
+    // Throttled tracking diagnostics (1 Hz)
+    private double lastTrackLogTime = 0;
+    private String lastTrackAction = "INIT";
+
     public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
         this.turretMotor = turretMotor;
         this.turretPot = turretPot;
@@ -283,6 +287,7 @@ public class TurretSubsystem extends SubsystemBase {
                     lastSetpointDegrees = currentAngle;
                     cameraBrakeFrames = TurretTrackingConstants.kCameraBrakeFrames;
                     trackingDebounceCount = 0;
+                    lastTrackAction = "LOCK-ON brake=" + cameraBrakeFrames;
                 }
                 trackingMode = TrackingMode.CAMERA;
                 sweepWarmupFrames = 0;
@@ -290,6 +295,7 @@ public class TurretSubsystem extends SubsystemBase {
                 if (cameraBrakeFrames > 0) {
                     cameraBrakeFrames--;
                     stopTurret();
+                    lastTrackAction = "BRAKING frames=" + cameraBrakeFrames;
                     return;
                 }
                 // Remember which side the hub is for faster reacquisition
@@ -301,16 +307,21 @@ public class TurretSubsystem extends SubsystemBase {
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
                     setTurretAngle(lastSetpointDegrees + angVelLead);
+                    lastTrackAction = "DEADZONE hold";
                 } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
                     setTurretAngle(lastSetpointDegrees + angVelLead);
+                    lastTrackAction = "DEBOUNCE " + trackingDebounceCount;
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
                     setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
+                    lastTrackAction = "LIMIT clamp=" + String.format("%.1f", rawTarget);
                 } else if (hubFresh.getAsBoolean()) {
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngle(smoothed + angVelLead);
+                    lastTrackAction = "TRACK fresh";
                 } else {
                     setTurretAngle(lastSetpointDegrees + angVelLead);
+                    lastTrackAction = "HOLD stale";
                 }
             } else {
                 // SWEEP: continuous smooth scan, reverse at limits
@@ -318,11 +329,26 @@ public class TurretSubsystem extends SubsystemBase {
                 if (sweepWarmupFrames > 0) {
                     sweepWarmupFrames--;
                     setTurretAngle(holdAngleDegrees);
+                    lastTrackAction = "WARMUP " + sweepWarmupFrames;
                     return;
                 }
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
                 setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                lastTrackAction = "SWEEP dir=" + scanDirection;
+            }
+
+            // Throttled diagnostic log (1 Hz) — always on for field troubleshooting
+            double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+            if (now - lastTrackLogTime >= 1.0) {
+                lastTrackLogTime = now;
+                double camAngleVal = cameraAngle.getAsDouble();
+                System.out.printf(
+                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d%n",
+                    trackingMode, lastTrackAction,
+                    currentAngle, lastSetpointDegrees, camAngleVal,
+                    hubVisible.getAsBoolean(), hubFresh.getAsBoolean(),
+                    inShootingZone.getAsBoolean(), autoTrackEnabled, trackingDebounceCount);
             }
         }))
         .finallyDo(interrupted -> {

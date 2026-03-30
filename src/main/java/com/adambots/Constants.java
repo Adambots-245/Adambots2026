@@ -113,6 +113,9 @@ public final class Constants {
         // Shooting zone bounds — robot X position that defines "near the hub"
         public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
         public static final double kBlueShootingZoneMaxX = 4.54;  // Blue hub at x≈4.54
+
+        /** Enable chassis shake during shooting to settle balls into carousel. */
+        public static final boolean kShakeEnabled = false;
     }
 
     // ==================== TurretConstants ====================

@@ -402,11 +402,6 @@ public final class ShootCommands {
 
     // ==================== Chassis Shake ====================
 
-    /** Rotational speed for chassis shake (rad/s). */
-    private static final double kShakeRotSpeed = 1.5;
-    /** Period of one full shake cycle (seconds). */
-    private static final double kShakePeriodSeconds = 0.2;
-
     /**
      * Shake command: oscillates the chassis rotationally to settle balls into the carousel.
      * Returns a no-op when {@code ShooterConstants.kShakeEnabled} is false.
@@ -420,9 +415,9 @@ public final class ShootCommands {
         Timer shakeTimer = new Timer();
         return Commands.runOnce(shakeTimer::restart)
             .andThen(swerve.driveFieldOrientedCommand(() -> {
-                double elapsed = shakeTimer.get() % kShakePeriodSeconds;
-                double direction = (elapsed < kShakePeriodSeconds / 2) ? 1.0 : -1.0;
-                return new ChassisSpeeds(0, 0, direction * kShakeRotSpeed);
+                double elapsed = shakeTimer.get() % Constants.ShooterConstants.kShakePeriodSeconds;
+                double direction = (elapsed < Constants.ShooterConstants.kShakePeriodSeconds / 2) ? 1.0 : -1.0;
+                return new ChassisSpeeds(0, 0, direction * Constants.ShooterConstants.kShakeRotSpeed);
             }))
             .finallyDo(interrupted -> swerve.setChassisSpeeds(new ChassisSpeeds()))
             .withName("Chassis Shake");

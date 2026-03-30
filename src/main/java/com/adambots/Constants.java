@@ -116,6 +116,10 @@ public final class Constants {
 
         /** Enable chassis shake during shooting to settle balls into carousel. */
         public static final boolean kShakeEnabled = false;
+        /** Rotational speed for chassis shake (rad/s). */
+        public static final double kShakeRotSpeed = 1.5;
+        /** Period of one full shake cycle (seconds). */
+        public static final double kShakePeriodSeconds = 0.2;
     }
 
     // ==================== TurretConstants ====================

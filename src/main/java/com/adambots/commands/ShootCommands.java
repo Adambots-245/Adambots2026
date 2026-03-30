@@ -402,16 +402,16 @@ public final class ShootCommands {
 
     // ==================== Chassis Shake ====================
 
-    /** Side-to-side speed for chassis shake (m/s). */
-    private static final double kShakeSpeed = 0.3;
+    /** Rotational speed for chassis shake (rad/s). */
+    private static final double kShakeRotSpeed = 1.5;
     /** Period of one full shake cycle (seconds). */
     private static final double kShakePeriodSeconds = 0.2;
 
     /**
-     * Shake command: oscillates the chassis side-to-side to settle balls into the carousel.
+     * Shake command: oscillates the chassis rotationally to settle balls into the carousel.
      * Returns a no-op when {@code ShooterConstants.kShakeEnabled} is false.
-     * Requires the swerve subsystem — interrupts default drive while active.
-     * Robot stays roughly in place since movement alternates direction each half-period.
+     * Uses rotation instead of translation so the robot stays in place and the
+     * turret's angular velocity feedforward keeps it on target.
      */
     public static Command shakeCommand(SwerveSubsystem swerve) {
         if (!Constants.ShooterConstants.kShakeEnabled) {
@@ -422,7 +422,7 @@ public final class ShootCommands {
             .andThen(swerve.driveFieldOrientedCommand(() -> {
                 double elapsed = shakeTimer.get() % kShakePeriodSeconds;
                 double direction = (elapsed < kShakePeriodSeconds / 2) ? 1.0 : -1.0;
-                return new ChassisSpeeds(0, direction * kShakeSpeed, 0);
+                return new ChassisSpeeds(0, 0, direction * kShakeRotSpeed);
             }))
             .finallyDo(interrupted -> swerve.setChassisSpeeds(new ChassisSpeeds()))
             .withName("Chassis Shake");

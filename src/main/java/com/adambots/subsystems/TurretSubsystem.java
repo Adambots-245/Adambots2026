@@ -64,6 +64,10 @@ public class TurretSubsystem extends SubsystemBase {
     private int cameraBrakeFrames = 0;
     private int sweepWarmupFrames = TurretTrackingConstants.kSweepWarmupFrames;
 
+    // Sweep suppression: when true, turret holds position instead of sweeping when vision lost.
+    // Used during shoot-on-the-move to prevent sweep mid-shot.
+    private boolean sweepSuppressed = false;
+
     // Throttled tracking diagnostics (1 Hz)
     private double lastTrackLogTime = 0;
     private String lastTrackAction = "INIT";
@@ -217,6 +221,15 @@ public class TurretSubsystem extends SubsystemBase {
         autoTrackEnabled = enabled;
     }
 
+    public void setSweepSuppressed(boolean suppressed) {
+        sweepSuppressed = suppressed;
+    }
+
+    /** Trigger that fires when turret is within tolerance of its setpoint. */
+    public Trigger isOnTargetTrigger(double toleranceDeg) {
+        return new Trigger(() -> isAtTarget(toleranceDeg));
+    }
+
     public boolean isAutoTrackEnabled() {
         return autoTrackEnabled;
     }
@@ -323,6 +336,11 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(lastSetpointDegrees + angVelLead);
                     lastTrackAction = "HOLD stale";
                 }
+            } else if (sweepSuppressed) {
+                // HOLD: vision lost during shoot-on-the-move — hold last position, don't sweep
+                trackingMode = TrackingMode.HOLD;
+                setTurretAngle(lastSetpointDegrees + angVelLead);
+                lastTrackAction = "HOLD sweep-suppressed";
             } else {
                 // SWEEP: continuous smooth scan, reverse at limits
                 trackingMode = TrackingMode.SWEEP;

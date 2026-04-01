@@ -188,9 +188,23 @@ public class RobotContainer {
                 // swerve.zeroGyroWithAlliance()));
 
                 // Trigger (1): Hold-to-shoot at vision distance with chassis shake (no timer)
+                // When shoot-on-the-move is enabled, use predicted distance (lookahead)
+                java.util.function.DoubleSupplier distanceSupplier;
+                if (ShooterConstants.kShootOnTheMoveEnabled) {
+                    distanceSupplier = () -> {
+                        var pose = swerve.getPose();
+                        var vel = swerve.getRobotVelocity();
+                        var predicted = new edu.wpi.first.math.geometry.Translation2d(
+                            pose.getX() + vel.vxMetersPerSecond * ShooterConstants.kLookaheadSeconds,
+                            pose.getY() + vel.vyMetersPerSecond * ShooterConstants.kLookaheadSeconds);
+                        return predicted.getDistance(visionSubsystem.getHubCenter());
+                    };
+                } else {
+                    distanceSupplier = visionSubsystem::getHubDistance;
+                }
                 Buttons.JoystickButton1.whileTrue(
                                 ShootCommands.holdShootAtDistanceCommand(
-                                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                                                shooter, hopper, turret, swerve, distanceSupplier, visionSubsystem));
 
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());

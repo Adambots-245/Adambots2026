@@ -114,6 +114,13 @@ public final class Constants {
         public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
         public static final double kBlueShootingZoneMaxX = 4.54;  // Blue hub at x≈4.54
 
+        /** Enable shoot-on-the-move: continuous tracking + RPM + lookahead during shooting. */
+        public static final boolean kShootOnTheMoveEnabled = false;
+        /** Lookahead time for velocity prediction (seconds). Predicts robot position this far ahead. */
+        public static final double kLookaheadSeconds = 0.2;
+        /** Turret must be within this tolerance to allow feeding (degrees). */
+        public static final double kTurretGateToleranceDeg = 3.0;
+
         /** Enable chassis shake during shooting to settle balls into carousel. */
         public static final boolean kShakeEnabled = false;
         /** Rotational speed for chassis shake (rad/s). */
@@ -361,6 +368,10 @@ public final class Constants {
 
         /** Max distance to consider a target valid (meters) */
         public static final double kMaxDistanceMeters = 8.0;
+
+        /** Seconds with no camera results before flagging camera as offline.
+         *  Distinct from "no hub tags visible" — this means the pipeline itself is down. */
+        public static final double kCameraOfflineThresholdSeconds = 2.0;
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
         public static final int kVisionMode = 0;

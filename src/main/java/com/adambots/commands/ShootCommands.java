@@ -55,6 +55,22 @@ public final class ShootCommands {
     }
 
     /**
+     * Wraps a shoot command to suppress sweep (but keep tracking) during shooting.
+     * Used for shoot-on-the-move: turret tracks when vision is available, holds position
+     * when vision drops (no sweep mid-shot).
+     */
+    private static Command withSweepSuppressed(Command shootCommand, TurretSubsystem turret, VisionSubsystem vision) {
+        return Commands.runOnce(() -> {
+            turret.setSweepSuppressed(true);
+            if (vision != null) vision.setShootingMode(true);
+        }).andThen(shootCommand)
+          .finallyDo(() -> {
+              turret.setSweepSuppressed(false);
+              if (vision != null) vision.setShootingMode(false);
+          });
+    }
+
+    /**
      * Spin up → once at speed (or timeout), keep spinning + feed hopper in parallel → stop all.
      */
     public static Command shootCommand(
@@ -239,10 +255,12 @@ public final class ShootCommands {
             SwerveSubsystem swerve,
             DoubleSupplier distanceSupplier,
             VisionSubsystem vision) {
-        return Commands.parallel(
-            withAutoTrackSuppressed(
-                holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision),
-            shakeCommand(swerve))
+        Command shoot = Constants.ShooterConstants.kShootOnTheMoveEnabled
+            ? withSweepSuppressed(
+                holdShootAtDistanceCommand(shooter, hopper, turret, distanceSupplier), turret, vision)
+            : withAutoTrackSuppressed(
+                holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision);
+        return Commands.parallel(shoot, shakeCommand(swerve))
             .withName("Hold Shoot At Distance");
     }
 
@@ -269,6 +287,32 @@ public final class ShootCommands {
             shooter.setShotBoost(false);
             shooter.stopFlywheel();
         }).withName("Hold Shoot At Distance");
+    }
+
+    /**
+     * Shoot-on-the-move variant: continuous RPM updates + turret-on-target gating.
+     * Turret keeps tracking (sweep suppressed by caller). Flywheel continuously adjusts
+     * RPM as distance changes. Hopper feeds only when turret AND flywheel are on target.
+     */
+    public static Command holdShootAtDistanceCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            TurretSubsystem turret,
+            DoubleSupplier distanceSupplier) {
+        return Commands.sequence(
+            shooter.spinForDistanceCommand(distanceSupplier)
+                .until(shooter.isAtSpeedTrigger()
+                    .and(turret.isOnTargetTrigger(Constants.ShooterConstants.kTurretGateToleranceDeg))
+                    .debounce(kFireGateDebounceSeconds))
+                .withTimeout(kSpinUpTimeoutSeconds),
+            Commands.runOnce(() -> shooter.setShotBoost(true)),
+            Commands.parallel(
+                shooter.spinForDistanceCommand(distanceSupplier), // continuous RPM — no snapshot
+                hopper.feedCommand())
+        ).finallyDo(() -> {
+            shooter.setShotBoost(false);
+            shooter.stopFlywheel();
+        }).withName("Hold Shoot On The Move");
     }
 
     /**

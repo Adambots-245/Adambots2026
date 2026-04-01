@@ -171,7 +171,8 @@ public class RobotContainer {
                                         visionSubsystem::isHubVisible,
                                         visionSubsystem::isTrackingDataFresh,
                                         shooter::isInShootingZone,
-                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));
+                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                                        visionSubsystem::isCameraOnline));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }

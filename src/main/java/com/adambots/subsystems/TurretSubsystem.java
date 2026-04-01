@@ -260,6 +260,17 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier hubFresh,
             BooleanSupplier inShootingZone,
             DoubleSupplier robotAngularVelDegPerSec) {
+        return autoTrackCommand(cameraAngle, hubVisible, hubFresh, inShootingZone,
+            robotAngularVelDegPerSec, () -> true);
+    }
+
+    public Command autoTrackCommand(
+            DoubleSupplier cameraAngle,
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh,
+            BooleanSupplier inShootingZone,
+            DoubleSupplier robotAngularVelDegPerSec,
+            BooleanSupplier cameraOnline) {
 
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
@@ -267,8 +278,9 @@ public class TurretSubsystem extends SubsystemBase {
             scanDirection = 1;
         }, this)
         .andThen(run(() -> {
-            // Auto-track toggle (Button 5)
-            if (!autoTrackEnabled) {
+            // Camera offline — disable tracking, let drivers aim manually
+            // Auto-track toggle (Button 5) or camera offline
+            if (!autoTrackEnabled || !cameraOnline.getAsBoolean()) {
                 if (wasAutoTracking) {
                     holdAngleDegrees = getTurretAngleDegrees();
                     wasAutoTracking = false;
@@ -362,11 +374,12 @@ public class TurretSubsystem extends SubsystemBase {
                 lastTrackLogTime = now;
                 double camAngleVal = cameraAngle.getAsDouble();
                 System.out.printf(
-                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d%n",
+                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f visible=%s fresh=%s inZone=%s autoTrack=%s camOnline=%s debounce=%d%n",
                     trackingMode, lastTrackAction,
                     currentAngle, lastSetpointDegrees, camAngleVal,
                     hubVisible.getAsBoolean(), hubFresh.getAsBoolean(),
-                    inShootingZone.getAsBoolean(), autoTrackEnabled, trackingDebounceCount);
+                    inShootingZone.getAsBoolean(), autoTrackEnabled, cameraOnline.getAsBoolean(),
+                    trackingDebounceCount);
             }
         }))
         .finallyDo(interrupted -> {

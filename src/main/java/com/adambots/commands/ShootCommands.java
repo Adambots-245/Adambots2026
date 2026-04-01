@@ -367,6 +367,30 @@ public final class ShootCommands {
     }
 
     /**
+     * Manual hold-to-shoot: driver controls flywheel speed via throttle, operator holds button to shoot.
+     * Throttle maps to the interpolation table's RPS range (min→max). No vision dependency.
+     * Spin-up uses throttle continuously; once at speed, feeds while held.
+     */
+    public static Command manualShootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            DoubleSupplier throttleSupplier) {
+        DoubleSupplier rpsSupplier = () -> shooter.throttleToRPS(throttleSupplier.getAsDouble());
+        return Commands.sequence(
+            shooter.spinUpCommand(rpsSupplier)
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
+                .withTimeout(kSpinUpTimeoutSeconds),
+            Commands.runOnce(() -> shooter.setShotBoost(true)),
+            Commands.parallel(
+                shooter.spinUpCommand(rpsSupplier),
+                hopper.feedCommand())
+        ).finallyDo(() -> {
+            shooter.setShotBoost(false);
+            shooter.stopFlywheel();
+        }).withName("Manual Shoot (Throttle)");
+    }
+
+    /**
      * Reverse hopper/uptake and stop flywheel to clear jams.
      */
     public static Command ejectCommand(

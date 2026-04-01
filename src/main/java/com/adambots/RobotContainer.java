@@ -267,9 +267,9 @@ public class RobotContainer {
                 Buttons.XboxBButton.onTrue(
                                 intake.reverseIntakeCommand());
 
-                // Y: None
-                Buttons.XboxYButton.onTrue(
-                                Commands.none());
+                // Y: Manual shoot — driver throttle controls flywheel speed, operator holds to shoot
+                Buttons.XboxYButton.whileTrue(
+                                ShootCommands.manualShootCommand(shooter, hopper, Buttons.JoystickThrottle));
 
                 // X: Toggle flywheel idle pre-spin
                 Buttons.XboxXButton.onTrue(

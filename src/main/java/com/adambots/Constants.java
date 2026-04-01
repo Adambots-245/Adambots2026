@@ -101,8 +101,8 @@ public final class Constants {
             {5.0, 62.0}
         };
 
-        public static final double kMinRPS = 46.0;  // table minimum
-        public static final double kMaxRPS = 68.0;  // table maximum
+        public static final double kMinRPS = kDefaultInterpolationTable[0][1];
+        public static final double kMaxRPS = kDefaultInterpolationTable[kDefaultInterpolationTable.length - 1][1];
 
         /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
         public static final double kIdleRPS = 20.0;

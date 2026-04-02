@@ -1,6 +1,5 @@
 package com.adambots.commands;
 
-import com.adambots.Constants.TuningConstants;
 import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.lib.utils.Dash;
 
@@ -35,6 +34,22 @@ public final class TuningCommands {
     /** Seconds to ignore at the start of each iteration (initial approach phase) */
     private static final double APPROACH_BLANKING = 0.5;
 
+    // Tuning-specific constants (one-time utility — not in main Constants file)
+    /** Fraction of max angular velocity for rotation PID tuning */
+    private static final double TUNING_MAX_ANGULAR_OUTPUT = 0.3;
+    /** Fraction of max linear velocity for translation PID tuning */
+    private static final double TUNING_MAX_LINEAR_OUTPUT = 0.3;
+    /** Target angular velocity for MOI step-response test (rad/s) */
+    private static final double MOI_TEST_ANGULAR_VELOCITY = 2.0;
+    /** Duration of the MOI spin-up test in seconds */
+    private static final double MOI_TEST_DURATION_SECONDS = 3.0;
+    /** Settling time during which acceleration is measured (seconds) */
+    private static final double MOI_SPIN_UP_SETTLE_TIME = 1.0;
+    /** Sampling interval for MOI acceleration measurement (seconds) */
+    private static final double MOI_SAMPLE_INTERVAL_SECONDS = 0.02;
+    /** Estimated tangential force per swerve module (N) — rough approximation */
+    private static final double FORCE_PER_MODULE_N = 40.0;
+
     /**
      * Safe spawn position — navgrid row 7 (y=2.1m), column 10 (x=3.0m).
      * Verified clear of all structures in the 2026 REBUILT field.
@@ -54,7 +69,7 @@ public final class TuningCommands {
      */
     public static Command tuneTranslationPIDCommand(SwerveSubsystem swerve) {
         double maxVel = swerve.getSwerveDrive().getMaximumChassisVelocity();
-        double maxDriveSpeed = maxVel * TuningConstants.kTuningMaxLinearOutput;
+        double maxDriveSpeed = maxVel * TUNING_MAX_LINEAR_OUTPUT;
         double stepDistance = 1.0;
 
         final Translation2d[] refPos = {null};
@@ -196,6 +211,7 @@ public final class TuningCommands {
                 reportPIDResults("Translation", ku[0], tu[0]);
             }, swerve)
         ).finallyDo(() -> swerve.drive(new Translation2d(0, 0), 0, false))
+         .withTimeout(45)
          .withName("TuneTranslationPID");
     }
 
@@ -210,7 +226,7 @@ public final class TuningCommands {
      */
     public static Command tuneRotationPIDCommand(SwerveSubsystem swerve) {
         double maxAngVel = swerve.getSwerveDrive().getMaximumChassisAngularVelocity();
-        double maxOmega = maxAngVel * TuningConstants.kTuningMaxAngularOutput;
+        double maxOmega = maxAngVel * TUNING_MAX_ANGULAR_OUTPUT;
         double stepAngle = Math.toRadians(45);
 
         final double[] targetHeading = new double[1];
@@ -320,6 +336,7 @@ public final class TuningCommands {
                 reportPIDResults("Rotation", ku[0], tu[0]);
             }, swerve)
         ).finallyDo(() -> swerve.drive(new Translation2d(0, 0), 0, false))
+         .withTimeout(45)
          .withName("TuneRotationPID");
     }
 
@@ -340,9 +357,9 @@ public final class TuningCommands {
         final int[] sampleCount = new int[1];
         final double[] maxOmega = new double[1];
 
-        double targetOmega = TuningConstants.kMOITestAngularVelocity;
-        double duration = TuningConstants.kMOITestDurationSeconds;
-        double settleTime = TuningConstants.kMOISpinUpSettleTime;
+        double targetOmega = MOI_TEST_ANGULAR_VELOCITY;
+        double duration = MOI_TEST_DURATION_SECONDS;
+        double settleTime = MOI_SPIN_UP_SETTLE_TIME;
 
         return Commands.sequence(
             Commands.runOnce(() -> {
@@ -373,7 +390,7 @@ public final class TuningCommands {
                 }
 
                 double dt = now - prevTime[0];
-                if (dt >= TuningConstants.kMOISampleIntervalSeconds && elapsed < settleTime) {
+                if (dt >= MOI_SAMPLE_INTERVAL_SECONDS && elapsed < settleTime) {
                     double alpha = (currentOmega - prevOmega[0]) / dt;
                     if (Math.abs(alpha) > 0.01) {
                         accelSum[0] += Math.abs(alpha);
@@ -399,10 +416,10 @@ public final class TuningCommands {
                 }
 
                 double avgAlpha = accelSum[0] / sampleCount[0];
-                double trackRadius = 0.3;
-                double forcePerModule = 40.0;
+                // Track radius from YAGSL config: modules at (11in, ±11in) → sqrt(11²+11²) = 15.56in = 0.395m
+                double trackRadius = 0.395;
                 int numModules = 4;
-                double estimatedTorque = forcePerModule * trackRadius * numModules;
+                double estimatedTorque = FORCE_PER_MODULE_N * trackRadius * numModules;
                 double estimatedMOI = estimatedTorque / avgAlpha;
 
                 System.out.println("\n========================================");

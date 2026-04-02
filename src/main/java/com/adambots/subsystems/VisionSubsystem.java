@@ -114,6 +114,10 @@ public class VisionSubsystem extends SubsystemBase {
     private int diagTagsRejectedNotHub = 0;
     private double diagLastAmbiguity = -1;
 
+    // Camera health tracking — detects pipeline offline (USB disconnect, driver crash)
+    private double lastCameraResultTime = 0;
+    private boolean cameraOnline = true;
+
     // Throttled logging (1 Hz)
     private double lastLogTimestamp = 0;
 
@@ -466,6 +470,16 @@ public class VisionSubsystem extends SubsystemBase {
         cam.getEstimatedGlobalPose();
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
+        // Camera health: track last time we got any result (even with no targets)
+        double now = Timer.getFPGATimestamp();
+        if (resultOpt.isPresent()) {
+            lastCameraResultTime = now;
+            cameraOnline = true;
+        } else if (lastCameraResultTime > 0
+                && now - lastCameraResultTime > VisionConstants.kCameraOfflineThresholdSeconds) {
+            cameraOnline = false;
+        }
+
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
             hubCamHasTarget = false;
             if (prevHubCamHasTarget) {
@@ -577,6 +591,10 @@ public class VisionSubsystem extends SubsystemBase {
         if (visionMode == 0) return hubCamHasTarget;
         return isHubVisible();
     }
+
+    /** Whether the camera pipeline is online (receiving results, even if no tags visible).
+     *  False means USB disconnect, driver crash, or pipeline failure. */
+    public boolean isCameraOnline() { return cameraOnline; }
 
     // ==================== Hub Approach A Getters (camera-only) ====================
 

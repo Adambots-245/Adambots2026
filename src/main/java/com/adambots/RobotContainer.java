@@ -183,68 +183,43 @@ public class RobotContainer {
         // ==================== BUTTON BINDINGS ====================
         private void configureButtonBindings() {
                 // === Driver (Thrustmaster) ===
-                // Buttons.JoystickButton10.onTrue(Commands.runOnce(() ->
-                //
-                // swerve.zeroGyroWithAlliance()));
+                // All the possible buttons are being mapped with unused ones registered as Commands.none() to 
+                // avoid any conflicts in the future.
 
                 // Trigger (1): Hold-to-shoot at vision distance with chassis shake (no timer)
                 Buttons.JoystickButton1.whileTrue(
                                 ShootCommands.holdShootAtDistanceCommand(
                                                 shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
-
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
-
-                // Button 3: Toggle intake
+                // Button 3: Drop arm and run intake
                 Buttons.JoystickButton3.onTrue(
-                                // runLowerIntakeArmCommand is runOnce (sets Motion Magic target), so andThen
-                                // fires immediately — roller spinning while arm deploys is
-                                //
-                                // intentional/harmless.
                                 intake.runLowerIntakeArmCommand().andThen(intake.runIntakeCommand()));
-
+                // Button 4: Stop intake and raise arm
                 Buttons.JoystickButton4.onTrue(
-                                // stopIntakeCommand is runOnce, so andThen fires before roller fully stops —
-                                // arm raising while roller winds down is intentional/harmless.
                                 intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand().withTimeout(1)));
 
                 // Button 5: Toggle auto-track on/off
                 Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
-
-                // Button 6: Lower Intake Arm
+                // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
                                 intake.runLowerIntakeArmCommand());
-
-                // Button 7: None
+                // Button 7: Reverse a jam in the shooter/hopper
                 Buttons.JoystickButton7.onTrue(ShootCommands.ejectCommand(shooter, hopper).withTimeout(0.5));
-
                 // Button 8: None
                 Buttons.JoystickButton8.onTrue(Commands.none());
-
                 // Button 9: Bop and run intake
                 Buttons.JoystickButton9.whileTrue(intake.bopArmAndRunCommand());
-
                 // Button 10: Lob
                 Buttons.JoystickButton10.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
-
                 // Button 11: Zero Gyro
                 Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
-
                 // Button 12: Lower intake but do not run
-                Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); // TODO(vx-clutch): Drivers want
-                                                                                    // this on the
-                                                                                    // Xbox controller, however we have
-                                                                                    // to many
-                                                                                    // binds on that so we will have to
-                                                                                    // discuss
-                                                                                    // which to drop.
-
+                Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); 
                 // Button 13: None
                 Buttons.JoystickButton13.onTrue(Commands.none());
-
                 // Button 14: None
                 Buttons.JoystickButton14.onTrue(Commands.none());
-
                 // Button 15: None
                 Buttons.JoystickButton15.onTrue(Commands.none());
 
@@ -253,19 +228,16 @@ public class RobotContainer {
                 // R-L Triggers: Bop
                 Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
                 Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
-
                 // Right Bumper: Intake up
                 Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
-
                 // Left Bumper: Intake down
                 Buttons.XboxLeftBumper.onTrue(intake.runLowerIntakeArmCommand());
 
                 // Button A: Stop intake
                 Buttons.XboxAButton.onTrue(intake.stopIntakeCommand());
 
-                // B: Eject
-                Buttons.XboxBButton.onTrue(
-                                intake.reverseIntakeCommand());
+                // B: Reverse Intake
+                Buttons.XboxBButton.onTrue(intake.reverseIntakeCommand());
 
                 // Y: Manual shoot — driver throttle controls flywheel speed, operator holds to shoot
                 Buttons.XboxYButton.whileTrue(
@@ -276,7 +248,7 @@ public class RobotContainer {
                         Commands.runOnce(() -> shooter.setIdleEnabled(!shooter.isIdleEnabled())));
 
                 // === D-pad: Turret manual control ===
-                // Up = snap to forward (170°), Left/Right = incremental nudge
+                // Up = snap to forward, Left/Right = incremental nudge
                 // Diagonals included for POV hat wobble robustness
                 double step = Constants.TurretConstants.kTurretManualStepDeg;
                 Buttons.XboxDPadN.whileTrue(
@@ -286,17 +258,17 @@ public class RobotContainer {
                 Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
                 Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
 
-                // Start: One-press auto-extend — raise elevator to top, then lock
-                // Buttons.XboxStartButton.onTrue(
-                // climber.extendCommand()
-                // .until(climber::isAtRaisedLimit)
-                // .andThen(climber.lockCommand()));
+                // Start: None
+                Buttons.XboxStartButton.onTrue(Commands.none());
+                                                // climber.extendCommand()
+                                                // .until(climber::isAtRaisedLimit)
+                                                // .andThen(climber.lockCommand()));
+                // Back: None
+                Buttons.XboxBackButton.onTrue(Commands.none());
+                                                // climber.retractCommand()
+                                                // .until(climber::isAtLoweredLimit)
+                                                // .andThen(climber.lockCommand()));    
 
-                // Back: One-press auto-climb — retract to bottom, then lock
-                // Buttons.XboxBackButton.onTrue(
-                // climber.climbCommand()
-                // .until(climber::isAtLowered6Limit)
-                // .andThen(climber.lockCommand()));
         }
 
         // ==================== PATHPLANNER ====================
@@ -330,6 +302,10 @@ public class RobotContainer {
                 NamedCommands.registerCommand("intakeLob",
                                 ShootCommands.autonLobCommand(shooter, turret, hopper, intake));
                 NamedCommands.registerCommand("intakeUp", intake.runRaiseIntakeArmCommand());
+                NamedCommands.registerCommand("aimForward",
+                                turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5));
+                NamedCommands.registerCommand("waitForHub",
+                                visionSubsystem.waitForHubCommand().withTimeout(2.0));
         }
 
         // ==================== AUTO CHOOSER ====================
@@ -353,6 +329,9 @@ public class RobotContainer {
                 tuningPeriodic = tuning != null ? tuning : () -> {
                 };
                 Dash.add("Auto-Track", () -> turret.isAutoTrackEnabled());
+                if (visionSubsystem != null) {
+                        Dash.add("Camera Online", visionSubsystem::isCameraOnline);
+                }
         }
 
         /**

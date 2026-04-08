@@ -404,13 +404,14 @@ public final class Constants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
-        public static final double kArmP = 20;    // Volts per rotation of error
-        public static final double kArmI = 0.0;     // Volts per rotation*second of error (almost never needed with proper kG)
-        public static final double kArmD = 0.10;     // Volts per rotation/second of error (damping)
-        public static final double kArmKV = 0.12;   // Volts per rotation/second of velocity
-        public static final double kArmKS = 0.25;   // Volts to overcome static friction
-        public static final double kArmKA = 0.01;   // Volts per rotation/second^2 of acceleration
-        public static final double kArmKG = 0.2;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
+        // Reduced for lighter roller intake (was wheels) — tune from these starting points.
+        public static final double kArmP = 15;     // Volts per rotation of error (was 20, lighter arm)
+        public static final double kArmI = 0.0;    // Volts per rotation*second of error (almost never needed with proper kG)
+        public static final double kArmD = 0.08;   // Volts per rotation/second of error (was 0.10)
+        public static final double kArmKV = 0.12;  // Volts per rotation/second of velocity (motor characteristic, unchanged)
+        public static final double kArmKS = 0.20;  // Volts to overcome static friction (was 0.25, less load)
+        public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration (was 0.01, lower MOI)
+        public static final double kArmKG = 0.14;  // Volts to hold arm horizontal (was 0.2, lighter arm)
 
         // Motion Magic profile constraints
         public static final double kArmCruiseVelocity = 2.0;  // rotations per second
@@ -429,7 +430,10 @@ public final class Constants {
 
         public static final double kArmRaisedPosition = -565.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = -460.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
-        public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
+        // Bop range: both offsets measured in degrees from lowered toward raised (sign-agnostic).
+        // Direction is derived from sign(raised - lowered) at runtime.
+        public static final double kBopBottomOffset = 0.0;  // degrees from lowered toward raised (bop bottom)
+        public static final double kBopTopOffset = 75.0;    // degrees from lowered toward raised (bop top)
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
         public static final double kArmKnownSetpointTolerance = 0.01; // mechanism rotations — re-sync guard

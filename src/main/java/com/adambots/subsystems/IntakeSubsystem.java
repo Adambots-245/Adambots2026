@@ -46,8 +46,9 @@ public class IntakeSubsystem extends SubsystemBase {
     private double simMotorVoltage;
     private double simArmAngleDeg;
 
-    private double bopAngle = IntakeConstants.kBopAngle;
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+    private double bopBottomOffset = IntakeConstants.kBopBottomOffset;
+    private double bopTopOffset = IntakeConstants.kBopTopOffset;
 
     // Coast-when-lowered: arm goes loose at lowered position for compliance
     private boolean armInCoast = false;
@@ -67,14 +68,9 @@ public class IntakeSubsystem extends SubsystemBase {
      * Returns true when the intake roller is running (velocity above threshold).
      */
     public Trigger isRunningTrigger() {
-        return new Trigger(() -> Math.abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > IntakeConstants.kRollerRunningThreshold);
+        return new Trigger(() -> Math
+                .abs(intakeMotor.getVelocity().in(RotationsPerSecond)) > IntakeConstants.kRollerRunningThreshold);
     }
-
-    // Sign that maps encoder-increasing direction to motor direction.
-    // Lowered > Raised → encoder increases as arm lowers → motor needs negative
-    // direction.
-    private static final int kArmDirection = (IntakeConstants.kArmLoweredPosition
-            - IntakeConstants.kArmRaisedPosition) < 0 ? 1 : -1;
 
     private double targetPosition = 0;
 
@@ -86,7 +82,8 @@ public class IntakeSubsystem extends SubsystemBase {
         configureMotors();
 
         // Seed motor encoder from throughbore absolute position so Motion Magic targets
-        // are correct. Skip when using external encoder — FXS reads throughbore directly.
+        // are correct. Skip when using external encoder — FXS reads throughbore
+        // directly.
         if (!IntakeConstants.kUseExternalEncoder) {
             double absoluteDeg = armEncoder.getPosition().in(Degrees);
             intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
@@ -124,7 +121,8 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
-        // When throughbore is hardwired to TalonFXS data port, use it as the feedback source.
+        // When throughbore is hardwired to TalonFXS data port, use it as the feedback
+        // source.
         // FXS reads PWM signal directly at 1kHz — eliminates DIO polling and re-sync.
         // Ratio = 1.0 because throughbore is on the mechanism side (post-gearbox).
         if (IntakeConstants.kUseExternalEncoder) {
@@ -148,15 +146,15 @@ public class IntakeSubsystem extends SubsystemBase {
         // Row 0: Telemetry
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
-        // DIO throughbore when using roboRIO; FXS position converted to degrees when external
+        // DIO throughbore when using roboRIO; FXS position converted to degrees when
+        // external
         Dash.add("Arm Encoder (deg)", () -> IntakeConstants.kUseExternalEncoder
-            ? intakeArmMotor.getPosition() * 360.0
-            : armEncoder.getPosition().in(Degrees), 3, 0);
+                ? intakeArmMotor.getPosition() * 360.0
+                : armEncoder.getPosition().in(Degrees), 3, 0);
         Dash.add("Arm Mech Pos (rot)", () -> intakeArmMotor.getPosition(), 4, 0);
         Dash.add("Arm Target (mech rot)", () -> targetPosition, 5, 0);
         Dash.add("Arm At Target", () -> isArmAtTarget(), 6, 0);
-        Dash.add("Arm Direction", () -> kArmDirection, 7, 0);
-        Dash.add("Target (deg)", () -> targetPosition / kArmDirection * 360.0, 8, 0);
+        Dash.add("Target (deg)", () -> targetPosition * 360.0, 8, 0);
         Dash.add("Ext Encoder", () -> IntakeConstants.kUseExternalEncoder, 9, 0);
         Dash.add("Roller Current", () -> intakeMotor.getCurrentDraw().in(Amps), 10, 0);
         Dash.add("Arm Current", () -> intakeArmMotor.getCurrentDraw().in(Amps), 11, 0);
@@ -202,8 +200,12 @@ public class IntakeSubsystem extends SubsystemBase {
         armLoweredPosition = pos;
     }
 
-    public void setBopAngle(double angle) {
-        bopAngle = angle;
+    public void setBopBottomOffset(double offset) {
+        bopBottomOffset = offset;
+    }
+
+    public void setBopTopOffset(double offset) {
+        bopTopOffset = offset;
     }
 
     /**
@@ -260,8 +262,8 @@ public class IntakeSubsystem extends SubsystemBase {
     public void stopIntakeArm() {
         restoreBrakeMode();
         targetPosition = IntakeConstants.kUseExternalEncoder
-            ? intakeArmMotor.getPosition()
-            : degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
+                ? intakeArmMotor.getPosition()
+                : degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -277,8 +279,8 @@ public class IntakeSubsystem extends SubsystemBase {
      */
     public double getIntakeArmPosition() {
         return IntakeConstants.kUseExternalEncoder
-            ? intakeArmMotor.getPosition() * 360.0
-            : armEncoder.getPosition().in(Degrees);
+                ? intakeArmMotor.getPosition() * 360.0
+                : armEncoder.getPosition().in(Degrees);
     }
 
     /**
@@ -288,7 +290,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * in mechanism rotations — no gear ratio multiplication needed here.
      */
     private double degreesToMechanismRotations(double degrees) {
-        return kArmDirection * (degrees / 360.0);
+        return degrees / 360.0;
     }
 
     // ==================== Command Factory Methods ====================
@@ -341,7 +343,9 @@ public class IntakeSubsystem extends SubsystemBase {
                 .withName("Stop Intake Arm");
     }
 
-    /** Restore brake mode if currently in coast (for raising, bopping, or holding). */
+    /**
+     * Restore brake mode if currently in coast (for raising, bopping, or holding).
+     */
     private void restoreBrakeMode() {
         if (armInCoast) {
             intakeArmMotor.setBrakeMode(true);
@@ -350,13 +354,20 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Shared bop oscillation state machine. Oscillates the arm between lowered
-     * and (lowered - bopAngle) positions. Returns a runEnd command base.
+     * Shared bop oscillation state machine. Oscillates the arm between a bop bottom
+     * and bop top — both measured as degrees offset from lowered toward raised.
+     * Sign-agnostic: direction is derived from sign(raised - lowered) at runtime.
      *
      * @param runExtra extra action to run each execute cycle (e.g. run intake
      *                 motor), or null
      */
     private Command bopCommandBase(Runnable runExtra, String name) {
+        // the reason for using an array here is due to an issue with passing primitive
+        // types into the lambda expression for runEnd. Since Java requires variables
+        // used in lambda expressions to be effectively final, we cannot directly modify
+        // a primitive variable like a double. By using an array, we can modify the
+        // contents of the array (i.e., switchTime[0]) while still adhering to the
+        // effectively final requirement for the variable reference (switchTime).
         boolean[] bopUp = { false };
         double[] switchTime = { 0 };
         return runEnd(
@@ -364,13 +375,18 @@ public class IntakeSubsystem extends SubsystemBase {
                     double now = Timer.getFPGATimestamp();
                     if (switchTime[0] == 0)
                         switchTime[0] = now;
-                    double lowered = degreesToMechanismRotations(armLoweredPosition);
-                    double raised = degreesToMechanismRotations(armLoweredPosition - bopAngle);
+                    // Direction from lowered toward raised (sign-agnostic)
+                    double direction = Math.signum(
+                        IntakeConstants.kArmRaisedPosition - armLoweredPosition);
+                    double bopBottom = degreesToMechanismRotations(
+                        armLoweredPosition + direction * bopBottomOffset);
+                    double bopTop = degreesToMechanismRotations(
+                        armLoweredPosition + direction * bopTopOffset);
                     if (now - switchTime[0] > IntakeConstants.kBopSwitchTimeSeconds) {
                         bopUp[0] = !bopUp[0];
                         switchTime[0] = now;
                     }
-                    targetPosition = bopUp[0] ? raised : lowered;
+                    targetPosition = bopUp[0] ? bopTop : bopBottom;
                     intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
                     if (runExtra != null)
                         runExtra.run();
@@ -478,7 +494,7 @@ public class IntakeSubsystem extends SubsystemBase {
      */
     private boolean isArmAtTarget() {
         double currentDeg = getIntakeArmPosition();
-        double targetDeg = targetPosition / kArmDirection * 360.0;
+        double targetDeg = targetPosition * 360.0;
         return Math.abs(currentDeg - targetDeg) < IntakeConstants.kArmAtTargetThreshold;
     }
 
@@ -517,24 +533,28 @@ public class IntakeSubsystem extends SubsystemBase {
         // ==================== Roller jam detection ====================
         //
         // State fields:
-        //   rollerReversing        — true while motors run backward to clear a jam
-        //   wasRollerRunningLastCycle — tracks rising edge (stopped → running) to start grace period
-        //   rollerJamTimer         — reused for both reverse duration and grace period timing
+        // rollerReversing — true while motors run backward to clear a jam
+        // wasRollerRunningLastCycle — tracks rising edge (stopped → running) to start
+        // grace period
+        // rollerJamTimer — reused for both reverse duration and grace period timing
         //
         // Normal sequence:
-        //   1. runIntakeCommand() starts → runIntake() sets motor forward each cycle
-        //   2. periodic() detects rising edge → restarts timer (grace period begins)
-        //   3. After grace period (0.25s): motor has spun up, jam check activates
-        //   4. If velocity stays above threshold → no jam, roller runs normally
-        //   5. Command ends → stopIntake() sets motor to 0 and clears rollerReversing
+        // 1. runIntakeCommand() starts → runIntake() sets motor forward each cycle
+        // 2. periodic() detects rising edge → restarts timer (grace period begins)
+        // 3. After grace period (0.25s): motor has spun up, jam check activates
+        // 4. If velocity stays above threshold → no jam, roller runs normally
+        // 5. Command ends → stopIntake() sets motor to 0 and clears rollerReversing
         //
         // Jam sequence:
-        //   1. Ball jams roller → velocity drops below threshold (0.5 RPS)
-        //   2. periodic() detects jam → sets rollerReversing=true, calls reverseIntake()
-        //   3. runIntake() sees rollerReversing → skips forward set → reverse continues
-        //   4. After reverse duration (0.3s) → rollerReversing=false, timer restarts (grace)
-        //   5. Next runIntake() call resumes forward → grace period prevents immediate re-trigger
-        //   6. If jam persists → cycle repeats (buzzes back and forth as operator feedback)
+        // 1. Ball jams roller → velocity drops below threshold (0.5 RPS)
+        // 2. periodic() detects jam → sets rollerReversing=true, calls reverseIntake()
+        // 3. runIntake() sees rollerReversing → skips forward set → reverse continues
+        // 4. After reverse duration (0.3s) → rollerReversing=false, timer restarts
+        // (grace)
+        // 5. Next runIntake() call resumes forward → grace period prevents immediate
+        // re-trigger
+        // 6. If jam persists → cycle repeats (buzzes back and forth as operator
+        // feedback)
         //
         boolean rollerRunning = intakeMotor.getOutputPercent() > 0;
 

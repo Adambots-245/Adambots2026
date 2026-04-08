@@ -58,7 +58,7 @@ public class TuningManager {
     private GenericEntry intakeArmPEntry, intakeArmIEntry, intakeArmDEntry;
     private GenericEntry intakeArmKGEntry, intakeArmKSEntry, intakeArmKVEntry, intakeArmKAEntry;
     private GenericEntry cruiseVelocityEntry, accelerationEntry;
-    private GenericEntry loweredPositionEntry, bopAngleEntry;
+    private GenericEntry loweredPositionEntry, bopBottomEntry, bopTopEntry;
 
     private double lastIntakeP = IntakeConstants.kArmP;
     private double lastIntakeI = IntakeConstants.kArmI;
@@ -159,7 +159,8 @@ public class TuningManager {
         cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
         accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
         loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
-        bopAngleEntry = Dash.addTunable("Bop Angle (rot)", IntakeConstants.kBopAngle, 3, 3);
+        bopBottomEntry = Dash.addTunable("Bop Bottom (deg)", IntakeConstants.kBopBottomOffset, 3, 3);
+        bopTopEntry = Dash.addTunable("Bop Top (deg)", IntakeConstants.kBopTopOffset, 4, 3);
 
         // Force-write code constants to override stale Shuffleboard cache
         intakeArmPEntry.setDouble(IntakeConstants.kArmP);
@@ -172,7 +173,8 @@ public class TuningManager {
         cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
         accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
         loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-        bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
+        bopBottomEntry.setDouble(IntakeConstants.kBopBottomOffset);
+        bopTopEntry.setDouble(IntakeConstants.kBopTopOffset);
 
         // Tuning workflow commands
         Dash.addCommand("Zero Tunables", Commands.runOnce(() -> {
@@ -186,8 +188,9 @@ public class TuningManager {
             cruiseVelocityEntry.setDouble(0);
             accelerationEntry.setDouble(0);
             loweredPositionEntry.setDouble(0);
-            bopAngleEntry.setDouble(0);
-        }).withName("Zero Tunables"), 4, 3);
+            bopBottomEntry.setDouble(0);
+            bopTopEntry.setDouble(0);
+        }).withName("Zero Tunables"), 5, 3);
 
         Dash.addCommand("Reset Tunables", Commands.runOnce(() -> {
             intakeArmPEntry.setDouble(IntakeConstants.kArmP);
@@ -200,8 +203,9 @@ public class TuningManager {
             cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
             accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
             loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-            bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
-        }).withName("Reset Tunables"), 5, 3);
+            bopBottomEntry.setDouble(IntakeConstants.kBopBottomOffset);
+            bopTopEntry.setDouble(IntakeConstants.kBopTopOffset);
+        }).withName("Reset Tunables"), 6, 3);
 
         Dash.useDefaultTab();
     }
@@ -324,7 +328,8 @@ public class TuningManager {
         }
 
         intake.setArmLoweredPosition(loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition));
-        intake.setBopAngle(bopAngleEntry.getDouble(IntakeConstants.kBopAngle));
+        intake.setBopBottomOffset(bopBottomEntry.getDouble(IntakeConstants.kBopBottomOffset));
+        intake.setBopTopOffset(bopTopEntry.getDouble(IntakeConstants.kBopTopOffset));
     }
 
     private void applyHopperTunables() {

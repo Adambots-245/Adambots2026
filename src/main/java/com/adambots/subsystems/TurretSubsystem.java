@@ -49,7 +49,7 @@ public class TurretSubsystem extends SubsystemBase {
     private double potAtMaxDeg = TurretConstants.kTurretPotAtMaxDeg;
 
     // Auto-track toggle (driver opts in via Button 5)
-    private boolean autoTrackEnabled = true;
+    private boolean autoTrackEnabled = false;
     private boolean wasAutoTracking = false;
     private double holdAngleDegrees = TurretConstants.kTurretForwardDegrees;
 

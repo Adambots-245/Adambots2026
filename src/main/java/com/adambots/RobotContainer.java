@@ -200,7 +200,7 @@ public class RobotContainer {
                                 intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand().withTimeout(1)));
 
                 // Button 5: Toggle auto-track on/off
-                Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+                // Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
                                 intake.runLowerIntakeArmCommand());

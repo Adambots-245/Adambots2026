@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
@@ -404,17 +404,17 @@ public final class Constants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
-        public static final double kArmP = 35;    // Volts per rotation of error
+        public static final double kArmP = 20;    // Volts per rotation of error
         public static final double kArmI = 0.0;     // Volts per rotation*second of error (almost never needed with proper kG)
         public static final double kArmD = 0.10;     // Volts per rotation/second of error (damping)
         public static final double kArmKV = 0.12;   // Volts per rotation/second of velocity
         public static final double kArmKS = 0.25;   // Volts to overcome static friction
         public static final double kArmKA = 0.01;   // Volts per rotation/second^2 of acceleration
-        public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
+        public static final double kArmKG = 0.2;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 4.0;  // rotations per second
-        public static final double kArmAcceleration = 2.0;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 2.0;  // rotations per second
+        public static final double kArmAcceleration = 1.0;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -427,8 +427,8 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.55;
 
-        public static final double kArmRaisedPosition = 160.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kArmRaisedPosition = -565.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = -460.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
         public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
@@ -441,7 +441,7 @@ public final class Constants {
         public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
-        public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)
+        public static final int kRollerStatorCurrentLimit = 50;  // stator amps (torque limiting — prevents stall damage)
         public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
@@ -453,7 +453,7 @@ public final class Constants {
 
         /** Set true when throughbore encoder is hardwired to TalonFXS data port (PWM).
          *  When true, FXS reads the encoder directly at 1kHz — no DIO re-sync needed. */
-        public static final boolean kUseExternalEncoder = false;
+        public static final boolean kUseExternalEncoder = true;
     }
 
 

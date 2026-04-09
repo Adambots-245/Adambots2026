@@ -247,15 +247,15 @@ public class RobotContainer {
                         Commands.runOnce(() -> shooter.setIdleEnabled(!shooter.isIdleEnabled())));
 
                 // === D-pad: Turret manual control ===
-                // Up = snap to forward, Left/Right = incremental nudge
+                // Up = snap to forward (Motion Magic point-to-point)
+                // Left/Right = hold-to-jog (percent output, NOT Motion Magic —
                 // Diagonals included for POV hat wobble robustness
-                double step = Constants.TurretConstants.kTurretManualStepDeg;
                 Buttons.XboxDPadN.whileTrue(
                                 turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
-                Buttons.XboxDPadE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
-                Buttons.XboxDPadW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
-                Buttons.XboxDPadNE.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() + step));
-                Buttons.XboxDPadNW.whileTrue(turret.aimTurretCommand(() -> turret.getTurretAngleDegrees() - step));
+                Buttons.XboxDPadE.whileTrue(turret.scanCommand(+1.0));
+                Buttons.XboxDPadW.whileTrue(turret.scanCommand(-1.0));
+                Buttons.XboxDPadNE.whileTrue(turret.scanCommand(+1.0));
+                Buttons.XboxDPadNW.whileTrue(turret.scanCommand(-1.0));
 
                 // Start: None
                 Buttons.XboxStartButton.onTrue(Commands.none());

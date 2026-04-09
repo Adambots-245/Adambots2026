@@ -91,6 +91,25 @@ public class TurretSubsystem extends SubsystemBase {
                 RotationsPerSecondPerSecond.of(TurretConstants.kTurretAcceleration),
                 TurretConstants.kTurretJerk)
             .apply();
+
+        // Soft limits: firmware-level safety rail. The rotor encoder is
+        // seeded at boot from the pot (getPotAngleDegrees() → motor rotations),
+        // and the calibrated range [0°, kTurretMaxDegrees] maps to
+        // [0, kTurretMaxDegrees/360 × kTurretGearRatio] motor rotations.
+        // Jog commands use percent output which bypasses the software clamp
+        // in setTurretAngle(), so we need this firmware-level rail as a
+        // backup. A small margin (kTurretSoftLimitMarginDeg) prevents the
+        // limit from triggering during normal motion while still catching
+        // runaway scenarios.
+        double marginMotorRot =
+            (TurretConstants.kTurretSoftLimitMarginDeg / 360.0)
+            * TurretConstants.kTurretGearRatio;
+        double forwardRot =
+            (TurretConstants.kTurretMaxDegrees / 360.0)
+            * TurretConstants.kTurretGearRatio
+            + marginMotorRot;
+        double reverseRot = -marginMotorRot;
+        turretMotor.configureSoftLimits(forwardRot, reverseRot, true);
     }
 
     // ==================== Tuning Setters (called by TuningManager) ====================
@@ -186,15 +205,29 @@ public class TurretSubsystem extends SubsystemBase {
             .withName("Aim Turret Dynamic");
     }
 
-    /** Advances turret position via Motion Magic each cycle. Holds final position on release. */
+    /**
+     * Manual jog — applies a constant percent-output voltage while held, and
+     * zero when released. The {@code speed} parameter is a direction multiplier
+     * (±1 typically); the actual magnitude is {@code kTurretJogPercent}.
+     *
+     * <p>Deliberately uses percent output instead of Motion Magic. For a
+     * "hold-to-move" interaction, Motion Magic is the wrong tool — setting a
+     * new target every scheduler tick causes continuous trajectory resets
+     * and audible buzz. A constant voltage command is smooth and natural.
+     * Go-to-angle commands (aim, forward, hold, auto-track, manual align)
+     * correctly use Motion Magic via setTurretAngle() and are unchanged.
+     *
+     * <p>Position bounds during jog are enforced at the firmware level by
+     * the soft limits configured in configureMotors().
+     */
     public Command scanCommand(double speed) {
-        return run(() -> {
-            double current = getTurretAngleDegrees();
-            double step = speed * TurretConstants.kTurretManualStepDeg;
-            setTurretAngle(current + step);
-        }).finallyDo(interrupted -> {
-            holdAngleDegrees = getTurretAngleDegrees();
-        }).withName("Scan Turret");
+        return runEnd(
+            () -> turretMotor.set(speed * TurretConstants.kTurretJogPercent),
+            () -> {
+                turretMotor.set(0);
+                holdAngleDegrees = getTurretAngleDegrees();
+            }
+        ).withName("Scan Turret");
     }
 
     /** Holds current turret angle. */

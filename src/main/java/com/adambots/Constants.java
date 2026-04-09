@@ -177,7 +177,15 @@ public final class Constants {
          *  Re-measure after any change to the pot calibration. */
         public static final double kTurretForwardDegrees = 87.5;
 
-        public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
+        /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
+         *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */
+        public static final double kTurretJogPercent = 0.15;
+
+        /** Soft limit margin beyond [0, kTurretMaxDegrees], in turret degrees.
+         *  Firmware cuts motor output if position drifts this far outside the
+         *  calibrated range — safety rail for jog mode (percent output bypasses
+         *  the software clamp in setTurretAngle). */
+        public static final double kTurretSoftLimitMarginDeg = 5.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;

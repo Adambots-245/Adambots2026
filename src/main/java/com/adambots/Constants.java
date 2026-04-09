@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
@@ -94,10 +94,10 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 46.0},
-            {2.5, 50.0},
-            {3.0, 53.5},
-            {4.0, 58.0},
+            {2.0, 42.0},
+            {2.5, 44.0},
+            {3.0, 49.5},
+            {4.0, 53.0},
             {5.0, 62.0}
         };
 

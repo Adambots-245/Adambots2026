@@ -430,10 +430,11 @@ public final class Constants {
 
         public static final double kArmRaisedPosition = 565.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 460.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
-        // Bop range: both offsets measured in degrees from lowered toward raised (sign-agnostic).
-        // Direction is derived from sign(raised - lowered) at runtime.
-        public static final double kBopBottomOffset = 0.0;  // degrees from lowered toward raised (bop bottom)
-        public static final double kBopTopOffset = 75.0;    // degrees from lowered toward raised (bop top)
+        // Bop positions: absolute throughbore degrees, captured the same way as
+        // lowered/raised. Park the arm where you want each bop endpoint, read
+        // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
+        public static final double kBopBottomPosition = 460.0;  // bop oscillation low end
+        public static final double kBopTopPosition    = 535.0;  // bop oscillation high end
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
         public static final double kRollerRunningThreshold = 0.1; // RPS — above this = roller is spinning
 

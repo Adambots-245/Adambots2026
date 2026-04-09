@@ -46,8 +46,6 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
     private double armRaisedPosition = IntakeConstants.kArmRaisedPosition;
-    private double bopBottomOffset = IntakeConstants.kBopBottomOffset;
-    private double bopTopOffset = IntakeConstants.kBopTopOffset;
 
     // Coast-when-lowered: arm goes loose at lowered position for compliance
     private boolean armInCoast = false;
@@ -208,14 +206,6 @@ public class IntakeSubsystem extends SubsystemBase {
         armRaisedPosition = pos;
     }
 
-    public void setBopBottomOffset(double offset) {
-        bopBottomOffset = offset;
-    }
-
-    public void setBopTopOffset(double offset) {
-        bopTopOffset = offset;
-    }
-
     /**
      * Run the intake roller at the configured speed.
      */
@@ -360,9 +350,15 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     /**
-     * Shared bop oscillation state machine. Oscillates the arm between a bop bottom
-     * and bop top — both measured as degrees offset from lowered toward raised.
-     * Sign-agnostic: direction is derived from sign(raised - lowered) at runtime.
+     * Shared bop oscillation state machine. Oscillates the arm between two
+     * absolute throughbore positions (kBopBottomPosition and kBopTopPosition).
+     *
+     * <p>Endpoints are clamped to the [lowered, raised] range as a safety
+     * rail, so a bad constant can't drive the arm past its physical stops.
+     *
+     * <p>ContinuousWrap (enabled in configureMotors) guarantees Motion Magic
+     * takes the short path to each endpoint even if the multi-turn
+     * accumulator differs from the absolute degree values in constants.
      *
      * @param runExtra extra action to run each execute cycle (e.g. run intake
      *                 motor), or null
@@ -382,27 +378,14 @@ public class IntakeSubsystem extends SubsystemBase {
                     if (switchTime[0] == 0)
                         switchTime[0] = now;
 
-                    // Direction from lowered toward raised (sign-agnostic).
-                    // Uses the mutable fields (not constants) so dashboard tunables
-                    // are honored and both ends of the range come from the same source.
-                    double direction = Math.signum(armRaisedPosition - armLoweredPosition);
-
-                    // Compute bop endpoints in degrees, then CLAMP to the physical
-                    // [lowered, raised] range. This is a safety rail: if someone
-                    // misconfigures bopTopOffset (e.g. 200 on a 105° range), the
-                    // arm physically cannot be commanded past its hard stops.
+                    // Safety clamp: even with absolute bop positions, guard
+                    // against a typo in constants that would push past a stop.
                     double loDeg = Math.min(armLoweredPosition, armRaisedPosition);
                     double hiDeg = Math.max(armLoweredPosition, armRaisedPosition);
-                    double bopBottomDeg = clamp(
-                        armLoweredPosition + direction * bopBottomOffset, loDeg, hiDeg);
-                    double bopTopDeg = clamp(
-                        armLoweredPosition + direction * bopTopOffset, loDeg, hiDeg);
-
-                    // ContinuousWrap (enabled in configureMotors) makes Motion
-                    // Magic take the short path automatically, so we just pass
-                    // the raw mechanism rotations here — no unwrap needed.
-                    double bopBottom = degreesToMechanismRotations(bopBottomDeg);
-                    double bopTop = degreesToMechanismRotations(bopTopDeg);
+                    double bopBottom = degreesToMechanismRotations(
+                        clamp(IntakeConstants.kBopBottomPosition, loDeg, hiDeg));
+                    double bopTop = degreesToMechanismRotations(
+                        clamp(IntakeConstants.kBopTopPosition, loDeg, hiDeg));
 
                     if (now - switchTime[0] > IntakeConstants.kBopSwitchTimeSeconds) {
                         bopUp[0] = !bopUp[0];

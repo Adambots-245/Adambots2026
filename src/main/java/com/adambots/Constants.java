@@ -435,8 +435,6 @@ public final class Constants {
         public static final double kBopBottomOffset = 0.0;  // degrees from lowered toward raised (bop bottom)
         public static final double kBopTopOffset = 75.0;    // degrees from lowered toward raised (bop top)
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
-        public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
-        public static final double kArmKnownSetpointTolerance = 0.01; // mechanism rotations — re-sync guard
         public static final double kRollerRunningThreshold = 0.1; // RPS — above this = roller is spinning
 
         // Roller jam detection
@@ -454,10 +452,6 @@ public final class Constants {
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;
-
-        /** Set true when throughbore encoder is hardwired to TalonFXS data port (PWM).
-         *  When true, FXS reads the encoder directly at 1kHz — no DIO re-sync needed. */
-        public static final boolean kUseExternalEncoder = true;
     }
 
 

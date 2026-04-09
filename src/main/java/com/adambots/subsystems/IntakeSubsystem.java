@@ -5,7 +5,6 @@ import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
 import com.adambots.Robot;
 import com.adambots.lib.actuators.BaseMotor;
-import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import com.adambots.lib.utils.Dash;
 
 import static edu.wpi.first.units.Units.*;
@@ -37,7 +36,6 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private final BaseMotor intakeMotor;
     private final BaseMotor intakeArmMotor;
-    private final BaseAbsoluteEncoder armEncoder;
 
     // Simulation
     private SingleJointedArmSim armSim;
@@ -47,6 +45,7 @@ public class IntakeSubsystem extends SubsystemBase {
     private double simArmAngleDeg;
 
     private double armLoweredPosition = IntakeConstants.kArmLoweredPosition;
+    private double armRaisedPosition = IntakeConstants.kArmRaisedPosition;
     private double bopBottomOffset = IntakeConstants.kBopBottomOffset;
     private double bopTopOffset = IntakeConstants.kBopTopOffset;
 
@@ -74,21 +73,15 @@ public class IntakeSubsystem extends SubsystemBase {
 
     private double targetPosition = 0;
 
-    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor, BaseAbsoluteEncoder armEncoder) {
+    public IntakeSubsystem(BaseMotor intakeMotor, BaseMotor intakeArmMotor) {
         this.intakeMotor = intakeMotor;
         this.intakeArmMotor = intakeArmMotor;
-        this.armEncoder = armEncoder;
 
         configureMotors();
 
-        // Seed motor encoder from throughbore absolute position so Motion Magic targets
-        // are correct. Skip when using external encoder — FXS reads throughbore
-        // directly.
-        if (!IntakeConstants.kUseExternalEncoder) {
-            double absoluteDeg = armEncoder.getPosition().in(Degrees);
-            intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
-            targetPosition = degreesToMechanismRotations(absoluteDeg);
-        }
+        // No manual seeding needed — the throughbore is wired directly to the
+        // TalonFXS data port and configured as the closed-loop feedback source,
+        // so getPosition() already reflects the real arm angle at boot.
 
         if (Constants.INTAKE_TAB) {
             setupDash();
@@ -121,13 +114,30 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // intakeArmMotor.configureHardLimits(false, true, 0, 0);
 
-        // When throughbore is hardwired to TalonFXS data port, use it as the feedback
-        // source.
-        // FXS reads PWM signal directly at 1kHz — eliminates DIO polling and re-sync.
-        // Ratio = 1.0 because throughbore is on the mechanism side (post-gearbox).
-        if (IntakeConstants.kUseExternalEncoder) {
-            intakeArmMotor.configureExternalPulseWidthSensor(1.0, 0.0, 1.0, true);
-        }
+        // Throughbore is hardwired to the TalonFXS data port and used as the
+        // closed-loop feedback source. The FXS reads the PWM signal directly
+        // at 1kHz — no DIO polling, no re-sync, no rotor/sensor drift.
+        //
+        // Args: sensorToMechanismRatio=1.0 (throughbore is on the mechanism
+        // side, post-gearbox), absoluteSensorOffset=0.0, discontinuityPoint=1.0,
+        // opposeMotor=true (phase-flipped so the motor and sensor agree on
+        // direction — fixed the "slams into stop" behavior we hit initially).
+        intakeArmMotor.configureExternalPulseWidthSensor(1.0, 0.0, 1.0, true);
+
+        // Enable ContinuousWrap: Phoenix 6 will always take the shortest path
+        // to any commanded target, treating the sensor as continuous within 1
+        // rotation. This solves the multi-turn-accumulator wrap problem —
+        // if the accumulator drifts across power cycles (e.g. the raw sensor
+        // wraps through 0/1 inside the arm's range), Motion Magic still moves
+        // the short way to the physical lowered/raised position.
+        //
+        // This is CTRE's built-in solution; see:
+        //   https://v6.docs.ctr-electronics.com/en/latest/docs/api-reference/
+        //     device-specific/talonfx/closed-loop-requests.html
+        // (search for "ContinuousWrap"). Works because our arm range (~105°)
+        // is well within 1 rotation, so the short path is always the correct
+        // physical direction.
+        intakeArmMotor.configureContinuousWrap(true);
 
         // Set extended PID with feedforward gains (kV, kS, kA, kG)
         intakeArmMotor.setPID(0,
@@ -146,16 +156,10 @@ public class IntakeSubsystem extends SubsystemBase {
         // Row 0: Telemetry
         Dash.add("Roller Speed", () -> intakeMotor.getVelocity().in(RotationsPerSecond), 0, 0);
         Dash.add("Arm Speed", () -> intakeArmMotor.getVelocity().in(RotationsPerSecond), 2, 0);
-        // DIO throughbore when using roboRIO; FXS position converted to degrees when
-        // external
-        Dash.add("Arm Encoder (deg)", () -> IntakeConstants.kUseExternalEncoder
-                ? intakeArmMotor.getPosition() * 360.0
-                : armEncoder.getPosition().in(Degrees), 3, 0);
+        Dash.add("Arm Encoder (deg)", () -> intakeArmMotor.getPosition() * 360.0, 3, 0);
         Dash.add("Arm Mech Pos (rot)", () -> intakeArmMotor.getPosition(), 4, 0);
         Dash.add("Arm Target (mech rot)", () -> targetPosition, 5, 0);
-        Dash.add("Arm At Target", () -> isArmAtTarget(), 6, 0);
-        Dash.add("Target (deg)", () -> targetPosition * 360.0, 8, 0);
-        Dash.add("Ext Encoder", () -> IntakeConstants.kUseExternalEncoder, 9, 0);
+        Dash.add("Target (deg)", () -> targetPosition * 360.0, 6, 0);
         Dash.add("Roller Current", () -> intakeMotor.getCurrentDraw().in(Amps), 10, 0);
         Dash.add("Arm Current", () -> intakeArmMotor.getCurrentDraw().in(Amps), 11, 0);
 
@@ -200,6 +204,10 @@ public class IntakeSubsystem extends SubsystemBase {
         armLoweredPosition = pos;
     }
 
+    public void setArmRaisedPosition(double pos) {
+        armRaisedPosition = pos;
+    }
+
     public void setBopBottomOffset(double offset) {
         bopBottomOffset = offset;
     }
@@ -240,6 +248,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
     /**
      * Lower the intake arm using onboard Motion Magic with gravity compensation.
+     * ContinuousWrap (configured in configureMotors) handles short-path targeting.
      */
     public void lowerIntakeArm() {
         targetPosition = degreesToMechanismRotations(armLoweredPosition);
@@ -248,10 +257,11 @@ public class IntakeSubsystem extends SubsystemBase {
 
     /**
      * Raise the intake arm using onboard Motion Magic with gravity compensation.
+     * ContinuousWrap (configured in configureMotors) handles short-path targeting.
      */
     public void raiseIntakeArm() {
         restoreBrakeMode();
-        targetPosition = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
+        targetPosition = degreesToMechanismRotations(armRaisedPosition);
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -261,9 +271,7 @@ public class IntakeSubsystem extends SubsystemBase {
      */
     public void stopIntakeArm() {
         restoreBrakeMode();
-        targetPosition = IntakeConstants.kUseExternalEncoder
-                ? intakeArmMotor.getPosition()
-                : degreesToMechanismRotations(armEncoder.getPosition().in(Degrees));
+        targetPosition = intakeArmMotor.getPosition();
         intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
     }
 
@@ -278,9 +286,7 @@ public class IntakeSubsystem extends SubsystemBase {
      * Get the intake arm position in degrees.
      */
     public double getIntakeArmPosition() {
-        return IntakeConstants.kUseExternalEncoder
-                ? intakeArmMotor.getPosition() * 360.0
-                : armEncoder.getPosition().in(Degrees);
+        return intakeArmMotor.getPosition() * 360.0;
     }
 
     /**
@@ -375,13 +381,29 @@ public class IntakeSubsystem extends SubsystemBase {
                     double now = Timer.getFPGATimestamp();
                     if (switchTime[0] == 0)
                         switchTime[0] = now;
-                    // Direction from lowered toward raised (sign-agnostic)
-                    double direction = Math.signum(
-                        IntakeConstants.kArmRaisedPosition - armLoweredPosition);
-                    double bopBottom = degreesToMechanismRotations(
-                        armLoweredPosition + direction * bopBottomOffset);
-                    double bopTop = degreesToMechanismRotations(
-                        armLoweredPosition + direction * bopTopOffset);
+
+                    // Direction from lowered toward raised (sign-agnostic).
+                    // Uses the mutable fields (not constants) so dashboard tunables
+                    // are honored and both ends of the range come from the same source.
+                    double direction = Math.signum(armRaisedPosition - armLoweredPosition);
+
+                    // Compute bop endpoints in degrees, then CLAMP to the physical
+                    // [lowered, raised] range. This is a safety rail: if someone
+                    // misconfigures bopTopOffset (e.g. 200 on a 105° range), the
+                    // arm physically cannot be commanded past its hard stops.
+                    double loDeg = Math.min(armLoweredPosition, armRaisedPosition);
+                    double hiDeg = Math.max(armLoweredPosition, armRaisedPosition);
+                    double bopBottomDeg = clamp(
+                        armLoweredPosition + direction * bopBottomOffset, loDeg, hiDeg);
+                    double bopTopDeg = clamp(
+                        armLoweredPosition + direction * bopTopOffset, loDeg, hiDeg);
+
+                    // ContinuousWrap (enabled in configureMotors) makes Motion
+                    // Magic take the short path automatically, so we just pass
+                    // the raw mechanism rotations here — no unwrap needed.
+                    double bopBottom = degreesToMechanismRotations(bopBottomDeg);
+                    double bopTop = degreesToMechanismRotations(bopTopDeg);
+
                     if (now - switchTime[0] > IntakeConstants.kBopSwitchTimeSeconds) {
                         bopUp[0] = !bopUp[0];
                         switchTime[0] = now;
@@ -395,6 +417,11 @@ public class IntakeSubsystem extends SubsystemBase {
                     bopUp[0] = false;
                     lowerIntakeArm();
                 }).withName(name);
+    }
+
+    /** Small clamp helper used by bopCommandBase. */
+    private static double clamp(double value, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, value));
     }
 
     /**
@@ -488,46 +515,11 @@ public class IntakeSubsystem extends SubsystemBase {
         armLigament.setAngle(simArmAngleDeg);
     }
 
-    /**
-     * Check if the arm's throughbore encoder is within tolerance of the current
-     * target.
-     */
-    private boolean isArmAtTarget() {
-        double currentDeg = getIntakeArmPosition();
-        double targetDeg = targetPosition * 360.0;
-        return Math.abs(currentDeg - targetDeg) < IntakeConstants.kArmAtTargetThreshold;
-    }
-
-    /**
-     * Check if the target is one of the two known setpoints (raised or lowered).
-     * Used to guard re-sync so it doesn't fire during bop oscillation.
-     */
-    private boolean isAtKnownSetpoint() {
-        double raisedTarget = degreesToMechanismRotations(IntakeConstants.kArmRaisedPosition);
-        double loweredTarget = degreesToMechanismRotations(armLoweredPosition);
-        double tolerance = IntakeConstants.kArmKnownSetpointTolerance;
-        return Math.abs(targetPosition - raisedTarget) < tolerance
-                || Math.abs(targetPosition - loweredTarget) < tolerance;
-    }
-
     @Override
     public void periodic() {
         if (Constants.CURRENT_LOGGING) {
             Logger.recordOutput("Intake/RollerCurrent", intakeMotor.getCurrentDraw().in(Amps));
             Logger.recordOutput("Intake/ArmCurrent", intakeArmMotor.getCurrentDraw().in(Amps));
-        }
-
-        // ==================== Arm encoder re-sync ====================
-        // Re-sync motor encoder from throughbore when arm has settled at a known
-        // setpoint. Only re-syncs when: (1) arm is at target, (2) target is
-        // raised or lowered (not mid-bop), (3) velocity is near zero.
-        // Prevents position jumps during motion.
-        // Skip when using external encoder — FXS reads throughbore directly, no drift.
-        if (!IntakeConstants.kUseExternalEncoder
-                && isArmAtTarget() && isAtKnownSetpoint()
-                && Math.abs(intakeArmMotor.getVelocity().in(RotationsPerSecond)) < 0.05) {
-            double absoluteDeg = armEncoder.getPosition().in(Degrees);
-            intakeArmMotor.setPosition(degreesToMechanismRotations(absoluteDeg));
         }
 
         // ==================== Roller jam detection ====================

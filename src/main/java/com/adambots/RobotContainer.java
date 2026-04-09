@@ -74,8 +74,7 @@ public class RobotContainer {
                 swerve = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"), swerveConfig);
 
                 // 2. Subsystems (IoC from RobotMap — dummy devices when disabled)
-                intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm,
-                                RobotMap.kIntakeArmEncoder);
+                intake = new IntakeSubsystem(RobotMap.kIntakeMotor, RobotMap.kIntakeMotorArm);
                 shooter = new ShooterSubsystem(RobotMap.shooterMotor2, RobotMap.shooterMotor1, swerve::getPose);
                 turret = new TurretSubsystem(RobotMap.turretMotor, RobotMap.kTurretPotentiometer);
                 hopper = new HopperSubsystem(RobotMap.hopperMotor, RobotMap.uptakeMotor);

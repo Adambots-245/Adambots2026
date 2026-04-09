@@ -58,7 +58,7 @@ public class TuningManager {
     private GenericEntry intakeArmPEntry, intakeArmIEntry, intakeArmDEntry;
     private GenericEntry intakeArmKGEntry, intakeArmKSEntry, intakeArmKVEntry, intakeArmKAEntry;
     private GenericEntry cruiseVelocityEntry, accelerationEntry;
-    private GenericEntry loweredPositionEntry, bopBottomEntry, bopTopEntry;
+    private GenericEntry loweredPositionEntry, raisedPositionEntry, bopBottomEntry, bopTopEntry;
 
     private double lastIntakeP = IntakeConstants.kArmP;
     private double lastIntakeI = IntakeConstants.kArmI;
@@ -158,9 +158,13 @@ public class TuningManager {
 
         cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
         accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
-        loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
-        bopBottomEntry = Dash.addTunable("Bop Bottom (deg)", IntakeConstants.kBopBottomOffset, 3, 3);
-        bopTopEntry = Dash.addTunable("Bop Top (deg)", IntakeConstants.kBopTopOffset, 4, 3);
+        // Lowered/raised positions are in degrees (raw throughbore reading at each stop).
+        // Calibration: park arm at the stop, read "Arm Encoder (deg)" on the Intake tab,
+        // type that value here. No redeploy needed — the setter is called each cycle.
+        loweredPositionEntry = Dash.addTunable("Lowered Pos (deg)", IntakeConstants.kArmLoweredPosition, 2, 3);
+        raisedPositionEntry = Dash.addTunable("Raised Pos (deg)", IntakeConstants.kArmRaisedPosition, 3, 3);
+        bopBottomEntry = Dash.addTunable("Bop Bottom (deg)", IntakeConstants.kBopBottomOffset, 4, 3);
+        bopTopEntry = Dash.addTunable("Bop Top (deg)", IntakeConstants.kBopTopOffset, 5, 3);
 
         // Force-write code constants to override stale Shuffleboard cache
         intakeArmPEntry.setDouble(IntakeConstants.kArmP);
@@ -173,8 +177,20 @@ public class TuningManager {
         cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
         accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
         loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
+        raisedPositionEntry.setDouble(IntakeConstants.kArmRaisedPosition);
         bopBottomEntry.setDouble(IntakeConstants.kBopBottomOffset);
         bopTopEntry.setDouble(IntakeConstants.kBopTopOffset);
+
+        // Pit calibration helpers: capture the current encoder reading into the
+        // lowered or raised tunable. Park the arm at the physical stop, press
+        // the button — no typing, no redeploy.
+        Dash.addCommand("Capture Lowered", Commands.runOnce(() -> {
+            loweredPositionEntry.setDouble(intake.getIntakeArmPosition());
+        }).withName("Capture Lowered"), 6, 3);
+
+        Dash.addCommand("Capture Raised", Commands.runOnce(() -> {
+            raisedPositionEntry.setDouble(intake.getIntakeArmPosition());
+        }).withName("Capture Raised"), 7, 3);
 
         // Tuning workflow commands
         Dash.addCommand("Zero Tunables", Commands.runOnce(() -> {
@@ -188,9 +204,10 @@ public class TuningManager {
             cruiseVelocityEntry.setDouble(0);
             accelerationEntry.setDouble(0);
             loweredPositionEntry.setDouble(0);
+            raisedPositionEntry.setDouble(0);
             bopBottomEntry.setDouble(0);
             bopTopEntry.setDouble(0);
-        }).withName("Zero Tunables"), 5, 3);
+        }).withName("Zero Tunables"), 8, 3);
 
         Dash.addCommand("Reset Tunables", Commands.runOnce(() -> {
             intakeArmPEntry.setDouble(IntakeConstants.kArmP);
@@ -203,9 +220,10 @@ public class TuningManager {
             cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
             accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
             loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
+            raisedPositionEntry.setDouble(IntakeConstants.kArmRaisedPosition);
             bopBottomEntry.setDouble(IntakeConstants.kBopBottomOffset);
             bopTopEntry.setDouble(IntakeConstants.kBopTopOffset);
-        }).withName("Reset Tunables"), 6, 3);
+        }).withName("Reset Tunables"), 9, 3);
 
         Dash.useDefaultTab();
     }
@@ -328,6 +346,7 @@ public class TuningManager {
         }
 
         intake.setArmLoweredPosition(loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition));
+        intake.setArmRaisedPosition(raisedPositionEntry.getDouble(IntakeConstants.kArmRaisedPosition));
         intake.setBopBottomOffset(bopBottomEntry.getDouble(IntakeConstants.kBopBottomOffset));
         intake.setBopTopOffset(bopTopEntry.getDouble(IntakeConstants.kBopTopOffset));
     }

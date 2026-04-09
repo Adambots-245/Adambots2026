@@ -150,15 +150,15 @@ public final class Constants {
         public static final double kTurretMaxDegrees = 300.0;
 
         /** Turret angle (degrees) that faces straight ahead on the robot. */
-        public static final double kTurretForwardDegrees = 210.0;
+        public static final double kTurretForwardDegrees = 145.0;
 
         public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
         // ==================== Potentiometer Calibration ====================
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 0;
+        public static final double kTurretPotAtZeroDeg = 256;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 3575.0;
+        public static final double kTurretPotAtMaxDeg = 2266.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -405,17 +405,17 @@ public final class Constants {
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
         // Reduced for lighter roller intake (was wheels) — tune from these starting points.
-        public static final double kArmP = 15;     // Volts per rotation of error (was 20, lighter arm)
+        public static final double kArmP = 35;     // Volts per rotation of error (was 20, lighter arm)
         public static final double kArmI = 0.0;    // Volts per rotation*second of error (almost never needed with proper kG)
         public static final double kArmD = 0.08;   // Volts per rotation/second of error (was 0.10)
         public static final double kArmKV = 0.12;  // Volts per rotation/second of velocity (motor characteristic, unchanged)
         public static final double kArmKS = 0.20;  // Volts to overcome static friction (was 0.25, less load)
         public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration (was 0.01, lower MOI)
-        public static final double kArmKG = 0.14;  // Volts to hold arm horizontal (was 0.2, lighter arm)
+        public static final double kArmKG = 0.20;  // Volts to hold arm horizontal (was 0.2, lighter arm)
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 2.0;  // rotations per second
-        public static final double kArmAcceleration = 1.0;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 6.0;  // rotations per second
+        public static final double kArmAcceleration = 3.0;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -428,8 +428,8 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.55;
 
-        public static final double kArmRaisedPosition = -565.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = -460.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kArmRaisedPosition = 565.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 460.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         // Bop range: both offsets measured in degrees from lowered toward raised (sign-agnostic).
         // Direction is derived from sign(raised - lowered) at runtime.
         public static final double kBopBottomOffset = 0.0;  // degrees from lowered toward raised (bop bottom)

@@ -126,7 +126,7 @@ public class IntakeSubsystem extends SubsystemBase {
         // FXS reads PWM signal directly at 1kHz — eliminates DIO polling and re-sync.
         // Ratio = 1.0 because throughbore is on the mechanism side (post-gearbox).
         if (IntakeConstants.kUseExternalEncoder) {
-            intakeArmMotor.configureExternalPulseWidthSensor(1.0, 0.0, 1.0);
+            intakeArmMotor.configureExternalPulseWidthSensor(1.0, 0.0, 1.0, true);
         }
 
         // Set extended PID with feedforward gains (kV, kS, kA, kG)

@@ -146,6 +146,45 @@ public class IntakeSubsystem extends SubsystemBase {
         // Re-apply gravity type AFTER setPID — setPID overwrites Slot0Configs
         // which can reset GravityType to the default (Elevator_Static)
         intakeArmMotor.configureGravity(BaseMotor.GravityType.ARM_COSINE);
+
+        // Soft limits: firmware-level safety rail computed once at boot from
+        // the lowered/raised constants plus margin. If the reported position
+        // ever drifts beyond these thresholds, the motor controller cuts
+        // output in that direction — protects against runaway scenarios
+        // (stale constants, slipped sensor mounting, accumulator confusion).
+        // The margin lets the arm reach its physical stops normally; the
+        // soft limit only triggers when position is way outside the expected
+        // range. Note: runtime changes to the lowered/raised tunables do NOT
+        // update these thresholds — soft limits are deliberately anchored to
+        // the compile-time constants as a static safety rail.
+        double lo = Math.min(IntakeConstants.kArmLoweredPosition, IntakeConstants.kArmRaisedPosition);
+        double hi = Math.max(IntakeConstants.kArmLoweredPosition, IntakeConstants.kArmRaisedPosition);
+        double margin = IntakeConstants.kArmSoftLimitMarginDeg;
+        intakeArmMotor.configureSoftLimits(
+                (hi + margin) / 360.0,
+                (lo - margin) / 360.0,
+                true);
+    }
+
+    /**
+     * Called by {@code RobotContainer.onDisabledInit()}. Replaces any
+     * latched Motion Magic control request with {@code DutyCycleOut(0)}
+     * so that stale lower/raise/bop commands don't resume driving the arm
+     * the moment the robot is re-enabled.
+     *
+     * <p>Phoenix 6 motor controllers keep the last control request latched
+     * in firmware across disable/enable cycles — disable only forces the
+     * output to zero temporarily. Issuing {@code set(0)} (which maps to
+     * {@code DutyCycleOut(0)}) displaces the stale request so that
+     * re-enable is a clean state.
+     *
+     * <p>Also restores brake mode (in case coast-while-intaking was active)
+     * and stops the roller motor.
+     */
+    public void onDisable() {
+        restoreBrakeMode();
+        intakeArmMotor.set(0);
+        intakeMotor.set(0);
     }
 
     private void setupDash() {

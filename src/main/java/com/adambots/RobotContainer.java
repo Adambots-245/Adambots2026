@@ -344,6 +344,23 @@ public class RobotContainer {
         public void onTeleopInit(boolean noAutoRan) {
         }
 
+        /**
+         * Called from {@link Robot#disabledInit()}. Hook for subsystems to clean
+         * up latched motor controller state before the next enable. Phoenix 6
+         * keeps control requests latched in firmware across disable/enable, so
+         * a subsystem that issued a MOTION_MAGIC target before a bad situation
+         * will resume driving to that target the moment the robot is re-enabled
+         * — unless the subsystem explicitly replaces the latched request here.
+         *
+         * <p>Add new subsystem cleanup calls here as the need arises.
+         */
+        public void onDisabledInit() {
+                if (intake != null) {
+                        intake.onDisable();
+                }
+                // Future: turret.onDisable(), shooter.onDisable(), etc.
+        }
+
         public Command getAutonomousCommand() {
                 return autoChooser.getSelected();
         }

@@ -378,7 +378,7 @@ public final class Constants {
 
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.
-         *  0.04 = 4% new, 96% prior (à la 6328). Higher = more responsive but noisier. */
+         *  0.04 = 4% new, 96% prior (example: Team 6328). Higher = more responsive but noisier. */
         public static final double kVisionAlpha = 0.04;
 
         // ==================== Hub Visibility Holdoff ====================
@@ -405,13 +405,13 @@ public final class Constants {
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
         // Reduced for lighter roller intake (was wheels) — tune from these starting points.
-        public static final double kArmP = 35;     // Volts per rotation of error (was 20, lighter arm)
+        public static final double kArmP = 35;     // Volts per rotation of error 
         public static final double kArmI = 0.0;    // Volts per rotation*second of error (almost never needed with proper kG)
-        public static final double kArmD = 0.08;   // Volts per rotation/second of error (was 0.10)
+        public static final double kArmD = 0.08;   // Volts per rotation/second of error 
         public static final double kArmKV = 0.12;  // Volts per rotation/second of velocity (motor characteristic, unchanged)
-        public static final double kArmKS = 0.20;  // Volts to overcome static friction (was 0.25, less load)
-        public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration (was 0.01, lower MOI)
-        public static final double kArmKG = 0.20;  // Volts to hold arm horizontal (was 0.2, lighter arm)
+        public static final double kArmKS = 0.20;  // Volts to overcome static friction 
+        public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration 
+        public static final double kArmKG = 0.20;  // Volts to hold arm horizontal 
 
         // Motion Magic profile constraints
         public static final double kArmCruiseVelocity = 6.0;  // rotations per second
@@ -436,6 +436,11 @@ public final class Constants {
         public static final double kBopBottomPosition = 460.0;  // bop oscillation low end
         public static final double kBopTopPosition    = 535.0;  // bop oscillation high end
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
+
+        /** Soft limit margin beyond lowered/raised, in degrees. The firmware
+         *  cuts output if reported position drifts this far past either end
+         *  of the [lowered, raised] range — a safety rail for runaways. */
+        public static final double kArmSoftLimitMarginDeg = 20.0;
         public static final double kRollerRunningThreshold = 0.1; // RPS — above this = roller is spinning
 
         // Roller jam detection

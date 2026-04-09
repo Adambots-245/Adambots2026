@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
@@ -146,19 +146,38 @@ public final class Constants {
         // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
-        // Reference range — software-limited via pot + clamp in setTurretAngle()
-        public static final double kTurretMaxDegrees = 300.0;
-
-        /** Turret angle (degrees) that faces straight ahead on the robot. */
-        public static final double kTurretForwardDegrees = 145.0;
-
-        public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
-
         // ==================== Potentiometer Calibration ====================
+        // The 10-turn potentiometer is coupled 1:1 to the motor shaft (pre-
+        // gearbox), so pot rotation equals motor rotation. Calibrate by
+        // parking the turret at each mechanical stop, reading "Pot Raw (deg)"
+        // on the Shooter tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
         public static final double kTurretPotAtZeroDeg = 256;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
         public static final double kTurretPotAtMaxDeg = 2266.0;
+
+        /**
+         * Turret physical range in degrees, derived from the pot endpoints and
+         * the gear ratio. Must be computed — if hand-entered, it can disagree
+         * with the motor-encoder-based {@code getTurretAngleDegrees()} readback
+         * and the pot-based {@code getPotAngleDegrees()} will drift.
+         *
+         * <p>Derivation: the pot is on the motor shaft (1:1), so the raw pot
+         * travel between the two mechanical stops equals the motor travel in
+         * degrees. Dividing by the motor-to-turret gear ratio gives the
+         * physical turret range.
+         *
+         * <p>With the current values:
+         * {@code (2266 − 256) / (200/18) = 2010 / 11.11 ≈ 180.9°}
+         */
+        public static final double kTurretMaxDegrees =
+            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretGearRatio;
+
+        /** Turret angle (degrees) that faces straight ahead on the robot.
+         *  Re-measure after any change to the pot calibration. */
+        public static final double kTurretForwardDegrees = 87.5;
+
+        public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -428,13 +447,13 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.55;
 
-        public static final double kArmRaisedPosition = 565.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 460.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kArmRaisedPosition = 200.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 98.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         // Bop positions: absolute throughbore degrees, captured the same way as
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
-        public static final double kBopBottomPosition = 460.0;  // bop oscillation low end
-        public static final double kBopTopPosition    = 535.0;  // bop oscillation high end
+        public static final double kBopBottomPosition = 98.0;  // bop oscillation low end
+        public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
 
         /** Soft limit margin beyond lowered/raised, in degrees. The firmware

@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 
 import com.adambots.Constants;
 import com.adambots.Constants.TurretConstants;
+import com.adambots.Constants.TurretTrackingConstants;
 import com.adambots.Constants.VisionConstants;
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.utils.Utils;
@@ -652,6 +653,78 @@ public class VisionSubsystem extends SubsystemBase {
         // Gate on having ≥1 passing tag — don't use PnP distance for gating
         hubCamHasTarget = true;
         prevHubCamHasTarget = hubCamHasTarget;
+    }
+
+    // ==================== Lead Compensation ====================
+
+    /**
+     * Computes the robot-relative bearing to the hub, compensated for robot
+     * motion during projectile flight. Uses an iterative convergence loop
+     * (same pattern as Team 6328): predict where the robot will be after
+     * {@code tofSeconds}, compute the bearing from that predicted position
+     * to the (stationary) hub, repeat for {@code kLeadCompIterations}.
+     *
+     * <p>Only applies when the robot is moving above
+     * {@code kLeadCompSpeedThreshold}. When stationary, returns the
+     * uncompensated bearing to avoid noise-induced offset.
+     *
+     * @param hubCenter    field-relative hub center position
+     * @param robotPose    robot pose at the time of measurement (use historical
+     *                     pose from poseBuffer for latency compensation)
+     * @param fieldSpeeds  field-relative robot velocity
+     * @param tofSeconds   estimated projectile time-of-flight
+     * @return robot-relative bearing to the lead-compensated target (degrees)
+     */
+    private double computeLeadAngle(Translation2d hubCenter, Pose2d robotPose,
+                                    edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds,
+                                    double tofSeconds) {
+        double speed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+        // Below threshold: no lead compensation, return direct bearing
+        if (speed < TurretTrackingConstants.kLeadCompSpeedThreshold) {
+            double dx = hubCenter.getX() - robotPose.getX();
+            double dy = hubCenter.getY() - robotPose.getY();
+            return new edu.wpi.first.math.geometry.Rotation2d(dx, dy)
+                .minus(robotPose.getRotation()).getDegrees();
+        }
+
+        // Iterative convergence: each iteration refines the predicted robot
+        // position by projecting forward by the estimated TOF.
+        Translation2d predictedRobot = robotPose.getTranslation();
+        for (int i = 0; i < TurretTrackingConstants.kLeadCompIterations; i++) {
+            // With a constant TOF, each iteration produces the same result,
+            // but the structure supports replacing tofSeconds with a
+            // distance-based lookup table later.
+            predictedRobot = robotPose.getTranslation().plus(
+                new Translation2d(
+                    fieldSpeeds.vxMetersPerSecond * tofSeconds,
+                    fieldSpeeds.vyMetersPerSecond * tofSeconds));
+        }
+
+        // Bearing from predicted position to hub, robot-relative
+        double dx = hubCenter.getX() - predictedRobot.getX();
+        double dy = hubCenter.getY() - predictedRobot.getY();
+        return new edu.wpi.first.math.geometry.Rotation2d(dx, dy)
+            .minus(robotPose.getRotation()).getDegrees();
+    }
+
+    /**
+     * Returns the hub angle with lead compensation applied. Uses the
+     * historical pose (latency-compensated) and field-relative robot
+     * velocity to predict where the robot will be when the projectile
+     * arrives. Only meaningful when the robot is moving; returns the
+     * uncompensated angle when stationary.
+     *
+     * @param fieldSpeeds field-relative robot velocity (from swerve)
+     * @return robot-relative bearing with lead offset (degrees)
+     */
+    public double getLeadCompensatedHubAngle(
+            edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds) {
+        Pose2d historicalPose = (lastCameraTimestamp > 0)
+            ? poseBuffer.getSample(lastCameraTimestamp).orElse(poseSupplier.get())
+            : poseSupplier.get();
+        return computeLeadAngle(
+            getHubCenter(), historicalPose, fieldSpeeds,
+            TurretTrackingConstants.kDefaultTOFSeconds);
     }
 
     // ==================== Hub Unified Getters (selected approach via Shuffleboard toggle) ====================

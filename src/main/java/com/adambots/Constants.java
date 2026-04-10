@@ -218,6 +218,19 @@ public final class Constants {
         // Robot rotation compensation is now handled via velocity feedforward
         // (PositionVoltage .withVelocity) instead of position-offset lead.
         // See TurretSubsystem.autoTrackCommand for details.
+
+        /** Estimated time-of-flight for projectile from shooter to hub, in seconds.
+         *  Used by iterative lead compensation to predict where the robot will be
+         *  when the projectile arrives. Start with 0.5 and tune from field data.
+         *  Replace with a distance-based interpolation table for better accuracy. */
+        public static final double kDefaultTOFSeconds = 0.5;
+        /** Robot speed below this (m/s) disables lead compensation entirely.
+         *  Prevents noise at low speeds from introducing unnecessary aiming offset. */
+        public static final double kLeadCompSpeedThreshold = 0.3;
+        /** Number of iterations for the lead convergence loop. More iterations
+         *  = more accurate but diminishing returns past 5 for a constant TOF. */
+        public static final int kLeadCompIterations = 5;
+
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
         public static final int kTrackingDebounceFrames = 3;

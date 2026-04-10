@@ -107,6 +107,18 @@ public class VisionSubsystem extends SubsystemBase {
     // Runtime vision mode (editable from Shuffleboard): 0=Camera-only, 1=Pose-only, 2=Hybrid
     private int visionMode = VisionConstants.kVisionMode;
 
+    // Pose history buffer for latency compensation. Camera images are captured
+    // ~50-100ms before we process them. For pose-based tracking (modes 1/2/3)
+    // and lead compensation, we need the robot pose at the time the camera frame
+    // was captured — not the current pose. This buffer stores 2 seconds of pose
+    // history at 50Hz (~100 entries, negligible memory).
+    private final edu.wpi.first.math.interpolation.TimeInterpolatableBuffer<Pose2d> poseBuffer =
+        edu.wpi.first.math.interpolation.TimeInterpolatableBuffer.createBuffer(
+            (a, b, t) -> a.interpolate(b, t), 2.0);
+
+    // Timestamp of the most recent camera result, used to query historical pose
+    private double lastCameraTimestamp = 0;
+
     // Tunable ambiguity threshold (default from constants, overridable via TuningManager)
     private double runtimeAmbiguityThreshold = VisionConstants.kAmbiguityThreshold;
 
@@ -337,6 +349,12 @@ public class VisionSubsystem extends SubsystemBase {
             SmartDashboard.putNumber("Vision/Mode", visionMode);
         }
 
+        // Record current pose with FPGA timestamp for latency compensation.
+        // When we process a camera result later in this cycle (or next),
+        // we can query poseBuffer.getSample(resultTimestamp) to get the
+        // robot pose at the time the image was actually captured (~50-100ms ago).
+        poseBuffer.addSample(Timer.getFPGATimestamp(), poseSupplier.get());
+
         // Pose estimation is handled by SwerveSubsystem.periodic() via swerve.setupVision(vision).
         // Do NOT call updatePoseEstimation() here — PhotonPoseEstimator's timestamp cache
         // would consume the result, preventing swerve from receiving vision measurements.
@@ -373,12 +391,23 @@ public class VisionSubsystem extends SubsystemBase {
         // ==================== Hub Approach B: Pose-Based ====================
         // Only compute when visionMode uses pose data (1=Pose-only, 2=Hybrid)
         if (hasBackCameras && visionMode != 0) {
-            Pose2d currentPose = poseSupplier.get();
+            // Use the historical pose at the time of the last camera frame
+            // (latency compensation). Falls back to current pose if no buffer
+            // entry is available (e.g., first few cycles after boot).
+            Pose2d latencyCompPose = (lastCameraTimestamp > 0)
+                ? poseBuffer.getSample(lastCameraTimestamp).orElse(poseSupplier.get())
+                : poseSupplier.get();
             // Guard: skip if swerve pose is still at origin (no vision updates processed yet).
-            // No camera dependency — Approach B is purely pose-based via swerve odometry.
-            if (currentPose.getTranslation().getNorm() > 0) {
-                double rawDist = photonVision.getDistanceToPoint(hubCenter);
-                double rawAngle = photonVision.getYawToPoint(hubCenter).getDegrees();
+            if (latencyCompPose.getTranslation().getNorm() > 0) {
+                // Compute distance and angle from the historical pose to the hub
+                // center directly (rather than using lib methods which read the
+                // LIVE pose and would bypass our latency compensation).
+                double dx = hubCenter.getX() - latencyCompPose.getX();
+                double dy = hubCenter.getY() - latencyCompPose.getY();
+                double rawDist = Math.sqrt(dx * dx + dy * dy);
+                edu.wpi.first.math.geometry.Rotation2d bearing =
+                    new edu.wpi.first.math.geometry.Rotation2d(dx, dy);
+                double rawAngle = bearing.minus(latencyCompPose.getRotation()).getDegrees();
                 rawPoseDist = rawDist;
                 rawPoseAngle = rawAngle;
                 // Distance: EWA (seed on first measurement, avoids cold-start lag)
@@ -437,6 +466,9 @@ public class VisionSubsystem extends SubsystemBase {
         Logger.recordOutput("Vision/CamHasTarget", hubCamHasTarget);
         Logger.recordOutput("Vision/CamSticky", hubCamSticky);
         Logger.recordOutput("Vision/CamOnline", cameraOnline);
+        Logger.recordOutput("Vision/CamTimestamp", lastCameraTimestamp);
+        Logger.recordOutput("Vision/CamLatencyMs",
+            lastCameraTimestamp > 0 ? (Timer.getFPGATimestamp() - lastCameraTimestamp) * 1000.0 : 0);
         Logger.recordOutput("Vision/CamTagsSeen", diagTagsSeen);
         Logger.recordOutput("Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
         Logger.recordOutput("Vision/CamLastAmbiguity", diagLastAmbiguity);
@@ -543,6 +575,12 @@ public class VisionSubsystem extends SubsystemBase {
             prevHubCamHasTarget = false;
             return;
         }
+
+        // Capture the camera frame's timestamp for latency compensation.
+        // This tells us WHEN the image was captured (typically 50-100ms ago),
+        // so lead compensation and pose-based tracking can query the robot's
+        // historical pose at that instant instead of the current (stale) pose.
+        lastCameraTimestamp = resultOpt.get().getTimestampSeconds();
 
         VisionResult result = resultOpt.get();
 

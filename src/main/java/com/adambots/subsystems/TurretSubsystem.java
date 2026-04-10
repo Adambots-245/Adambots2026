@@ -142,11 +142,42 @@ public class TurretSubsystem extends SubsystemBase {
 
     // ==================== Turret Control ====================
 
+    /**
+     * Move turret to a target angle using Motion Magic (profiled motion).
+     * Use for one-shot positioning: go-to-forward, hold, sweep steps.
+     */
     public void setTurretAngle(double degrees) {
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
+    }
+
+    /**
+     * Move turret to a target angle using PositionVoltage with velocity
+     * feedforward. Use for continuous tracking (auto-track CAMERA mode).
+     *
+     * <p>Unlike {@link #setTurretAngle} (Motion Magic), this does NOT
+     * generate a trapezoidal velocity profile. The PID acts directly on
+     * position error, and the velocity feedforward term applies
+     * {@code kV × velocity} as a constant voltage to anticipate motion.
+     * This eliminates the trajectory-reset jitter that occurs when
+     * Motion Magic receives a new target every 20 ms.
+     *
+     * <p>The velocity parameter is typically the robot's rotation
+     * compensation: {@code -robotOmega} in turret deg/sec, so the motor
+     * controller applies voltage to counter robot rotation without
+     * displacing the position target.
+     *
+     * @param degrees      target turret angle in degrees
+     * @param velDegPerSec expected turret angular velocity (deg/sec)
+     */
+    public void setTurretAngleTracking(double degrees, double velDegPerSec) {
+        degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
+        lastSetpointDegrees = degrees;
+        double posRot = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
+        double velRPS = (velDegPerSec / 360.0) * TurretConstants.kTurretGearRatio;
+        turretMotor.setPositionWithVelocityFF(posRot, velRPS);
     }
 
     public void stopTurret() {
@@ -316,14 +347,18 @@ public class TurretSubsystem extends SubsystemBase {
                 return;
             }
 
-            // Angular velocity lead: compensate for robot rotation so turret holds aim.
+            // Robot rotation compensation via velocity feedforward.
             // WPILib convention: positive omega = CCW rotation.
-            // When robot rotates CCW (+omega), the hub drifts CW in robot frame,
-            // so the turret must lead in the positive-angle direction (+lead).
-            // No negation needed — positive omega produces positive lead directly.
-            double angVelLead = robotAngularVelDegPerSec.getAsDouble()
-                * TurretTrackingConstants.kAngularVelLeadTime;
-            angVelLead = MathUtil.clamp(angVelLead, -8.0, 8.0);
+            // To keep the turret stationary in world frame while the robot
+            // rotates CCW (+omega), the turret must rotate CW relative to
+            // robot = -omega in turret deg/sec. This is applied as velocity
+            // feedforward to PositionVoltage — the motor controller applies
+            // kV × velocity as a constant voltage that directly counters the
+            // rotation, WITHOUT displacing the position target (unlike the
+            // old angVelLead approach which added omega * leadTime to the
+            // target position and caused snap-back when rotation stopped).
+            double robotOmega = robotAngularVelDegPerSec.getAsDouble();
+            double rotationCompVelDPS = -robotOmega;
 
             double currentAngle = getTurretAngleDegrees();
 
@@ -353,21 +388,23 @@ public class TurretSubsystem extends SubsystemBase {
                 // Dead zone + debounce: hold steady unless offset exceeds tolerance for N frames
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
                     lastTrackAction = "DEADZONE hold";
                 } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
                     lastTrackAction = "DEBOUNCE " + trackingDebounceCount;
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
-                    setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
+                    setTurretAngleTracking(
+                        MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees),
+                        rotationCompVelDPS);
                     lastTrackAction = "LIMIT clamp=" + String.format("%.1f", rawTarget);
                 } else if (hubFresh.getAsBoolean()) {
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
-                    setTurretAngle(smoothed + angVelLead);
+                    setTurretAngleTracking(smoothed, rotationCompVelDPS);
                     lastTrackAction = "TRACK fresh";
                 } else {
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
                     lastTrackAction = "HOLD stale";
                 }
             } else {
@@ -390,14 +427,13 @@ public class TurretSubsystem extends SubsystemBase {
             // auto-track loop received and what it commanded, overlaid with
             // the Vision/ signals in AdvantageScope.
             double camAngleVal = cameraAngle.getAsDouble();
-            double omegaVal = robotAngularVelDegPerSec.getAsDouble();
             Logger.recordOutput("Turret/TrackMode", trackingMode.name());
             Logger.recordOutput("Turret/TrackAction", lastTrackAction);
             Logger.recordOutput("Turret/CurrentAngle", currentAngle);
             Logger.recordOutput("Turret/Setpoint", lastSetpointDegrees);
             Logger.recordOutput("Turret/CamYawInput", camAngleVal);
-            Logger.recordOutput("Turret/AngVelLead", angVelLead);
-            Logger.recordOutput("Turret/RobotOmegaDegPerSec", omegaVal);
+            Logger.recordOutput("Turret/RobotOmegaDegPerSec", robotOmega);
+            Logger.recordOutput("Turret/RotationCompVelDPS", rotationCompVelDPS);
             Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
             Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
             Logger.recordOutput("Turret/InShootingZone", inShootingZone.getAsBoolean());
@@ -411,10 +447,10 @@ public class TurretSubsystem extends SubsystemBase {
             if (now - lastTrackLogTime >= 1.0) {
                 lastTrackLogTime = now;
                 System.out.printf(
-                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f lead=%.1f omega=%.0f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d brake=%d%n",
+                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f omega=%.0f rotComp=%.1f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d brake=%d%n",
                     trackingMode, lastTrackAction,
                     currentAngle, lastSetpointDegrees, camAngleVal,
-                    angVelLead, omegaVal,
+                    robotOmega, rotationCompVelDPS,
                     hubVisible.getAsBoolean(), hubFresh.getAsBoolean(),
                     inShootingZone.getAsBoolean(), autoTrackEnabled,
                     trackingDebounceCount, cameraBrakeFrames);

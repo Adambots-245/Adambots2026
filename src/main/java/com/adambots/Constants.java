@@ -215,9 +215,9 @@ public final class Constants {
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
-        /** Anticipation time for angular velocity feedforward (seconds).
-         *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
-        public static final double kAngularVelLeadTime = 0.02;
+        // Robot rotation compensation is now handled via velocity feedforward
+        // (PositionVoltage .withVelocity) instead of position-offset lead.
+        // See TurretSubsystem.autoTrackCommand for details.
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
         public static final int kTrackingDebounceFrames = 3;

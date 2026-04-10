@@ -362,7 +362,10 @@ public class RobotContainer {
                 if (intake != null) {
                         intake.onDisable();
                 }
-                // Future: turret.onDisable(), shooter.onDisable(), etc.
+                if (turret != null) {
+                        turret.onDisable();
+                }
+                // Future: shooter.onDisable(), etc.
         }
 
         public Command getAutonomousCommand() {

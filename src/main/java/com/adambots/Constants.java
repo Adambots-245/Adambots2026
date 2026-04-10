@@ -213,8 +213,13 @@ public final class Constants {
         public static final double kCameraTrackingGain = 0.35;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
-        /** Degrees to move per cycle during continuous scan sweep */
+        /** Degrees to move per cycle during continuous scan sweep (legacy,
+         *  used only by manualAlignCommand SWEEP which still uses Motion Magic stepping).
+         *  autoTrackCommand SWEEP now uses percent output via kTurretSweepPercent. */
         public static final double kScanStepDeg = 4.5;
+        /** Percent-output magnitude for auto-track SWEEP mode. Slower than
+         *  jog (kTurretJogPercent) — search should be controlled. */
+        public static final double kTurretSweepPercent = 0.08;
         // Robot rotation compensation is now handled via velocity feedforward
         // (PositionVoltage .withVelocity) instead of position-offset lead.
         // See TurretSubsystem.autoTrackCommand for details.

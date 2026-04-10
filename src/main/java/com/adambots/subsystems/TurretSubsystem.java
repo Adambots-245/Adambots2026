@@ -184,6 +184,16 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.set(0);
     }
 
+    /**
+     * Called by {@code RobotContainer.onDisabledInit()}. Replaces any latched
+     * control request (PositionVoltage, Motion Magic, etc.) with
+     * {@code DutyCycleOut(0)} so stale tracking commands don't resume driving
+     * the turret on re-enable.
+     */
+    public void onDisable() {
+        turretMotor.set(0);
+    }
+
     public double getTurretAngleDegrees() {
         return (turretMotor.getPosition() / TurretConstants.kTurretGearRatio) * 360.0;
     }
@@ -408,7 +418,10 @@ public class TurretSubsystem extends SubsystemBase {
                     lastTrackAction = "HOLD stale";
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: continuous constant-speed scan, reverse at limits.
+                // Uses percent output (not Motion Magic stepping) for smooth
+                // motion — same reasoning as scanCommand for manual jog.
+                // Soft limits provide firmware-level boundary protection.
                 trackingMode = TrackingMode.SWEEP;
                 if (sweepWarmupFrames > 0) {
                     sweepWarmupFrames--;
@@ -418,7 +431,7 @@ public class TurretSubsystem extends SubsystemBase {
                 }
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                turretMotor.set(scanDirection * TurretTrackingConstants.kTurretSweepPercent);
                 lastTrackAction = "SWEEP dir=" + scanDirection;
             }
 
@@ -469,20 +482,27 @@ public class TurretSubsystem extends SubsystemBase {
      * No auto-track toggle or shooting zone checks — drive team presses button, turret finds hub.
      * Holds locked position when the command ends (button release or cancel).
      *
+     * <p>Uses PositionVoltage with velocity feedforward for rotation compensation
+     * when tracking (same approach as autoTrackCommand CAMERA mode), and percent
+     * output for sweep (same approach as autoTrackCommand SWEEP mode).
+     *
      * @param cameraAngle  turret-relative yaw offset (degrees)
      * @param hubVisible   sticky visibility from vision layer
      * @param hubFresh     raw per-frame detection
+     * @param robotAngularVelDegPerSec  robot yaw rate for rotation compensation
      */
     public Command manualAlignCommand(
             DoubleSupplier cameraAngle,
             BooleanSupplier hubVisible,
-            BooleanSupplier hubFresh) {
+            BooleanSupplier hubFresh,
+            DoubleSupplier robotAngularVelDegPerSec) {
 
         return Commands.runOnce(() -> {
             scanDirection = 1;
         }, this)
         .andThen(run(() -> {
             double currentAngle = getTurretAngleDegrees();
+            double rotationCompVelDPS = -robotAngularVelDegPerSec.getAsDouble();
 
             if (hubVisible.getAsBoolean()) {
                 trackingMode = TrackingMode.CAMERA;
@@ -490,21 +510,22 @@ public class TurretSubsystem extends SubsystemBase {
                 scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
                 double rawTarget = currentAngle + cameraAngle.getAsDouble();
                 if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
-                    // Hub is past mechanical limits — hold at nearest limit
-                    setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
+                    setTurretAngleTracking(
+                        MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees),
+                        rotationCompVelDPS);
                 } else if (hubFresh.getAsBoolean()) {
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
-                    setTurretAngle(smoothed);
+                    setTurretAngleTracking(smoothed, rotationCompVelDPS);
                 } else {
-                    setTurretAngle(lastSetpointDegrees);
+                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
                 }
             } else {
-                // SWEEP: continuous smooth scan, reverse at limits
+                // SWEEP: constant percent output, reverse at limits
                 trackingMode = TrackingMode.SWEEP;
                 if (currentAngle >= TurretConstants.kTurretMaxDegrees - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
                 else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                setTurretAngle(currentAngle + scanDirection * TurretTrackingConstants.kScanStepDeg);
+                turretMotor.set(scanDirection * TurretTrackingConstants.kTurretSweepPercent);
             }
         }))
         .finallyDo(interrupted -> {

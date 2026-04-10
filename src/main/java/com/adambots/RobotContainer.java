@@ -249,13 +249,17 @@ public class RobotContainer {
                 // === D-pad: Turret manual control ===
                 // Up = snap to forward (Motion Magic point-to-point)
                 // Left/Right = hold-to-jog (percent output, NOT Motion Magic —
-                // Diagonals included for POV hat wobble robustness
+                //   see TurretSubsystem.scanCommand for why)
                 Buttons.XboxDPadN.whileTrue(
                                 turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
                 Buttons.XboxDPadE.whileTrue(turret.scanCommand(+1.0));
                 Buttons.XboxDPadW.whileTrue(turret.scanCommand(-1.0));
-                Buttons.XboxDPadNE.whileTrue(turret.scanCommand(+1.0));
-                Buttons.XboxDPadNW.whileTrue(turret.scanCommand(-1.0));
+                // NE/NW disabled for now — POV hat wobble between N and NE/NW
+                // was triggering jog instead of forward, causing "stops at odd
+                // angle" behavior. Re-enable once we decide whether diagonals
+                // should map to forward or jog.
+                // Buttons.XboxDPadNE.whileTrue(turret.scanCommand(+1.0));
+                // Buttons.XboxDPadNW.whileTrue(turret.scanCommand(-1.0));
 
                 // Start: None
                 Buttons.XboxStartButton.onTrue(Commands.none());

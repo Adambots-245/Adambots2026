@@ -129,13 +129,24 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID ====================
-        // kV = 12V / 88.8 RPS (Minion free speed) ≈ 0.135
+        // Minion motor: 3.17 N·m stall, 211A stall, 7704 RPM (128.4 RPS) free, 12V
+        // Theoretical kV = 12V / 128.4 RPS = 0.094 — actual tuned value is higher
+        // (0.135) because real-world friction/load requires more voltage per RPS.
         // kP: 20 × 0.031 rot/deg = 0.62V per degree error — enough to correct without overshoot
         // kD: kept low — Minion velocity signal is noisy, high D goes berserk
+        // kS: static friction compensation — voltage needed to just barely start
+        //     turning the turret from standstill. Helps the PID break through
+        //     sticky spots (3D-printed gear mesh, cable tray friction) instead
+        //     of buzzing at the friction breakaway boundary. Start at 0.25 and
+        //     tune: too low = buzz remains, too high = turret "jumps" when
+        //     correcting small errors.
         public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretFF = 0.135;
+        public static final double kTurretKV = 0.135;  // was kTurretFF
+        public static final double kTurretKS = 0.25;   // static friction compensation (Volts)
+        public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
+        public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
         // ==================== Motion Magic Profile ====================
         public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor

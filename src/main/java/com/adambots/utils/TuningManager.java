@@ -45,14 +45,16 @@ public class TuningManager {
     private final double[] lastTableRPS = new double[5];
 
     // ==================== Turret entries + cache ====================
-    private GenericEntry turretPEntry, turretIEntry, turretDEntry, turretFFEntry;
+    private GenericEntry turretPEntry, turretIEntry, turretDEntry;
+    private GenericEntry turretKVEntry, turretKSEntry;
     private GenericEntry trackingToleranceEntry;
     private GenericEntry potAtZeroEntry, potAtMaxEntry;
 
     private double lastTurretP = TurretConstants.kTurretP;
     private double lastTurretI = TurretConstants.kTurretI;
     private double lastTurretD = TurretConstants.kTurretD;
-    private double lastTurretFF = TurretConstants.kTurretFF;
+    private double lastTurretKV = TurretConstants.kTurretKV;
+    private double lastTurretKS = TurretConstants.kTurretKS;
 
     // ==================== Intake entries + cache ====================
     private GenericEntry intakeArmPEntry, intakeArmIEntry, intakeArmDEntry;
@@ -132,7 +134,9 @@ public class TuningManager {
         advance(pos, cols);
         turretDEntry = Dash.addTunable("Turret kD", TurretConstants.kTurretD, pos[0], pos[1]);
         advance(pos, cols);
-        turretFFEntry = Dash.addTunable("Turret kF", TurretConstants.kTurretFF, pos[0], pos[1]);
+        turretKVEntry = Dash.addTunable("Turret kV", TurretConstants.kTurretKV, pos[0], pos[1]);
+        advance(pos, cols);
+        turretKSEntry = Dash.addTunable("Turret kS", TurretConstants.kTurretKS, pos[0], pos[1]);
         advance(pos, cols);
         trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
         advance(pos, cols);
@@ -293,14 +297,18 @@ public class TuningManager {
         double p = turretPEntry.getDouble(TurretConstants.kTurretP);
         double i = turretIEntry.getDouble(TurretConstants.kTurretI);
         double d = turretDEntry.getDouble(TurretConstants.kTurretD);
-        double f = turretFFEntry.getDouble(TurretConstants.kTurretFF);
+        double kV = turretKVEntry.getDouble(TurretConstants.kTurretKV);
+        double kS = turretKSEntry.getDouble(TurretConstants.kTurretKS);
 
-        if (p != lastTurretP || i != lastTurretI || d != lastTurretD || f != lastTurretFF) {
-            turret.setTurretPID(p, i, d, f);
+        if (p != lastTurretP || i != lastTurretI || d != lastTurretD
+                || kV != lastTurretKV || kS != lastTurretKS) {
+            turret.setTurretPID(p, i, d, kV, kS,
+                    TurretConstants.kTurretKA, TurretConstants.kTurretKG);
             lastTurretP = p;
             lastTurretI = i;
             lastTurretD = d;
-            lastTurretFF = f;
+            lastTurretKV = kV;
+            lastTurretKS = kS;
         }
 
         turret.setTrackingTolerance(trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg));

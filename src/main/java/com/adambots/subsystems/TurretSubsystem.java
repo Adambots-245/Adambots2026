@@ -81,8 +81,6 @@ public class TurretSubsystem extends SubsystemBase {
 
     private void configureMotors() {
         turretMotor.configure()
-            .pid(TurretConstants.kTurretP, TurretConstants.kTurretI,
-                 TurretConstants.kTurretD, TurretConstants.kTurretFF)
             .brakeMode(true)
             .currentLimits(TurretConstants.kTurretStallCurrentLimit,
                            TurretConstants.kTurretFreeCurrentLimit, 3000)
@@ -91,6 +89,17 @@ public class TurretSubsystem extends SubsystemBase {
                 RotationsPerSecondPerSecond.of(TurretConstants.kTurretAcceleration),
                 TurretConstants.kTurretJerk)
             .apply();
+
+        // Extended PID with feedforward gains (kV, kS, kA, kG).
+        // kS is critical for turret: it adds a constant voltage in the direction
+        // of error to overcome static friction from the 3D-printed gear mesh and
+        // cable tray. Without it, the PID hovers at the friction breakaway
+        // boundary and buzzes.
+        turretMotor.setPID(0,
+                TurretConstants.kTurretP, TurretConstants.kTurretI,
+                TurretConstants.kTurretD,
+                TurretConstants.kTurretKV, TurretConstants.kTurretKS,
+                TurretConstants.kTurretKA, TurretConstants.kTurretKG);
 
         // Soft limits: firmware-level safety rail. The rotor encoder is
         // seeded at boot from the pot (getPotAngleDegrees() → motor rotations),
@@ -114,8 +123,9 @@ public class TurretSubsystem extends SubsystemBase {
 
     // ==================== Tuning Setters (called by TuningManager) ====================
 
-    public void setTurretPID(double p, double i, double d, double ff) {
-        turretMotor.setPID(0, p, i, d, ff);
+    public void setTurretPID(double p, double i, double d,
+                             double kV, double kS, double kA, double kG) {
+        turretMotor.setPID(0, p, i, d, kV, kS, kA, kG);
     }
 
     public void setTrackingTolerance(double deg) {
@@ -307,7 +317,10 @@ public class TurretSubsystem extends SubsystemBase {
             }
 
             // Angular velocity lead: compensate for robot rotation so turret holds aim.
-            // Robot rotating CW (positive omega) → turret must lead CCW (negative in turret frame).
+            // WPILib convention: positive omega = CCW rotation.
+            // When robot rotates CCW (+omega), the hub drifts CW in robot frame,
+            // so the turret must lead in the positive-angle direction (+lead).
+            // No negation needed — positive omega produces positive lead directly.
             double angVelLead = robotAngularVelDegPerSec.getAsDouble()
                 * TurretTrackingConstants.kAngularVelLeadTime;
             angVelLead = MathUtil.clamp(angVelLead, -8.0, 8.0);
@@ -372,17 +385,39 @@ public class TurretSubsystem extends SubsystemBase {
                 lastTrackAction = "SWEEP dir=" + scanDirection;
             }
 
-            // Throttled diagnostic log (1 Hz) — always on for field troubleshooting
+            // ==================== Structured logging (AdvantageScope) ====================
+            // Always active — writes to WPILog. Lets you see exactly what the
+            // auto-track loop received and what it commanded, overlaid with
+            // the Vision/ signals in AdvantageScope.
+            double camAngleVal = cameraAngle.getAsDouble();
+            double omegaVal = robotAngularVelDegPerSec.getAsDouble();
+            Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+            Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+            Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+            Logger.recordOutput("Turret/Setpoint", lastSetpointDegrees);
+            Logger.recordOutput("Turret/CamYawInput", camAngleVal);
+            Logger.recordOutput("Turret/AngVelLead", angVelLead);
+            Logger.recordOutput("Turret/RobotOmegaDegPerSec", omegaVal);
+            Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
+            Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+            Logger.recordOutput("Turret/InShootingZone", inShootingZone.getAsBoolean());
+            Logger.recordOutput("Turret/AutoTrackEnabled", autoTrackEnabled);
+            Logger.recordOutput("Turret/Debounce", trackingDebounceCount);
+            Logger.recordOutput("Turret/BrakeFrames", cameraBrakeFrames);
+            Logger.recordOutput("Turret/HoldAngle", holdAngleDegrees);
+
+            // Console log (1 Hz) — human-readable summary for RioLog quick check
             double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
             if (now - lastTrackLogTime >= 1.0) {
                 lastTrackLogTime = now;
-                double camAngleVal = cameraAngle.getAsDouble();
                 System.out.printf(
-                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d%n",
+                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f lead=%.1f omega=%.0f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d brake=%d%n",
                     trackingMode, lastTrackAction,
                     currentAngle, lastSetpointDegrees, camAngleVal,
+                    angVelLead, omegaVal,
                     hubVisible.getAsBoolean(), hubFresh.getAsBoolean(),
-                    inShootingZone.getAsBoolean(), autoTrackEnabled, trackingDebounceCount);
+                    inShootingZone.getAsBoolean(), autoTrackEnabled,
+                    trackingDebounceCount, cameraBrakeFrames);
             }
         }))
         .finallyDo(interrupted -> {

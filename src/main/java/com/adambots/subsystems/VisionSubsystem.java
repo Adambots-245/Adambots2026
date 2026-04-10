@@ -23,6 +23,8 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
+
+import org.littletonrobotics.junction.Logger;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -423,24 +425,76 @@ public class VisionSubsystem extends SubsystemBase {
             hubBlendedAngleDegrees = poseAngleTurretRelative;
         }
 
-        // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
-        if (Constants.VISION_TAB) {
-            double now = Timer.getFPGATimestamp();
-            if (now - lastLogTimestamp >= 1.0) {
-                lastLogTimestamp = now;
-                Pose2d p = poseSupplier.get();
-                int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
+        // ==================== Structured logging (AdvantageScope) ====================
+        // Always active — writes to WPILog on USB stick. Open in AdvantageScope
+        // to review the full vision pipeline for any mode.
+        //
+        // Camera pipeline (Approach A)
+        Logger.recordOutput("Vision/CamRawAngle", rawCamAngle);
+        Logger.recordOutput("Vision/CamEWMAAngle", hubCamAngleDegrees);
+        Logger.recordOutput("Vision/CamRawDist", rawCamDist);
+        Logger.recordOutput("Vision/CamEWMADist", hubCamDistanceMeters);
+        Logger.recordOutput("Vision/CamHasTarget", hubCamHasTarget);
+        Logger.recordOutput("Vision/CamSticky", hubCamSticky);
+        Logger.recordOutput("Vision/CamOnline", cameraOnline);
+        Logger.recordOutput("Vision/CamTagsSeen", diagTagsSeen);
+        Logger.recordOutput("Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
+        Logger.recordOutput("Vision/CamLastAmbiguity", diagLastAmbiguity);
+        //
+        // Pose pipeline (Approach B)
+        Pose2d currentPose = poseSupplier.get();
+        Logger.recordOutput("Vision/PoseX", currentPose.getX());
+        Logger.recordOutput("Vision/PoseY", currentPose.getY());
+        Logger.recordOutput("Vision/PoseHeading", currentPose.getRotation().getDegrees());
+        Logger.recordOutput("Vision/PoseRawAngle", rawPoseAngle);
+        Logger.recordOutput("Vision/PoseRawDist", rawPoseDist);
+        Logger.recordOutput("Vision/PoseFilteredDist", hubPoseDistanceMeters);
+        Logger.recordOutput("Vision/PoseAngle", hubPoseAngleDegrees);
+        Logger.recordOutput("Vision/PoseHasTarget", hubPoseHasTarget);
+        //
+        // Turret-relative conversion (critical for modes 2/3 — if this is wrong,
+        // pose-based tracking goes to the wrong direction)
+        Logger.recordOutput("Vision/TurretAngle", turretAngleSupplier.getAsDouble());
+        Logger.recordOutput("Vision/PoseAngleTurretRelative", poseAngleTurretRelative);
+        //
+        // Blended output (mode 3)
+        Logger.recordOutput("Vision/BlendedAngle", hubBlendedAngleDegrees);
+        Logger.recordOutput("Vision/BlendedDist", hubBlendedDistanceMeters);
+        //
+        // Final output (what the auto-track loop actually consumes)
+        Logger.recordOutput("Vision/Mode", visionMode);
+        Logger.recordOutput("Vision/OutputAngle", getHubAngle());
+        Logger.recordOutput("Vision/OutputDist", getHubDistance());
+        Logger.recordOutput("Vision/OutputVisible", isHubVisible());
+        Logger.recordOutput("Vision/OutputFresh", isTrackingDataFresh());
+        Logger.recordOutput("Vision/HubTagCount", hubVisibleTagCount);
+
+        // ==================== Console log (1 Hz, always active) ====================
+        // Human-readable summary for RioLog / driver station quick check.
+        {
+            double now2 = Timer.getFPGATimestamp();
+            if (now2 - lastLogTimestamp >= 1.0) {
+                lastLogTimestamp = now2;
                 String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;
                 System.out.printf(
-                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
+                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d notHub=%d lastA=%.2f) "
+                    + "pose=%s dist=%.2f/%.2f ang=%.1f/%.1f "
+                    + "poseRel=%.1f turretAng=%.1f "
+                    + "blend=%.1f/%.2f out=%.1f/%.2f "
+                    + "tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
                     modeName,
-                    hubCamHasTarget ? "T" : "F", diagTagsSeen, diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
+                    hubCamHasTarget ? "T" : "F", diagTagsSeen,
+                    diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
                     hubPoseHasTarget ? "T" : "F",
                     hubCamDistanceMeters, hubPoseDistanceMeters,
                     hubCamAngleDegrees, hubPoseAngleDegrees,
-                    tier, hubVisibleTagCount,
-                    p.getX(), p.getY(), p.getRotation().getDegrees(),
+                    poseAngleTurretRelative, turretAngleSupplier.getAsDouble(),
+                    hubBlendedAngleDegrees, hubBlendedDistanceMeters,
+                    getHubAngle(), getHubDistance(),
+                    hubVisibleTagCount,
+                    currentPose.getX(), currentPose.getY(),
+                    currentPose.getRotation().getDegrees(),
                     hc.getX(), hc.getY());
             }
         }

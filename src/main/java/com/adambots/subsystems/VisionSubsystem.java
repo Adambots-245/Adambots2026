@@ -661,23 +661,27 @@ public class VisionSubsystem extends SubsystemBase {
      * Computes the robot-relative bearing to the hub, compensated for robot
      * motion during projectile flight. Uses an iterative convergence loop
      * (same pattern as Team 6328): predict where the robot will be after
-     * {@code tofSeconds}, compute the bearing from that predicted position
-     * to the (stationary) hub, repeat for {@code kLeadCompIterations}.
+     * the estimated TOF, compute the bearing from that predicted position
+     * to the (stationary) hub, recompute TOF from the new distance, repeat.
+     *
+     * <p>With a distance-based TOF function (from the shooter interpolation
+     * table), each iteration genuinely converges: the predicted position
+     * changes the distance, which changes the TOF, which changes the
+     * prediction. Typically converges in 3-5 iterations.
      *
      * <p>Only applies when the robot is moving above
      * {@code kLeadCompSpeedThreshold}. When stationary, returns the
      * uncompensated bearing to avoid noise-induced offset.
      *
      * @param hubCenter    field-relative hub center position
-     * @param robotPose    robot pose at the time of measurement (use historical
-     *                     pose from poseBuffer for latency compensation)
+     * @param robotPose    robot pose at the time of measurement
      * @param fieldSpeeds  field-relative robot velocity
-     * @param tofSeconds   estimated projectile time-of-flight
+     * @param tofFunction  maps distance (meters) → estimated TOF (seconds)
      * @return robot-relative bearing to the lead-compensated target (degrees)
      */
     private double computeLeadAngle(Translation2d hubCenter, Pose2d robotPose,
                                     edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds,
-                                    double tofSeconds) {
+                                    java.util.function.DoubleUnaryOperator tofFunction) {
         double speed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
         // Below threshold: no lead compensation, return direct bearing
         if (speed < TurretTrackingConstants.kLeadCompSpeedThreshold) {
@@ -688,16 +692,18 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         // Iterative convergence: each iteration refines the predicted robot
-        // position by projecting forward by the estimated TOF.
+        // position. The TOF changes with distance, so the loop genuinely
+        // converges (unlike a constant TOF where all iterations are identical).
         Translation2d predictedRobot = robotPose.getTranslation();
         for (int i = 0; i < TurretTrackingConstants.kLeadCompIterations; i++) {
-            // With a constant TOF, each iteration produces the same result,
-            // but the structure supports replacing tofSeconds with a
-            // distance-based lookup table later.
+            double dx = hubCenter.getX() - predictedRobot.getX();
+            double dy = hubCenter.getY() - predictedRobot.getY();
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            double tof = tofFunction.applyAsDouble(dist);
             predictedRobot = robotPose.getTranslation().plus(
                 new Translation2d(
-                    fieldSpeeds.vxMetersPerSecond * tofSeconds,
-                    fieldSpeeds.vyMetersPerSecond * tofSeconds));
+                    fieldSpeeds.vxMetersPerSecond * tof,
+                    fieldSpeeds.vyMetersPerSecond * tof));
         }
 
         // Bearing from predicted position to hub, robot-relative
@@ -711,20 +717,24 @@ public class VisionSubsystem extends SubsystemBase {
      * Returns the hub angle with lead compensation applied. Uses the
      * historical pose (latency-compensated) and field-relative robot
      * velocity to predict where the robot will be when the projectile
-     * arrives. Only meaningful when the robot is moving; returns the
+     * arrives. TOF is computed dynamically from the shooter interpolation
+     * table (distance → RPS → exit velocity → horizontal flight time).
+     *
+     * <p>Only meaningful when the robot is moving; returns the
      * uncompensated angle when stationary.
      *
      * @param fieldSpeeds field-relative robot velocity (from swerve)
+     * @param tofFunction maps distance (meters) → estimated TOF (seconds),
+     *                    typically {@code shooter::getEstimatedTOF}
      * @return robot-relative bearing with lead offset (degrees)
      */
     public double getLeadCompensatedHubAngle(
-            edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds) {
+            edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds,
+            java.util.function.DoubleUnaryOperator tofFunction) {
         Pose2d historicalPose = (lastCameraTimestamp > 0)
             ? poseBuffer.getSample(lastCameraTimestamp).orElse(poseSupplier.get())
             : poseSupplier.get();
-        return computeLeadAngle(
-            getHubCenter(), historicalPose, fieldSpeeds,
-            TurretTrackingConstants.kDefaultTOFSeconds);
+        return computeLeadAngle(getHubCenter(), historicalPose, fieldSpeeds, tofFunction);
     }
 
     // ==================== Hub Unified Getters (selected approach via Shuffleboard toggle) ====================

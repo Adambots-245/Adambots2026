@@ -90,12 +90,23 @@ public class TurretSubsystem extends SubsystemBase {
                 TurretConstants.kTurretJerk)
             .apply();
 
-        // Extended PID with feedforward gains (kV, kS, kA, kG).
+        // Dual PID slots for independent tuning:
+        //   Slot 0 — Motion Magic (go-to-angle, hold, forward, sweep)
+        //   Slot 1 — PositionVoltage (auto-track CAMERA, manual align)
+        // Initialized with the same gains so current behavior is unchanged.
+        // Tune slot 1 independently if tracking needs different kP/kD
+        // (e.g., smoother convergence) vs go-to-angle (snappy profiled moves).
+        //
         // kS is critical for turret: it adds a constant voltage in the direction
         // of error to overcome static friction from the 3D-printed gear mesh and
         // cable tray. Without it, the PID hovers at the friction breakaway
         // boundary and buzzes.
         turretMotor.setPID(0,
+                TurretConstants.kTurretP, TurretConstants.kTurretI,
+                TurretConstants.kTurretD,
+                TurretConstants.kTurretKV, TurretConstants.kTurretKS,
+                TurretConstants.kTurretKA, TurretConstants.kTurretKG);
+        turretMotor.setPID(1,
                 TurretConstants.kTurretP, TurretConstants.kTurretI,
                 TurretConstants.kTurretD,
                 TurretConstants.kTurretKV, TurretConstants.kTurretKS,
@@ -125,7 +136,8 @@ public class TurretSubsystem extends SubsystemBase {
 
     public void setTurretPID(double p, double i, double d,
                              double kV, double kS, double kA, double kG) {
-        turretMotor.setPID(0, p, i, d, kV, kS, kA, kG);
+        turretMotor.setPID(0, p, i, d, kV, kS, kA, kG); // slot 0: Motion Magic
+        turretMotor.setPID(1, p, i, d, kV, kS, kA, kG); // slot 1: PositionVoltage tracking
     }
 
     public void setTrackingTolerance(double deg) {
@@ -177,7 +189,7 @@ public class TurretSubsystem extends SubsystemBase {
         lastSetpointDegrees = degrees;
         double posRot = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
         double velRPS = (velDegPerSec / 360.0) * TurretConstants.kTurretGearRatio;
-        turretMotor.setPositionWithVelocityFF(posRot, velRPS);
+        turretMotor.setPositionWithVelocityFF(posRot, velRPS, 1); // slot 1 for tracking
     }
 
     public void stopTurret() {

@@ -104,6 +104,15 @@ public final class Constants {
         public static final double kMinRPS = kDefaultInterpolationTable[0][1];
         public static final double kMaxRPS = kDefaultInterpolationTable[kDefaultInterpolationTable.length - 1][1];
 
+        // ==================== Projectile Physics ====================
+        /** Flywheel radius in meters (2 inches). Used for exit velocity and TOF. */
+        public static final double kFlywheelRadiusMeters = 0.0508;
+        /** Hood angle in radians (60° fixed). */
+        public static final double kHoodAngleRadians = Math.toRadians(60.0);
+        /** Maximum credible TOF — caps the estimate to prevent absurd lead at
+         *  very low flywheel speeds or near-zero distances. */
+        public static final double kMaxTOFSeconds = 1.0;
+
         /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
         public static final double kIdleRPS = 20.0;
 
@@ -224,11 +233,8 @@ public final class Constants {
         // (PositionVoltage .withVelocity) instead of position-offset lead.
         // See TurretSubsystem.autoTrackCommand for details.
 
-        /** Estimated time-of-flight for projectile from shooter to hub, in seconds.
-         *  Used by iterative lead compensation to predict where the robot will be
-         *  when the projectile arrives. Start with 0.5 and tune from field data.
-         *  Replace with a distance-based interpolation table for better accuracy. */
-        public static final double kDefaultTOFSeconds = 0.5;
+        // TOF is now computed dynamically from the shooter interpolation table
+        // via ShooterSubsystem.getEstimatedTOF(distance). No constant needed.
         /** Robot speed below this (m/s) disables lead compensation entirely.
          *  Prevents noise at low speeds from introducing unnecessary aiming offset. */
         public static final double kLeadCompSpeedThreshold = 0.3;

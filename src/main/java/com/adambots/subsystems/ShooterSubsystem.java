@@ -117,6 +117,31 @@ public class ShooterSubsystem extends SubsystemBase {
             ShooterConstants.kMinRPS, ShooterConstants.kMaxRPS);
     }
 
+    /**
+     * Estimates projectile time-of-flight (seconds) from robot to hub at
+     * the given distance. Derived from the shooter interpolation table:
+     *
+     * <pre>
+     *   exitVelocity = 2π × flywheelRadius × RPS(distance)
+     *   horizontalVelocity = exitVelocity × cos(hoodAngle)
+     *   TOF = distance / horizontalVelocity
+     * </pre>
+     *
+     * <p>This makes the iterative lead compensation loop truly convergent:
+     * each iteration refines the predicted robot position, which changes
+     * the distance, which changes the TOF, which changes the prediction.
+     *
+     * @param distanceMeters horizontal distance to hub
+     * @return estimated time-of-flight in seconds
+     */
+    public double getEstimatedTOF(double distanceMeters) {
+        double rps = getRPSFromTable(distanceMeters);
+        double exitVelocity = 2.0 * Math.PI * ShooterConstants.kFlywheelRadiusMeters * rps;
+        double horizontalVelocity = exitVelocity * Math.cos(ShooterConstants.kHoodAngleRadians);
+        if (horizontalVelocity < 0.1) return ShooterConstants.kMaxTOFSeconds; // guard against div-by-zero
+        return Math.min(distanceMeters / horizontalVelocity, ShooterConstants.kMaxTOFSeconds);
+    }
+
     // ==================== Telemetry Getters ====================
 
     public double getLeftRPS() {

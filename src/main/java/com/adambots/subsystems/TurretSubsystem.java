@@ -107,7 +107,7 @@ public class TurretSubsystem extends SubsystemBase {
                 TurretConstants.kTurretKV, TurretConstants.kTurretKS,
                 TurretConstants.kTurretKA, TurretConstants.kTurretKG);
         turretMotor.setPID(1,
-                TurretConstants.kTurretP, TurretConstants.kTurretI,
+                TurretConstants.kTurretTrackingP, TurretConstants.kTurretI,
                 TurretConstants.kTurretD,
                 TurretConstants.kTurretKV, TurretConstants.kTurretKS,
                 TurretConstants.kTurretKA, TurretConstants.kTurretKG);
@@ -137,7 +137,12 @@ public class TurretSubsystem extends SubsystemBase {
     public void setTurretPID(double p, double i, double d,
                              double kV, double kS, double kA, double kG) {
         turretMotor.setPID(0, p, i, d, kV, kS, kA, kG); // slot 0: Motion Magic
-        turretMotor.setPID(1, p, i, d, kV, kS, kA, kG); // slot 1: PositionVoltage tracking
+        // Slot 1 uses the same gains except kP, which is scaled up for
+        // PositionVoltage tracking (no velocity profile to drive the motor,
+        // so kP must be higher to be responsive). The ratio between
+        // kTurretTrackingP and kTurretP is preserved when tuning live.
+        double trackingP = p * (TurretConstants.kTurretTrackingP / TurretConstants.kTurretP);
+        turretMotor.setPID(1, trackingP, i, d, kV, kS, kA, kG); // slot 1: tracking
     }
 
     public void setTrackingTolerance(double deg) {
@@ -420,14 +425,18 @@ public class TurretSubsystem extends SubsystemBase {
                         MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees),
                         rotationCompVelDPS);
                     lastTrackAction = "LIMIT clamp=" + String.format("%.1f", rawTarget);
-                } else if (hubFresh.getAsBoolean()) {
+                } else {
+                    // Track on EVERY cycle the hub is visible (sticky), not just
+                    // frames where hubFresh is true. With 50% detection rate, the
+                    // old code held position on non-fresh frames — effectively
+                    // halving the tracking bandwidth. Now we always apply the
+                    // smoothing filter using the latest camera angle, even if it's
+                    // from the previous frame. The EWMA on the camera side already
+                    // handles noise; double-gating on freshness just adds lag.
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
                     setTurretAngleTracking(smoothed, rotationCompVelDPS);
-                    lastTrackAction = "TRACK fresh";
-                } else {
-                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
-                    lastTrackAction = "HOLD stale";
+                    lastTrackAction = hubFresh.getAsBoolean() ? "TRACK fresh" : "TRACK stale";
                 }
             } else {
                 // SWEEP: continuous constant-speed scan, reverse at limits.

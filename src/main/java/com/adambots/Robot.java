@@ -40,11 +40,14 @@ public class Robot extends LoggedRobot {
         // Configure AdvantageKit Logger FIRST (required before LoggedRobot parent init)
         Logger.recordMetadata("ProjectName", "Adambots2026");
 
-        if (!isReal()) {
-            // In simulation only — publish to NT for live AdvantageScope viewing.
-            Logger.addDataReceiver(new NT4Publisher());
-        }
-        // Log to USB stick on real robot for post-match analysis in AdvantageScope
+        // Publish to NT so DataLogManager captures AdvantageKit outputs in
+        // its .wpilog file — works even without a USB stick on the robot.
+        // Also enables live AdvantageScope viewing via network connection.
+        Logger.addDataReceiver(new NT4Publisher());
+
+        // Also log to USB stick if one is present (higher throughput, no
+        // network bandwidth impact). Safe to call even without USB — the
+        // writer handles the missing drive gracefully.
         Logger.addDataReceiver(new WPILOGWriter());
 
         Logger.start();

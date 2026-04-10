@@ -149,13 +149,25 @@ public final class Constants {
         //     of buzzing at the friction breakaway boundary. Start at 0.25 and
         //     tune: too low = buzz remains, too high = turret "jumps" when
         //     correcting small errors.
+        // Slot 0: Motion Magic (go-to-angle, hold, forward, sweep)
         public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretKV = 0.135;  // was kTurretFF
-        public static final double kTurretKS = 0.25;   // static friction compensation (Volts)
+        public static final double kTurretKV = 0.100;  // tuned on main (was 0.135)
+        public static final double kTurretKS = 0.30;   // tuned on main (was 0.25)
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
+
+        // Slot 1: PositionVoltage tracking (auto-track CAMERA, manual align)
+        // Higher kP than slot 0 because PositionVoltage has no velocity profile
+        // to drive the motor — only kP × error produces corrective force.
+        // At kP=18 with a 2° error: 18 × (2/360 × 11.11) = 1V (barely moves).
+        // At kP=80 with a 2° error: 80 × (2/360 × 11.11) = 4.9V (aggressive).
+        // At 10° error: 24.7V → saturates at 12V = full speed.
+        // Team 5000 uses kP=100 for PositionVoltage tracking.
+        // Tune independently from slot 0 — tracking benefits from higher kP
+        // while Motion Magic is fine with lower kP since the profile handles speed.
+        public static final double kTurretTrackingP = 80.0;
 
         // ==================== Motion Magic Profile ====================
         public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor
@@ -219,7 +231,7 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.35;
+        public static final double kCameraTrackingGain = 0.70;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep (legacy,
@@ -244,13 +256,17 @@ public final class Constants {
 
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
-        public static final int kTrackingDebounceFrames = 3;
+        public static final int kTrackingDebounceFrames = 1;
         /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
          *  Lets turret decelerate before tracking starts, preventing overshoot. */
-        public static final int kCameraBrakeFrames = 15;
-        /** Frames to hold at forward before allowing sweep on startup.
-         *  Gives vision time to initialize and detect hub tags. */
-        public static final int kSweepWarmupFrames = 50;
+        /** Frames to brake when transitioning SWEEP → CAMERA. With percent-
+         *  output sweep (not Motion Magic), the turret speed is low and
+         *  braking is less critical. Set to 2 for a minimal decel pause. */
+        public static final int kCameraBrakeFrames = 2;
+        /** Frames to hold before sweep starts. Vision initializes in its own
+         *  constructor, so this is just a short pause for the first camera
+         *  frames to arrive. 0 = sweep starts immediately on enable. */
+        public static final int kSweepWarmupFrames = 0;
     }
 
     // ==================== HopperConstants ====================
@@ -441,12 +457,12 @@ public final class Constants {
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.
          *  0.04 = 4% new, 96% prior (example: Team 6328). Higher = more responsive but noisier. */
-        public static final double kVisionAlpha = 0.04;
+        public static final double kVisionAlpha = 0.15;
 
         // ==================== Hub Visibility Holdoff ====================
         /** Max value for charge/decay holdoff counter.
          *  At 50, a full drain at -1/frame takes 1 second — survives long gaps between detections. */
-        public static final int kCamCounterMax = 50;
+        public static final int kCamCounterMax = 100;
         /** Charge rate per valid camera frame. With ~15% detection rate,
          *  charge=10 × 3 = 30 vs drain=1 × 22 = 22 → net +8 per 25-frame window. */
         public static final int kCamChargeRate = 10;

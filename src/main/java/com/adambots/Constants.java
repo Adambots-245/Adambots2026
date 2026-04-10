@@ -51,11 +51,11 @@ public final class Constants {
         // PathPlanner path-following PID (corrects position/heading error during auto)
         // These are NOT the same as YAGSL motor-level PIDs in pidfproperties.json.
         // Start at 5.0/0/0 and tune on the field — see SwerveConfig javadoc for tips.
-        public static final double kAutoTranslationP = 0.18;
+        public static final double kAutoTranslationP = 2.5;
         public static final double kAutoTranslationI = 0.0;
         public static final double kAutoTranslationD = 0.0;
 
-        public static final double kAutoRotationP = 0.18;
+        public static final double kAutoRotationP = 2.5;
         public static final double kAutoRotationI = 0.0;
         public static final double kAutoRotationD = 0.0;
 

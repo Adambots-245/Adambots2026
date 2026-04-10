@@ -45,20 +45,22 @@ public class TuningManager {
     private final double[] lastTableRPS = new double[5];
 
     // ==================== Turret entries + cache ====================
-    private GenericEntry turretPEntry, turretIEntry, turretDEntry, turretFFEntry;
+    private GenericEntry turretPEntry, turretIEntry, turretDEntry;
+    private GenericEntry turretKVEntry, turretKSEntry;
     private GenericEntry trackingToleranceEntry;
     private GenericEntry potAtZeroEntry, potAtMaxEntry;
 
     private double lastTurretP = TurretConstants.kTurretP;
     private double lastTurretI = TurretConstants.kTurretI;
     private double lastTurretD = TurretConstants.kTurretD;
-    private double lastTurretFF = TurretConstants.kTurretFF;
+    private double lastTurretKV = TurretConstants.kTurretKV;
+    private double lastTurretKS = TurretConstants.kTurretKS;
 
     // ==================== Intake entries + cache ====================
     private GenericEntry intakeArmPEntry, intakeArmIEntry, intakeArmDEntry;
     private GenericEntry intakeArmKGEntry, intakeArmKSEntry, intakeArmKVEntry, intakeArmKAEntry;
     private GenericEntry cruiseVelocityEntry, accelerationEntry;
-    private GenericEntry loweredPositionEntry, bopAngleEntry;
+    private GenericEntry loweredPositionEntry, raisedPositionEntry;
 
     private double lastIntakeP = IntakeConstants.kArmP;
     private double lastIntakeI = IntakeConstants.kArmI;
@@ -132,7 +134,9 @@ public class TuningManager {
         advance(pos, cols);
         turretDEntry = Dash.addTunable("Turret kD", TurretConstants.kTurretD, pos[0], pos[1]);
         advance(pos, cols);
-        turretFFEntry = Dash.addTunable("Turret kF", TurretConstants.kTurretFF, pos[0], pos[1]);
+        turretKVEntry = Dash.addTunable("Turret kV", TurretConstants.kTurretKV, pos[0], pos[1]);
+        advance(pos, cols);
+        turretKSEntry = Dash.addTunable("Turret kS", TurretConstants.kTurretKS, pos[0], pos[1]);
         advance(pos, cols);
         trackingToleranceEntry = Dash.addTunable("Track Tol (deg)", TurretTrackingConstants.kTrackingToleranceDeg, pos[0], pos[1]);
         advance(pos, cols);
@@ -158,8 +162,11 @@ public class TuningManager {
 
         cruiseVelocityEntry = Dash.addTunable("Cruise Vel (RPS)", IntakeConstants.kArmCruiseVelocity, 0, 3);
         accelerationEntry = Dash.addTunable("Accel (RPS²)", IntakeConstants.kArmAcceleration, 1, 3);
-        loweredPositionEntry = Dash.addTunable("Lowered Pos (rot)", IntakeConstants.kArmLoweredPosition, 2, 3);
-        bopAngleEntry = Dash.addTunable("Bop Angle (rot)", IntakeConstants.kBopAngle, 3, 3);
+        // Lowered/raised positions are in degrees (raw throughbore reading at each stop).
+        // Calibration: park arm at the stop, read "Arm Encoder (deg)" on the Intake tab,
+        // type that value here. No redeploy needed — the setter is called each cycle.
+        loweredPositionEntry = Dash.addTunable("Lowered Pos (deg)", IntakeConstants.kArmLoweredPosition, 2, 3);
+        raisedPositionEntry = Dash.addTunable("Raised Pos (deg)", IntakeConstants.kArmRaisedPosition, 3, 3);
 
         // Force-write code constants to override stale Shuffleboard cache
         intakeArmPEntry.setDouble(IntakeConstants.kArmP);
@@ -172,7 +179,18 @@ public class TuningManager {
         cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
         accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
         loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-        bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
+        raisedPositionEntry.setDouble(IntakeConstants.kArmRaisedPosition);
+
+        // Pit calibration helpers: capture the current encoder reading into the
+        // lowered or raised tunable. Park the arm at the physical stop, press
+        // the button — no typing, no redeploy.
+        Dash.addCommand("Capture Lowered", Commands.runOnce(() -> {
+            loweredPositionEntry.setDouble(intake.getIntakeArmPosition());
+        }).withName("Capture Lowered"), 4, 3);
+
+        Dash.addCommand("Capture Raised", Commands.runOnce(() -> {
+            raisedPositionEntry.setDouble(intake.getIntakeArmPosition());
+        }).withName("Capture Raised"), 5, 3);
 
         // Tuning workflow commands
         Dash.addCommand("Zero Tunables", Commands.runOnce(() -> {
@@ -186,8 +204,8 @@ public class TuningManager {
             cruiseVelocityEntry.setDouble(0);
             accelerationEntry.setDouble(0);
             loweredPositionEntry.setDouble(0);
-            bopAngleEntry.setDouble(0);
-        }).withName("Zero Tunables"), 4, 3);
+            raisedPositionEntry.setDouble(0);
+        }).withName("Zero Tunables"), 6, 3);
 
         Dash.addCommand("Reset Tunables", Commands.runOnce(() -> {
             intakeArmPEntry.setDouble(IntakeConstants.kArmP);
@@ -200,8 +218,8 @@ public class TuningManager {
             cruiseVelocityEntry.setDouble(IntakeConstants.kArmCruiseVelocity);
             accelerationEntry.setDouble(IntakeConstants.kArmAcceleration);
             loweredPositionEntry.setDouble(IntakeConstants.kArmLoweredPosition);
-            bopAngleEntry.setDouble(IntakeConstants.kBopAngle);
-        }).withName("Reset Tunables"), 5, 3);
+            raisedPositionEntry.setDouble(IntakeConstants.kArmRaisedPosition);
+        }).withName("Reset Tunables"), 7, 3);
 
         Dash.useDefaultTab();
     }
@@ -279,14 +297,18 @@ public class TuningManager {
         double p = turretPEntry.getDouble(TurretConstants.kTurretP);
         double i = turretIEntry.getDouble(TurretConstants.kTurretI);
         double d = turretDEntry.getDouble(TurretConstants.kTurretD);
-        double f = turretFFEntry.getDouble(TurretConstants.kTurretFF);
+        double kV = turretKVEntry.getDouble(TurretConstants.kTurretKV);
+        double kS = turretKSEntry.getDouble(TurretConstants.kTurretKS);
 
-        if (p != lastTurretP || i != lastTurretI || d != lastTurretD || f != lastTurretFF) {
-            turret.setTurretPID(p, i, d, f);
+        if (p != lastTurretP || i != lastTurretI || d != lastTurretD
+                || kV != lastTurretKV || kS != lastTurretKS) {
+            turret.setTurretPID(p, i, d, kV, kS,
+                    TurretConstants.kTurretKA, TurretConstants.kTurretKG);
             lastTurretP = p;
             lastTurretI = i;
             lastTurretD = d;
-            lastTurretFF = f;
+            lastTurretKV = kV;
+            lastTurretKS = kS;
         }
 
         turret.setTrackingTolerance(trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg));
@@ -324,7 +346,7 @@ public class TuningManager {
         }
 
         intake.setArmLoweredPosition(loweredPositionEntry.getDouble(IntakeConstants.kArmLoweredPosition));
-        intake.setBopAngle(bopAngleEntry.getDouble(IntakeConstants.kBopAngle));
+        intake.setArmRaisedPosition(raisedPositionEntry.getDouble(IntakeConstants.kArmRaisedPosition));
     }
 
     private void applyHopperTunables() {

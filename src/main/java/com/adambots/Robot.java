@@ -103,7 +103,15 @@ public class Robot extends LoggedRobot {
 
     /** This function is called once each time the robot enters Disabled mode. */
     @Override
-    public void disabledInit() {}
+    public void disabledInit() {
+        // Clear latched motor controller control requests (e.g. a stale
+        // MOTION_MAGIC target on the intake arm) so they don't resume
+        // driving the moment the robot is re-enabled. See
+        // RobotContainer.onDisabledInit() for details.
+        if (container != null) {
+            container.onDisabledInit();
+        }
+    }
 
     @Override
     public void disabledPeriodic() {}

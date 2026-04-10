@@ -24,7 +24,7 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
 
     /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
@@ -51,11 +51,11 @@ public final class Constants {
         // PathPlanner path-following PID (corrects position/heading error during auto)
         // These are NOT the same as YAGSL motor-level PIDs in pidfproperties.json.
         // Start at 5.0/0/0 and tune on the field — see SwerveConfig javadoc for tips.
-        public static final double kAutoTranslationP = 0.18;
+        public static final double kAutoTranslationP = 2.5;
         public static final double kAutoTranslationI = 0.0;
         public static final double kAutoTranslationD = 0.0;
 
-        public static final double kAutoRotationP = 0.18;
+        public static final double kAutoRotationP = 2.5;
         public static final double kAutoRotationI = 0.0;
         public static final double kAutoRotationD = 0.0;
 
@@ -77,7 +77,7 @@ public final class Constants {
         public static final double kFlywheelDirection = -1.0;
 
         // ==================== Flywheel PID (tested on test board) ====================
-        public static final double kFlywheelP = 0.3;
+        public static final double kFlywheelP = 0.35;
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
         public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
@@ -94,25 +94,32 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 46.0},
-            {2.5, 50.0},
-            {3.0, 53.5},
-            {4.0, 58.0},
+            {2.0, 43.0},
+            {2.5, 45.0},
+            {3.0, 49.5},
+            {4.0, 56.0},
             {5.0, 62.0}
         };
 
-        public static final double kMinRPS = 46.0;  // table minimum
-        public static final double kMaxRPS = 68.0;  // table maximum
+        public static final double kMinRPS = kDefaultInterpolationTable[0][1];
+        public static final double kMaxRPS = kDefaultInterpolationTable[kDefaultInterpolationTable.length - 1][1];
 
         /** Idle pre-spin RPS — keeps flywheel warm for faster spin-up. */
         public static final double kIdleRPS = 20.0;
 
         /** Extra RPS added during feed to compensate for ball energy transfer to flywheel. */
-        public static final double kShotBoostRPS = 3.0;
+        public static final double kShotBoostRPS = 3;
 
         // Shooting zone bounds — robot X position that defines "near the hub"
         public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
         public static final double kBlueShootingZoneMaxX = 4.54;  // Blue hub at x≈4.54
+
+        /** Enable chassis shake during shooting to settle balls into carousel. */
+        public static final boolean kShakeEnabled = false;
+        /** Rotational speed for chassis shake (rad/s). */
+        public static final double kShakeRotSpeed = 1.5;
+        /** Period of one full shake cycle (seconds). */
+        public static final double kShakePeriodSeconds = 0.2;
     }
 
     // ==================== TurretConstants ====================
@@ -122,36 +129,74 @@ public final class Constants {
      */
     public static final class TurretConstants {
         // ==================== Turret PID ====================
-        // kV = 12V / 88.8 RPS (Minion free speed) ≈ 0.135
+        // Minion motor: 3.17 N·m stall, 211A stall, 7704 RPM (128.4 RPS) free, 12V
+        // Theoretical kV = 12V / 128.4 RPS = 0.094 — actual tuned value is higher
+        // (0.135) because real-world friction/load requires more voltage per RPS.
         // kP: 20 × 0.031 rot/deg = 0.62V per degree error — enough to correct without overshoot
         // kD: kept low — Minion velocity signal is noisy, high D goes berserk
-        public static final double kTurretP = 15.0;
+        // kS: static friction compensation — voltage needed to just barely start
+        //     turning the turret from standstill. Helps the PID break through
+        //     sticky spots (3D-printed gear mesh, cable tray friction) instead
+        //     of buzzing at the friction breakaway boundary. Start at 0.25 and
+        //     tune: too low = buzz remains, too high = turret "jumps" when
+        //     correcting small errors.
+        public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretFF = 0.135;
+        public static final double kTurretKV = 0.100;  // was kTurretFF
+        public static final double kTurretKS = 0.3;   // static friction compensation (Volts)
+        public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
+        public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
         // ==================== Motion Magic Profile ====================
-        public static final double kTurretCruiseVelocity = 12.0;   // RPS at motor
-        public static final double kTurretAcceleration = 24.0;      // RPS/s at motor
+        public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor
+        public static final double kTurretAcceleration = 80.0;      // RPS/s at motor
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
         // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
         public static final double kTurretGearRatio = 200.0 / 18.0;
 
-        // Reference range — software-limited via pot + clamp in setTurretAngle()
-        public static final double kTurretMaxDegrees = 300.0;
-
-        /** Turret angle (degrees) that faces straight ahead on the robot. */
-        public static final double kTurretForwardDegrees = 210.0;
-
-        public static final double kTurretManualStepDeg = 10; // ~90°/sec at 50Hz
-
         // ==================== Potentiometer Calibration ====================
+        // The 10-turn potentiometer is coupled 1:1 to the motor shaft (pre-
+        // gearbox), so pot rotation equals motor rotation. Calibrate by
+        // parking the turret at each mechanical stop, reading "Pot Raw (deg)"
+        // on the Shooter tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 0;
+        public static final double kTurretPotAtZeroDeg = 256;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 3575.0;
+        public static final double kTurretPotAtMaxDeg = 2266.0;
+
+        /**
+         * Turret physical range in degrees, derived from the pot endpoints and
+         * the gear ratio. Must be computed — if hand-entered, it can disagree
+         * with the motor-encoder-based {@code getTurretAngleDegrees()} readback
+         * and the pot-based {@code getPotAngleDegrees()} will drift.
+         *
+         * <p>Derivation: the pot is on the motor shaft (1:1), so the raw pot
+         * travel between the two mechanical stops equals the motor travel in
+         * degrees. Dividing by the motor-to-turret gear ratio gives the
+         * physical turret range.
+         *
+         * <p>With the current values:
+         * {@code (2266 − 256) / (200/18) = 2010 / 11.11 ≈ 180.9°}
+         */
+        public static final double kTurretMaxDegrees =
+            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretGearRatio;
+
+        /** Turret angle (degrees) that faces straight ahead on the robot.
+         *  Re-measure after any change to the pot calibration. */
+        public static final double kTurretForwardDegrees = 87.5;
+
+        /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
+         *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */
+        public static final double kTurretJogPercent = 0.10;
+
+        /** Soft limit margin beyond [0, kTurretMaxDegrees], in turret degrees.
+         *  Firmware cuts motor output if position drifts this far outside the
+         *  calibrated range — safety rail for jog mode (percent output bypasses
+         *  the software clamp in setTurretAngle). */
+        public static final double kTurretSoftLimitMarginDeg = 6.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -160,24 +205,34 @@ public final class Constants {
 
     // ==================== TurretTrackingConstants ====================
     public static final class TurretTrackingConstants {
-        /** Degrees tolerance to consider turret "on target" for tracking */
+        /** Degrees tolerance to consider turret "on target" for tracking (dead zone).
+         *  Camera offsets smaller than this are ignored to prevent chasing noise. */
         public static final double kTrackingToleranceDeg = 2.0;
         /** Proportional gain applied to camera yaw for turret correction.
-         *  1.0 = full correction each cycle (overshoots), 0.3 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.3;
+         *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
+        public static final double kCameraTrackingGain = 0.35;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
-        public static final double kAngularVelLeadTime = 0.1;
+        public static final double kAngularVelLeadTime = 0.02;
+        /** Consecutive frames outside dead zone before applying correction.
+         *  Filters single-frame jitter from camera noise. */
+        public static final int kTrackingDebounceFrames = 3;
+        /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
+         *  Lets turret decelerate before tracking starts, preventing overshoot. */
+        public static final int kCameraBrakeFrames = 15;
+        /** Frames to hold at forward before allowing sweep on startup.
+         *  Gives vision time to initialize and detect hub tags. */
+        public static final int kSweepWarmupFrames = 50;
     }
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.25;
-        public static final double kUptakeSpeed = 0.65;
+        public static final double kHopperSpeed = 0.35;
+        public static final double kUptakeSpeed = 0.70;
 
         // Jam detection
         public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed
@@ -345,6 +400,9 @@ public final class Constants {
         /** Max distance to consider a target valid (meters) */
         public static final double kMaxDistanceMeters = 8.0;
 
+        /** Seconds with no camera results before flagging camera as offline. */
+        public static final double kCameraOfflineThresholdSeconds = 2.0;
+
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
         public static final int kVisionMode = 0;
 
@@ -358,7 +416,7 @@ public final class Constants {
 
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.
-         *  0.04 = 4% new, 96% prior (à la 6328). Higher = more responsive but noisier. */
+         *  0.04 = 4% new, 96% prior (example: Team 6328). Higher = more responsive but noisier. */
         public static final double kVisionAlpha = 0.04;
 
         // ==================== Hub Visibility Holdoff ====================
@@ -384,17 +442,18 @@ public final class Constants {
         // Onboard PID gains (TalonFX 1kHz loop, MotionMagicVoltage)
         // All feedforward gains are in Volts (since we use voltage-based control)
         // Tuning order: kG first (hold horizontal), then kS, kP, kD
-        public static final double kArmP = 35;    // Volts per rotation of error
-        public static final double kArmI = 0.0;     // Volts per rotation*second of error (almost never needed with proper kG)
-        public static final double kArmD = 0.10;     // Volts per rotation/second of error (damping)
-        public static final double kArmKV = 0.12;   // Volts per rotation/second of velocity
-        public static final double kArmKS = 0.25;   // Volts to overcome static friction
-        public static final double kArmKA = 0.01;   // Volts per rotation/second^2 of acceleration
-        public static final double kArmKG = 0.4;   // Volts to hold arm horizontal (tune with Phoenix Tuner X)
+        // Reduced for lighter roller intake (was wheels) — tune from these starting points.
+        public static final double kArmP = 35;     // Volts per rotation of error 
+        public static final double kArmI = 0.0;    // Volts per rotation*second of error (almost never needed with proper kG)
+        public static final double kArmD = 0.08;   // Volts per rotation/second of error 
+        public static final double kArmKV = 0.12;  // Volts per rotation/second of velocity (motor characteristic, unchanged)
+        public static final double kArmKS = 0.20;  // Volts to overcome static friction 
+        public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration 
+        public static final double kArmKG = 0.20;  // Volts to hold arm horizontal 
 
         // Motion Magic profile constraints
-        public static final double kArmCruiseVelocity = 4.0;  // rotations per second
-        public static final double kArmAcceleration = 2.0;     // rotations per second^2
+        public static final double kArmCruiseVelocity = 6.0;  // rotations per second
+        public static final double kArmAcceleration = 3.0;     // rotations per second^2
         public static final double kArmJerk = 0.0;             // 0 = no jerk limiting
 
         // Intake arm gear ratio — two-stage reduction (motor → mechanism)
@@ -405,14 +464,21 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kIntakeSpeed = 0.55;
+        public static final double kIntakeSpeed = 0.65;
 
-        public static final double kArmRaisedPosition = 160.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 250.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
-        public static final double kBopAngle = 75.0;           // degrees to bop up from lowered position — CALIBRATE
+        public static final double kArmRaisedPosition = 200.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 98.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        // Bop positions: absolute throughbore degrees, captured the same way as
+        // lowered/raised. Park the arm where you want each bop endpoint, read
+        // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
+        public static final double kBopBottomPosition = 98.0;  // bop oscillation low end
+        public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
         public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
-        public static final double kArmAtTargetThreshold = 2.0; // degrees tolerance for "at setpoint" re-sync
-        public static final double kArmKnownSetpointTolerance = 0.01; // mechanism rotations — re-sync guard
+
+        /** Soft limit margin beyond lowered/raised, in degrees. The firmware
+         *  cuts output if reported position drifts this far past either end
+         *  of the [lowered, raised] range — a safety rail for runaways. */
+        public static final double kArmSoftLimitMarginDeg = 20.0;
         public static final double kRollerRunningThreshold = 0.1; // RPS — above this = roller is spinning
 
         // Roller jam detection
@@ -421,7 +487,7 @@ public final class Constants {
         public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
-        public static final int kRollerStatorCurrentLimit = 70;  // stator amps (torque limiting — prevents stall damage)
+        public static final int kRollerStatorCurrentLimit = 50;  // stator amps (torque limiting — prevents stall damage)
         public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
@@ -430,35 +496,8 @@ public final class Constants {
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;
-
-        /** Set true when throughbore encoder is hardwired to TalonFXS data port (PWM).
-         *  When true, FXS reads the encoder directly at 1kHz — no DIO re-sync needed. */
-        public static final boolean kUseExternalEncoder = false;
     }
 
-     // ==================== TuningConstants ====================
-    /**
-     * Constants for swerve auto-tuning routines (PID relay feedback and MOI estimation).
-     */
-    public static final class TuningConstants {
-        /** Relay amplitude for rotation PID tuning (fraction of max angular velocity) */
-        public static final double kTuningMaxAngularOutput = 0.3;
-
-        /** Relay amplitude for translation PID tuning (fraction of max linear velocity) */
-        public static final double kTuningMaxLinearOutput = 0.3;
-
-        /** Target angular velocity for MOI step-response test (rad/s) */
-        public static final double kMOITestAngularVelocity = 2.0;
-
-        /** Duration of the MOI spin-up test in seconds */
-        public static final double kMOITestDurationSeconds = 3.0;
-
-        /** Settling time before measuring MOI spin-down (seconds) */
-        public static final double kMOISpinUpSettleTime = 1.0;
-
-        /** Sampling interval for MOI acceleration measurement (seconds) */
-        public static final double kMOISampleIntervalSeconds = 0.02;
-    }
 
     /**
      * Simulation constants — approximate values for code testing, not hardware tuning.

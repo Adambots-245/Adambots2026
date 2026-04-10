@@ -14,7 +14,6 @@ import com.adambots.lib.actuators.TalonFXMotor;
 import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import com.adambots.lib.sensors.DummyAbsoluteEncoder;
 import com.adambots.lib.sensors.Potentiometer;
-import com.adambots.lib.sensors.ThroughBoreEncoder;
 
 import edu.wpi.first.wpilibj.DigitalInput;
 
@@ -56,7 +55,8 @@ public class RobotMap {
     // Port assignments - on CANivore
     private static final int kIntakeMotorPort = 33;
     private static final int kIntakeMotorArmPort = 32;
-    private static final int kIntakeArmEncoderPort = 0;  // DIO - throughbore absolute encoder
+    // Throughbore is wired directly to the TalonFXS (arm motor) data port —
+    // no DIO port or separate encoder object needed.
 
     // Hardware devices
     // TalonFXMotor(canId, isOnCANivore, isKraken) — supply current is configured in subsystem
@@ -64,8 +64,6 @@ public class RobotMap {
         ? new TalonFXMotor(kIntakeMotorPort, true, true) : new DummyMotor();
     public static final BaseMotor kIntakeMotorArm = INTAKE_ENABLED
         ? new MinionMotor(kIntakeMotorArmPort, true) : new DummyMotor();
-    public static final BaseAbsoluteEncoder kIntakeArmEncoder = INTAKE_ENABLED
-        ? new ThroughBoreEncoder(kIntakeArmEncoderPort) : new DummyAbsoluteEncoder();
 
     // ==================== SHOOTER ====================
     // Port assignments - on CANivore

@@ -3,12 +3,16 @@ package com.adambots.commands;
 import java.util.Set;
 import java.util.function.DoubleSupplier;
 
+import com.adambots.Constants;
+import com.adambots.lib.subsystems.SwerveSubsystem;
 import com.adambots.subsystems.HopperSubsystem;
 import com.adambots.subsystems.IntakeSubsystem;
 import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 
@@ -228,26 +232,17 @@ public final class ShootCommands {
         }).withName("Hold Shoot");
     }
 
-    /**
-     * Hold-to-shoot at vision distance with turret auto-track suppression.
-     * Disables turret sweep while shooting, restores when released.
-     */
     public static Command holdShootAtDistanceCommand(
             ShooterSubsystem shooter,
             HopperSubsystem hopper,
             TurretSubsystem turret,
-            DoubleSupplier distanceSupplier) {
-        return holdShootAtDistanceCommand(shooter, hopper, turret, distanceSupplier, null);
-    }
-
-    public static Command holdShootAtDistanceCommand(
-            ShooterSubsystem shooter,
-            HopperSubsystem hopper,
-            TurretSubsystem turret,
+            SwerveSubsystem swerve,
             DoubleSupplier distanceSupplier,
             VisionSubsystem vision) {
-        return withAutoTrackSuppressed(
-            holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision)
+        return Commands.parallel(
+            withAutoTrackSuppressed(
+                holdShootAtDistanceCommand(shooter, hopper, distanceSupplier), turret, vision),
+            shakeCommand(swerve))
             .withName("Hold Shoot At Distance");
     }
 
@@ -372,6 +367,30 @@ public final class ShootCommands {
     }
 
     /**
+     * Manual hold-to-shoot: driver controls flywheel speed via throttle, operator holds button to shoot.
+     * Throttle maps to the interpolation table's RPS range (min→max). No vision dependency.
+     * Spin-up uses throttle continuously; once at speed, feeds while held.
+     */
+    public static Command manualShootCommand(
+            ShooterSubsystem shooter,
+            HopperSubsystem hopper,
+            DoubleSupplier throttleSupplier) {
+        DoubleSupplier rpsSupplier = () -> shooter.throttleToRPS(throttleSupplier.getAsDouble());
+        return Commands.sequence(
+            shooter.spinUpCommand(rpsSupplier)
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
+                .withTimeout(kSpinUpTimeoutSeconds),
+            Commands.runOnce(() -> shooter.setShotBoost(true)),
+            Commands.parallel(
+                shooter.spinUpCommand(rpsSupplier),
+                hopper.feedCommand())
+        ).finallyDo(() -> {
+            shooter.setShotBoost(false);
+            shooter.stopFlywheel();
+        }).withName("Manual Shoot (Throttle)");
+    }
+
+    /**
      * Reverse hopper/uptake and stop flywheel to clear jams.
      */
     public static Command ejectCommand(
@@ -404,4 +423,28 @@ public final class ShootCommands {
             lobShotCommand(shooter, hopper, intake)
         ).withName("autonLob");
     }
+
+    // ==================== Chassis Shake ====================
+
+    /**
+     * Shake command: oscillates the chassis rotationally to settle balls into the carousel.
+     * Returns a no-op when {@code ShooterConstants.kShakeEnabled} is false.
+     * Uses rotation instead of translation so the robot stays in place and the
+     * turret's angular velocity feedforward keeps it on target.
+     */
+    public static Command shakeCommand(SwerveSubsystem swerve) {
+        if (!Constants.ShooterConstants.kShakeEnabled) {
+            return Commands.none();
+        }
+        Timer shakeTimer = new Timer();
+        return Commands.runOnce(shakeTimer::restart)
+            .andThen(swerve.driveFieldOrientedCommand(() -> {
+                double elapsed = shakeTimer.get() % Constants.ShooterConstants.kShakePeriodSeconds;
+                double direction = (elapsed < Constants.ShooterConstants.kShakePeriodSeconds / 2) ? 1.0 : -1.0;
+                return new ChassisSpeeds(0, 0, direction * Constants.ShooterConstants.kShakeRotSpeed);
+            }))
+            .finallyDo(interrupted -> swerve.setChassisSpeeds(new ChassisSpeeds()))
+            .withName("Chassis Shake");
+    }
+
 }

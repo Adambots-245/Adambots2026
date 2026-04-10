@@ -132,14 +132,14 @@ public final class Constants {
         // kV = 12V / 88.8 RPS (Minion free speed) ≈ 0.135
         // kP: 20 × 0.031 rot/deg = 0.62V per degree error — enough to correct without overshoot
         // kD: kept low — Minion velocity signal is noisy, high D goes berserk
-        public static final double kTurretP = 15.0;
+        public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
         public static final double kTurretFF = 0.135;
 
         // ==================== Motion Magic Profile ====================
-        public static final double kTurretCruiseVelocity = 12.0;   // RPS at motor
-        public static final double kTurretAcceleration = 24.0;      // RPS/s at motor
+        public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor
+        public static final double kTurretAcceleration = 80.0;      // RPS/s at motor
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
@@ -179,13 +179,13 @@ public final class Constants {
 
         /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
          *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */
-        public static final double kTurretJogPercent = 0.15;
+        public static final double kTurretJogPercent = 0.10;
 
         /** Soft limit margin beyond [0, kTurretMaxDegrees], in turret degrees.
          *  Firmware cuts motor output if position drifts this far outside the
          *  calibrated range — safety rail for jog mode (percent output bypasses
          *  the software clamp in setTurretAngle). */
-        public static final double kTurretSoftLimitMarginDeg = 5.0;
+        public static final double kTurretSoftLimitMarginDeg = 6.0;
 
         // ==================== Current Limits ====================
         public static final double kTurretStallCurrentLimit = 60.0;
@@ -199,14 +199,14 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.15;
+        public static final double kCameraTrackingGain = 0.35;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
-        public static final double kAngularVelLeadTime = 0.1;
+        public static final double kAngularVelLeadTime = 0.02;
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
         public static final int kTrackingDebounceFrames = 3;
@@ -453,7 +453,7 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kIntakeSpeed = 0.55;
+        public static final double kIntakeSpeed = 0.65;
 
         public static final double kArmRaisedPosition = 200.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 98.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE

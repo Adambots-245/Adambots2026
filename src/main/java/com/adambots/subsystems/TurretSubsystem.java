@@ -308,8 +308,9 @@ public class TurretSubsystem extends SubsystemBase {
 
             // Angular velocity lead: compensate for robot rotation so turret holds aim.
             // Robot rotating CW (positive omega) → turret must lead CCW (negative in turret frame).
-            double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
+            double angVelLead = robotAngularVelDegPerSec.getAsDouble()
                 * TurretTrackingConstants.kAngularVelLeadTime;
+            angVelLead = MathUtil.clamp(angVelLead, -8.0, 8.0);
 
             double currentAngle = getTurretAngleDegrees();
 

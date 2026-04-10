@@ -77,7 +77,7 @@ public final class Constants {
         public static final double kFlywheelDirection = -1.0;
 
         // ==================== Flywheel PID (tested on test board) ====================
-        public static final double kFlywheelP = 0.3;
+        public static final double kFlywheelP = 0.35;
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
         public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
@@ -94,10 +94,10 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 42.0},
-            {2.5, 44.0},
+            {2.0, 43.0},
+            {2.5, 45.0},
             {3.0, 49.5},
-            {4.0, 53.0},
+            {4.0, 56.0},
             {5.0, 62.0}
         };
 
@@ -108,7 +108,7 @@ public final class Constants {
         public static final double kIdleRPS = 20.0;
 
         /** Extra RPS added during feed to compensate for ball energy transfer to flywheel. */
-        public static final double kShotBoostRPS = 3.0;
+        public static final double kShotBoostRPS = 3;
 
         // Shooting zone bounds — robot X position that defines "near the hub"
         public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
@@ -143,8 +143,8 @@ public final class Constants {
         public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretKV = 0.135;  // was kTurretFF
-        public static final double kTurretKS = 0.25;   // static friction compensation (Volts)
+        public static final double kTurretKV = 0.100;  // was kTurretFF
+        public static final double kTurretKS = 0.3;   // static friction compensation (Volts)
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
@@ -231,8 +231,8 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.25;
-        public static final double kUptakeSpeed = 0.65;
+        public static final double kHopperSpeed = 0.35;
+        public static final double kUptakeSpeed = 0.70;
 
         // Jam detection
         public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed

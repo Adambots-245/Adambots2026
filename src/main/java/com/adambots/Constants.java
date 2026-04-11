@@ -154,7 +154,7 @@ public final class Constants {
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
         public static final double kTurretKV = 0.100;  // tuned on main (was 0.135)
-        public static final double kTurretKS = 0.30;   // tuned on main (was 0.25)
+        public static final double kTurretKS = 0.15;   // kS works fine with Motion Magic (velocity profile damps backlash)
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
@@ -165,7 +165,7 @@ public final class Constants {
         // At kP=60 with 2° error: 60 × (2/360 × 11.11) = 3.7V (responsive).
         // At kP=60 with 10° error: 60 × (10/360 × 11.11) = 18.5V → saturates = full speed.
         // Start at 60, tune up to 80 if tracking is too slow, down to 40 if buzzy.
-        public static final double kTurretTrackingP = 60.0;
+        public static final double kTurretTrackingP = 40.0;
 
         // ==================== Motion Magic Profile ====================
         public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor
@@ -226,7 +226,7 @@ public final class Constants {
     public static final class TurretTrackingConstants {
         /** Degrees tolerance to consider turret "on target" for tracking (dead zone).
          *  Camera offsets smaller than this are ignored to prevent chasing noise. */
-        public static final double kTrackingToleranceDeg = 2.0;
+        public static final double kTrackingToleranceDeg = 7.0;
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
         public static final double kCameraTrackingGain = 0.40;
@@ -243,6 +243,12 @@ public final class Constants {
          *  slot 1 (kP=60, aggressive) to slot 0 (kP=18, gentle) to prevent
          *  slamming into stops at full speed. */
         public static final double kDecelZoneDeg = 20.0;
+        /** Time constant for setpoint-derivative velocity feedforward (seconds).
+         *  Controls how fast the turret approaches its setpoint via velocity FF.
+         *  Lower = faster approach but more aggressive. Higher = smoother.
+         *  Team 5000 uses a 2-sample rolling filter at 250Hz ≈ 8ms.
+         *  0.2s is conservative — the turret closes the gap in ~200ms. */
+        public static final double kConvergeTimeSec = 0.2;
         // Robot rotation compensation is now handled via velocity feedforward
         // (PositionVoltage .withVelocity) instead of position-offset lead.
         // See TurretSubsystem.autoTrackCommand for details.
@@ -459,7 +465,7 @@ public final class Constants {
         // ==================== Vision Filtering ====================
         /** Exponential weighted average alpha — fraction of new measurement per frame.
          *  0.04 = 4% new, 96% prior (example: Team 6328). Higher = more responsive but noisier. */
-        public static final double kVisionAlpha = 0.15;
+        public static final double kVisionAlpha = 0.08;
 
         // ==================== Hub Visibility Holdoff ====================
         /** Max value for charge/decay holdoff counter.

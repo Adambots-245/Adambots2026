@@ -160,18 +160,33 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Turret Control ====================
 
     /**
-     * Move turret to a target angle using PositionVoltage (no velocity profile).
-     * Used for all turret positioning: go-to-forward, hold, and tracking.
-     * Motion Magic is no longer used — PositionVoltage with kP=80 is responsive
-     * enough for both one-shot moves and continuous tracking, and avoids the
-     * trajectory-reset jitter that occurred when Motion Magic received a new
-     * target every 20ms during tracking.
+     * Move turret to a target angle using PositionVoltage with setpoint-
+     * derivative velocity feedforward (slot 0, kP=18).
+     *
+     * <p>The velocity feedforward is computed from the position error:
+     * {@code (setpoint - currentAngle) / kConvergeTimeSec}. This tells the
+     * motor controller "move toward the target at this speed" via the kV
+     * feedforward term, instead of relying solely on kP (which oscillates
+     * through backlash). The velocity naturally decays to zero as the
+     * turret approaches the setpoint — smooth deceleration without abrupt
+     * stops or backlash fighting.
+     *
+     * <p>This is the same approach Team 5000 uses: PositionVoltage with
+     * setpoint-derivative velocity on every call.
      */
     public void setTurretAngle(double degrees) {
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
-        double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
-        turretMotor.setPositionWithVelocityFF(rotations, 0);
+        double posRot = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
+        // Compute desired velocity: how fast to approach the setpoint.
+        // Converge time of 0.2s means "close the gap in ~200ms".
+        // The kV feedforward applies voltage proportional to this velocity,
+        // giving the motor smooth speed guidance alongside position error.
+        double errorDeg = degrees - getTurretAngleDegrees();
+        double desiredVelDPS = errorDeg / TurretTrackingConstants.kConvergeTimeSec;
+        desiredVelDPS = MathUtil.clamp(desiredVelDPS, -300, 300);
+        double velRPS = (desiredVelDPS / 360.0) * TurretConstants.kTurretGearRatio;
+        turretMotor.setPositionWithVelocityFF(posRot, velRPS);
     }
 
     /**
@@ -197,9 +212,14 @@ public class TurretSubsystem extends SubsystemBase {
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
         double posRot = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
-        double velRPS = (velDegPerSec / 360.0) * TurretConstants.kTurretGearRatio;
-        // Slot 1: higher kP for responsive tracking (kTurretTrackingP=60).
-        // Slot 0 (kP=18) is used by setTurretAngle for go-to-angle moves.
+        // Combine rotation compensation with setpoint-derivative velocity.
+        // The setpoint-derivative gives smooth approach to the target;
+        // the rotation comp counters robot rotation on top.
+        double errorDeg = degrees - getTurretAngleDegrees();
+        double approachVelDPS = errorDeg / TurretTrackingConstants.kConvergeTimeSec;
+        approachVelDPS = MathUtil.clamp(approachVelDPS, -300, 300);
+        double totalVelDPS = approachVelDPS + velDegPerSec;
+        double velRPS = (totalVelDPS / 360.0) * TurretConstants.kTurretGearRatio;
         turretMotor.setPositionWithVelocityFF(posRot, velRPS, 1);
     }
 
@@ -421,10 +441,25 @@ public class TurretSubsystem extends SubsystemBase {
                 // Dead zone + debounce: hold steady unless offset exceeds tolerance for N frames
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
-                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
-                    lastTrackAction = "DEADZONE hold";
+                    // DEADZONE: coast with position = current (error=0).
+                    // kP and kS produce zero output. Only kV × small
+                    // approach velocity applies, gently nudging toward
+                    // setpoint without backlash fighting.
+                    double dzErrorDeg = lastSetpointDegrees - currentAngle;
+                    double dzVelDPS = dzErrorDeg / TurretTrackingConstants.kConvergeTimeSec;
+                    dzVelDPS = MathUtil.clamp(dzVelDPS, -300, 300);
+                    double dzVelRPS = (dzVelDPS / 360.0) * TurretConstants.kTurretGearRatio;
+                    double dzCurrentRot = (currentAngle / 360.0) * TurretConstants.kTurretGearRatio;
+                    turretMotor.setPositionWithVelocityFF(dzCurrentRot, dzVelRPS);
+                    lastTrackAction = "DEADZONE coast";
                 } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
-                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
+                    // Coast like DEADZONE — no kP/kS backlash fighting
+                    double dbErrorDeg = lastSetpointDegrees - currentAngle;
+                    double dbVelDPS = dbErrorDeg / TurretTrackingConstants.kConvergeTimeSec;
+                    dbVelDPS = MathUtil.clamp(dbVelDPS, -300, 300);
+                    double dbVelRPS = (dbVelDPS / 360.0) * TurretConstants.kTurretGearRatio;
+                    double dbCurrentRot = (currentAngle / 360.0) * TurretConstants.kTurretGearRatio;
+                    turretMotor.setPositionWithVelocityFF(dbCurrentRot, dbVelRPS);
                     lastTrackAction = "DEBOUNCE " + trackingDebounceCount;
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
                     // Hub is past a mechanical stop. Use setTurretAngle (slot 0,
@@ -451,14 +486,25 @@ public class TurretSubsystem extends SubsystemBase {
                         lastTrackAction = "TRACK fresh";
                     }
                 } else {
-                    // Stale frame: HOLD at last setpoint. Do NOT recompute
-                    // rawTarget — the stale camAngle + changing currentAngle
-                    // creates a moving target that chases the turret in a
-                    // runaway loop (observed: turret drove from 85° to -9°
-                    // in 0.5s because stale -17° offset kept pulling target
-                    // lower each cycle as the turret moved).
-                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
-                    lastTrackAction = "HOLD stale";
+                    // Stale frame: coast toward setpoint using ONLY
+                    // velocity feedforward. Position target is set to
+                    // CURRENT angle (not setpoint), so posError = 0 →
+                    // kP output = 0, kS output = 0. Only kV × velocity
+                    // applies, providing a gentle, decaying push toward
+                    // the setpoint without any kP/kS backlash fighting.
+                    //
+                    // This is why the "smooth" first deploy worked: the
+                    // slot bug meant kP=0, and the turret coasted on
+                    // kS alone. We're replicating that by zeroing the
+                    // position error intentionally on stale frames.
+                    double errorDeg = lastSetpointDegrees - currentAngle;
+                    double coastVelDPS = errorDeg / TurretTrackingConstants.kConvergeTimeSec;
+                    coastVelDPS = MathUtil.clamp(coastVelDPS, -300, 300);
+                    double coastVelRPS = (coastVelDPS / 360.0) * TurretConstants.kTurretGearRatio;
+                    // Position = current (error=0), velocity = approach
+                    double currentRot = (currentAngle / 360.0) * TurretConstants.kTurretGearRatio;
+                    turretMotor.setPositionWithVelocityFF(currentRot, coastVelRPS);
+                    lastTrackAction = "COAST stale";
                 }
             } else {
                 // SWEEP: continuous constant-speed scan, reverse at limits.

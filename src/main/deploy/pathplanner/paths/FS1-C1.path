@@ -8,8 +8,8 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 7.561614172378271,
-        "y": 0.27487007982454326
+        "x": 7.56161417237827,
+        "y": 0.2748700798245433
       },
       "isLocked": false,
       "linkedName": "FS1"
@@ -68,7 +68,7 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 2.5,
+    "maxVelocity": 1.0,
     "maxAcceleration": 3.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,

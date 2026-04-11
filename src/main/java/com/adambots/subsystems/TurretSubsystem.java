@@ -427,22 +427,38 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
                     lastTrackAction = "DEBOUNCE " + trackingDebounceCount;
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
-                    setTurretAngleTracking(
-                        MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees),
-                        rotationCompVelDPS);
+                    // Hub is past a mechanical stop. Use setTurretAngle (slot 0,
+                    // kP=18) instead of setTurretAngleTracking (slot 1, kP=60) —
+                    // gentler hold at the limit prevents the motor from pushing
+                    // hard against the physical stop.
+                    setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
                     lastTrackAction = "LIMIT clamp=" + String.format("%.1f", rawTarget);
-                } else {
-                    // Track on EVERY cycle the hub is visible (sticky), not just
-                    // frames where hubFresh is true. With 50% detection rate, the
-                    // old code held position on non-fresh frames — effectively
-                    // halving the tracking bandwidth. Now we always apply the
-                    // smoothing filter using the latest camera angle, even if it's
-                    // from the previous frame. The EWMA on the camera side already
-                    // handles noise; double-gating on freshness just adds lag.
+                } else if (hubFresh.getAsBoolean()) {
+                    // Fresh frame: compute new target from current angle + camera offset
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
-                    setTurretAngleTracking(smoothed, rotationCompVelDPS);
-                    lastTrackAction = hubFresh.getAsBoolean() ? "TRACK fresh" : "TRACK stale";
+                    // Decel zone: when the target is within 20° of either
+                    // mechanical limit, use slot 0 (kP=18) for a gentler
+                    // approach. Prevents the turret from slamming into stops
+                    // at full kP=60 speed when tracking a hub near a limit.
+                    double distToLimit = Math.min(smoothed,
+                        TurretConstants.kTurretMaxDegrees - smoothed);
+                    if (distToLimit < TurretTrackingConstants.kDecelZoneDeg) {
+                        setTurretAngle(smoothed);
+                        lastTrackAction = "TRACK decel";
+                    } else {
+                        setTurretAngleTracking(smoothed, rotationCompVelDPS);
+                        lastTrackAction = "TRACK fresh";
+                    }
+                } else {
+                    // Stale frame: HOLD at last setpoint. Do NOT recompute
+                    // rawTarget — the stale camAngle + changing currentAngle
+                    // creates a moving target that chases the turret in a
+                    // runaway loop (observed: turret drove from 85° to -9°
+                    // in 0.5s because stale -17° offset kept pulling target
+                    // lower each cycle as the turret moved).
+                    setTurretAngleTracking(lastSetpointDegrees, rotationCompVelDPS);
+                    lastTrackAction = "HOLD stale";
                 }
             } else {
                 // SWEEP: continuous constant-speed scan, reverse at limits.
@@ -537,9 +553,8 @@ public class TurretSubsystem extends SubsystemBase {
                 scanDirection = (cameraAngle.getAsDouble() >= 0) ? 1 : -1;
                 double rawTarget = currentAngle + cameraAngle.getAsDouble();
                 if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
-                    setTurretAngleTracking(
-                        MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees),
-                        rotationCompVelDPS);
+                    // Gentle hold at limit (slot 0, kP=18)
+                    setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
                 } else if (hubFresh.getAsBoolean()) {
                     double smoothed = lastSetpointDegrees
                         + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;

@@ -229,7 +229,7 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.0;
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.70;
+        public static final double kCameraTrackingGain = 0.40;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep (legacy,
@@ -238,7 +238,11 @@ public final class Constants {
         public static final double kScanStepDeg = 4.5;
         /** Percent-output magnitude for auto-track SWEEP mode. Slower than
          *  jog (kTurretJogPercent) — search should be controlled. */
-        public static final double kTurretSweepPercent = 0.08;
+        public static final double kTurretSweepPercent = 0.03;
+        /** Degrees from either mechanical limit where tracking switches from
+         *  slot 1 (kP=60, aggressive) to slot 0 (kP=18, gentle) to prevent
+         *  slamming into stops at full speed. */
+        public static final double kDecelZoneDeg = 20.0;
         // Robot rotation compensation is now handled via velocity feedforward
         // (PositionVoltage .withVelocity) instead of position-offset lead.
         // See TurretSubsystem.autoTrackCommand for details.

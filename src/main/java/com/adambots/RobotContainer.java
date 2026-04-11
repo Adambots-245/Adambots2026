@@ -226,7 +226,7 @@ public class RobotContainer {
 
                 // R-L Triggers: Bop
                 Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
-                Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
+                Buttons.XboxRightTriggerButton.toggleOnTrue(intake.bopArmCommand());
                 // Right Bumper: Intake up
                 Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
                 // Left Bumper: Intake down
@@ -261,16 +261,14 @@ public class RobotContainer {
                 // Buttons.XboxDPadNE.whileTrue(turret.scanCommand(+1.0));
                 // Buttons.XboxDPadNW.whileTrue(turret.scanCommand(-1.0));
 
-                // Start: None
-                Buttons.XboxStartButton.onTrue(Commands.none());
-                                                // climber.extendCommand()
-                                                // .until(climber::isAtRaisedLimit)
-                                                // .andThen(climber.lockCommand()));
-                // Back: None
-                Buttons.XboxBackButton.onTrue(Commands.none());
-                                                // climber.retractCommand()
-                                                // .until(climber::isAtLoweredLimit)
-                                                // .andThen(climber.lockCommand()));    
+                // Start: Raise Climb
+                Buttons.XboxStartButton.onTrue(climber.extendCommand()
+                                                .until(climber::isAtRaisedLimit)
+                                                .andThen(climber.lockCommand()));
+                // Back: Lower Climb
+                Buttons.XboxBackButton.onTrue(climber.retractCommand()
+                                                .until(climber::isAtLoweredLimit)
+                                                .andThen(climber.lockCommand()));
 
         }
 

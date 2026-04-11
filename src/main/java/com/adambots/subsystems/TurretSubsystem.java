@@ -101,6 +101,9 @@ public class TurretSubsystem extends SubsystemBase {
         // of error to overcome static friction from the 3D-printed gear mesh and
         // cable tray. Without it, the PID hovers at the friction breakaway
         // boundary and buzzes.
+        // Dual PID slots (lib 2026.3.28 adds Slot1/Slot2 support for MinionMotor):
+        //   Slot 0 — go-to-angle (setTurretAngle): lower kP for smooth moves
+        //   Slot 1 — tracking (setTurretAngleTracking): higher kP for responsive tracking
         turretMotor.setPID(0,
                 TurretConstants.kTurretP, TurretConstants.kTurretI,
                 TurretConstants.kTurretD,
@@ -136,11 +139,8 @@ public class TurretSubsystem extends SubsystemBase {
 
     public void setTurretPID(double p, double i, double d,
                              double kV, double kS, double kA, double kG) {
-        turretMotor.setPID(0, p, i, d, kV, kS, kA, kG); // slot 0: Motion Magic
-        // Slot 1 uses the same gains except kP, which is scaled up for
-        // PositionVoltage tracking (no velocity profile to drive the motor,
-        // so kP must be higher to be responsive). The ratio between
-        // kTurretTrackingP and kTurretP is preserved when tuning live.
+        turretMotor.setPID(0, p, i, d, kV, kS, kA, kG); // slot 0: go-to-angle
+        // Slot 1: scale kP by the tracking/base ratio for responsive tracking
         double trackingP = p * (TurretConstants.kTurretTrackingP / TurretConstants.kTurretP);
         turretMotor.setPID(1, trackingP, i, d, kV, kS, kA, kG); // slot 1: tracking
     }
@@ -160,14 +160,18 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Turret Control ====================
 
     /**
-     * Move turret to a target angle using Motion Magic (profiled motion).
-     * Use for one-shot positioning: go-to-forward, hold, sweep steps.
+     * Move turret to a target angle using PositionVoltage (no velocity profile).
+     * Used for all turret positioning: go-to-forward, hold, and tracking.
+     * Motion Magic is no longer used — PositionVoltage with kP=80 is responsive
+     * enough for both one-shot moves and continuous tracking, and avoids the
+     * trajectory-reset jitter that occurred when Motion Magic received a new
+     * target every 20ms during tracking.
      */
     public void setTurretAngle(double degrees) {
         degrees = MathUtil.clamp(degrees, 0, TurretConstants.kTurretMaxDegrees);
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
-        turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
+        turretMotor.setPositionWithVelocityFF(rotations, 0);
     }
 
     /**
@@ -194,7 +198,9 @@ public class TurretSubsystem extends SubsystemBase {
         lastSetpointDegrees = degrees;
         double posRot = (degrees / 360.0) * TurretConstants.kTurretGearRatio;
         double velRPS = (velDegPerSec / 360.0) * TurretConstants.kTurretGearRatio;
-        turretMotor.setPositionWithVelocityFF(posRot, velRPS, 1); // slot 1 for tracking
+        // Slot 1: higher kP for responsive tracking (kTurretTrackingP=60).
+        // Slot 0 (kP=18) is used by setTurretAngle for go-to-angle moves.
+        turretMotor.setPositionWithVelocityFF(posRot, velRPS, 1);
     }
 
     public void stopTurret() {

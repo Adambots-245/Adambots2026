@@ -158,16 +158,14 @@ public final class Constants {
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
-        // Slot 1: PositionVoltage tracking (auto-track CAMERA, manual align)
-        // Higher kP than slot 0 because PositionVoltage has no velocity profile
-        // to drive the motor — only kP × error produces corrective force.
-        // At kP=18 with a 2° error: 18 × (2/360 × 11.11) = 1V (barely moves).
-        // At kP=80 with a 2° error: 80 × (2/360 × 11.11) = 4.9V (aggressive).
-        // At 10° error: 24.7V → saturates at 12V = full speed.
-        // Team 5000 uses kP=100 for PositionVoltage tracking.
-        // Tune independently from slot 0 — tracking benefits from higher kP
-        // while Motion Magic is fine with lower kP since the profile handles speed.
-        public static final double kTurretTrackingP = 80.0;
+        // Slot 1 kP for PositionVoltage tracking (auto-track CAMERA, manual align).
+        // Higher than slot 0 because PositionVoltage has no velocity profile —
+        // only kP × error produces corrective force. Slot 0 (kP=18) is used for
+        // go-to-angle where gentler motion is preferred.
+        // At kP=60 with 2° error: 60 × (2/360 × 11.11) = 3.7V (responsive).
+        // At kP=60 with 10° error: 60 × (10/360 × 11.11) = 18.5V → saturates = full speed.
+        // Start at 60, tune up to 80 if tracking is too slow, down to 40 if buzzy.
+        public static final double kTurretTrackingP = 60.0;
 
         // ==================== Motion Magic Profile ====================
         public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor

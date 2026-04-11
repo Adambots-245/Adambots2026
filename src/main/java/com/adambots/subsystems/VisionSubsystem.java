@@ -393,11 +393,13 @@ public class VisionSubsystem extends SubsystemBase {
         // Only compute when visionMode uses pose data (1=Pose-only, 2=Hybrid)
         if (hasBackCameras && visionMode != 0) {
             // Use the historical pose at the time of the last camera frame
-            // (latency compensation). Falls back to current pose if no buffer
-            // entry is available (e.g., first few cycles after boot).
-            Pose2d latencyCompPose = (lastCameraTimestamp > 0)
-                ? poseBuffer.getSample(lastCameraTimestamp).orElse(poseSupplier.get())
-                : poseSupplier.get();
+            // LATENCY COMPENSATION DISABLED: PhotonVision result timestamps
+            // are in a different clock reference than FPGA time (observed
+            // 3+ second offset). Using poseBuffer.getSample(lastCameraTimestamp)
+            // retrieves a pose from 3 seconds ago → completely stale.
+            // TODO: fix PV timesync (check /photonvision/.timesync/offset_us)
+            // then re-enable: poseBuffer.getSample(lastCameraTimestamp).orElse(...)
+            Pose2d latencyCompPose = poseSupplier.get();
             // Guard: skip if swerve pose is still at origin (no vision updates processed yet).
             if (latencyCompPose.getTranslation().getNorm() > 0) {
                 // Compute distance and angle from the historical pose to the hub
@@ -731,10 +733,9 @@ public class VisionSubsystem extends SubsystemBase {
     public double getLeadCompensatedHubAngle(
             edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds,
             java.util.function.DoubleUnaryOperator tofFunction) {
-        Pose2d historicalPose = (lastCameraTimestamp > 0)
-            ? poseBuffer.getSample(lastCameraTimestamp).orElse(poseSupplier.get())
-            : poseSupplier.get();
-        return computeLeadAngle(getHubCenter(), historicalPose, fieldSpeeds, tofFunction);
+        // TODO: re-enable latency compensation once PV timesync is fixed
+        Pose2d currentPose = poseSupplier.get();
+        return computeLeadAngle(getHubCenter(), currentPose, fieldSpeeds, tofFunction);
     }
 
     // ==================== Hub Unified Getters (selected approach via Shuffleboard toggle) ====================

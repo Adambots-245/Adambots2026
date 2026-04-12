@@ -11,7 +11,7 @@
               {
                 "type": "path",
                 "data": {
-                  "pathName": "FS4-C2"
+                  "pathName": "Left-Disrupt-part1"
                 }
               },
               {
@@ -24,15 +24,15 @@
           }
         },
         {
-          "type": "path",
+          "type": "named",
           "data": {
-            "pathName": "C2-M2"
+            "name": "intakeUp"
           }
         },
         {
-          "type": "named",
+          "type": "path",
           "data": {
-            "name": "shoot"
+            "pathName": "Left-Distrupt-part2"
           }
         }
       ]

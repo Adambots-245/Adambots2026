@@ -85,7 +85,7 @@ public final class Constants {
         public static final double kFlywheelToleranceRPS = 1.0;
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
-        public static final double kLobShotRPS = 49.0;
+        public static final double kLobShotRPS = 62.0;
 
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
@@ -94,11 +94,12 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 43.0},
-            {2.5, 45.0},
-            {3.0, 49.5},
-            {4.0, 56.0},
-            {5.0, 62.0}
+            {1.5, 39.0},
+            {2.0, 40.5},
+            {2.5, 43.0},
+            {3.0, 46.0},
+            {4.0, 53.0},
+            {5.0, 59.0}
         };
 
         public static final double kMinRPS = kDefaultInterpolationTable[0][1];
@@ -144,7 +145,7 @@ public final class Constants {
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
         public static final double kTurretKV = 0.100;  // was kTurretFF
-        public static final double kTurretKS = 0.3;   // static friction compensation (Volts)
+        public static final double kTurretKS = 0.15;   // static friction compensation (Volts)
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
@@ -163,9 +164,9 @@ public final class Constants {
         // parking the turret at each mechanical stop, reading "Pot Raw (deg)"
         // on the Shooter tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 256;
+        public static final double kTurretPotAtZeroDeg = 282;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2266.0;
+        public static final double kTurretPotAtMaxDeg = 2245.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -231,7 +232,7 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.35;
+        public static final double kHopperSpeed = 0.30;
         public static final double kUptakeSpeed = 0.70;
 
         // Jam detection
@@ -464,16 +465,16 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kIntakeSpeed = 0.65;
+        public static final double kIntakeSpeed = 0.80;
 
         public static final double kArmRaisedPosition = 200.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 98.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         // Bop positions: absolute throughbore degrees, captured the same way as
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
-        public static final double kBopBottomPosition = 98.0;  // bop oscillation low end
+        public static final double kBopBottomPosition = 105.0;  // bop oscillation low end
         public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
-        public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
+        public static final double kBopSwitchTimeSeconds = 0.3; // seconds between bop direction changes
 
         /** Soft limit margin beyond lowered/raised, in degrees. The firmware
          *  cuts output if reported position drifts this far past either end
@@ -487,8 +488,8 @@ public final class Constants {
         public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
-        public static final int kRollerStatorCurrentLimit = 50;  // stator amps (torque limiting — prevents stall damage)
-        public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
+        public static final int kRollerStatorCurrentLimit = 45;  // stator amps (torque limiting — prevents stall damage)
+        public static final int kRollerSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 45;  // stator amps (torque limiting)

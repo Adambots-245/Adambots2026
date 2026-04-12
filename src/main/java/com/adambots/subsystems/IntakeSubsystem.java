@@ -409,7 +409,7 @@ public class IntakeSubsystem extends SubsystemBase {
         // a primitive variable like a double. By using an array, we can modify the
         // contents of the array (i.e., switchTime[0]) while still adhering to the
         // effectively final requirement for the variable reference (switchTime).
-        boolean[] bopUp = { false };
+        boolean[] bopUp = { true };
         double[] switchTime = { 0 };
         return runEnd(
                 () -> {

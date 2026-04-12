@@ -89,7 +89,7 @@ public final class Constants {
 
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
-        public static final double kFlywheelFreeCurrentLimit = 60.0;
+        public static final double kFlywheelFreeCurrentLimit = 40.0;
 
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field

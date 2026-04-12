@@ -187,10 +187,20 @@ public class RobotContainer {
                 // All the possible buttons are being mapped with unused ones registered as Commands.none() to 
                 // avoid any conflicts in the future.
 
-                // Trigger (1): Hold-to-shoot at vision distance with chassis shake (no timer)
-                Buttons.JoystickButton1.whileTrue(
+                // Trigger (1): Hold-to-shoot at vision distance (no timer)
+                // When kBopWhileShooting is enabled, the intake arm oscillates during
+                // shooting to nudge balls toward the hopper.
+                if (Constants.ShooterConstants.kBopWhileShooting) {
+                        Buttons.JoystickButton1.whileTrue(Commands.parallel(
+                                ShootCommands.holdShootAtDistanceWithBopCommand(
+                                        shooter, hopper, intake, visionSubsystem::getHubDistance),
+                                ShootCommands.shakeCommand(swerve))
+                                .withName("Hold Shoot + Bop"));
+                } else {
+                        Buttons.JoystickButton1.whileTrue(
                                 ShootCommands.holdShootAtDistanceCommand(
-                                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                                        shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                }
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
                 // Button 3: Drop arm and run intake

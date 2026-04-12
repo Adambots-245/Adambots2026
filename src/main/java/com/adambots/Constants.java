@@ -117,6 +117,8 @@ public final class Constants {
 
         /** Enable chassis shake during shooting to settle balls into carousel. */
         public static final boolean kShakeEnabled = false;
+        /** Enable bop (intake arm oscillation) while shooting to nudge balls toward hopper. */
+        public static final boolean kBopWhileShooting = true;
         /** Rotational speed for chassis shake (rad/s). */
         public static final double kShakeRotSpeed = 1.5;
         /** Period of one full shake cycle (seconds). */

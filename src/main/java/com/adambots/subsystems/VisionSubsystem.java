@@ -230,7 +230,8 @@ public class VisionSubsystem extends SubsystemBase {
                 .multiTagStdDevs(Meters.of(VisionConstants.kMultiTagStdDevs[0]),
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
-                .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
+                .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
         }
 

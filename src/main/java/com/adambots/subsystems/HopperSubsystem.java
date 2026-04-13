@@ -145,6 +145,27 @@ public class HopperSubsystem extends SubsystemBase {
             .withName("Feed");
     }
 
+    /**
+     * Gated feed: only feeds when the supplied condition is true (e.g. flywheel at speed).
+     * Pauses motors when the condition is false, preventing balls from entering
+     * an under-speed flywheel. Uses direct motor zeroing (not stop()) to preserve
+     * the jam detection state machine — stop() clears the reversing flag.
+     */
+    public Command gatedFeedCommand(java.util.function.BooleanSupplier readyToFeed) {
+        return runEnd(
+            () -> {
+                if (readyToFeed.getAsBoolean()) {
+                    feed();
+                } else {
+                    // Pause motors without clearing jam state (don't call stop())
+                    hopperMotor.set(0);
+                    uptakeMotor.set(0);
+                }
+            },
+            this::stop
+        ).withName("Gated Feed");
+    }
+
     public Command reverseCommand() {
         return runEnd(this::reverse, this::stop)
             .withName("Reverse Hopper");

@@ -6,6 +6,8 @@ package com.adambots;
 
 import java.io.File;
 
+import org.littletonrobotics.junction.Logger;
+
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
@@ -185,10 +187,20 @@ public class RobotContainer {
                 // All the possible buttons are being mapped with unused ones registered as Commands.none() to 
                 // avoid any conflicts in the future.
 
-                // Trigger (1): Hold-to-shoot at vision distance with chassis shake (no timer)
-                Buttons.JoystickButton1.whileTrue(
+                // Trigger (1): Hold-to-shoot at vision distance (no timer)
+                // When kBopWhileShooting is enabled, the intake arm oscillates during
+                // shooting to nudge balls toward the hopper.
+                if (Constants.ShooterConstants.kBopWhileShooting) {
+                        Buttons.JoystickButton1.whileTrue(Commands.parallel(
+                                ShootCommands.holdShootAtDistanceWithBopCommand(
+                                        shooter, hopper, intake, visionSubsystem::getHubDistance),
+                                ShootCommands.shakeCommand(swerve))
+                                .withName("Hold Shoot + Bop"));
+                } else {
+                        Buttons.JoystickButton1.whileTrue(
                                 ShootCommands.holdShootAtDistanceCommand(
-                                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                                        shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                }
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
                 // Button 3: Drop arm and run intake
@@ -224,9 +236,10 @@ public class RobotContainer {
 
                 // === Operator (Xbox Controller) ===
 
-                // R-L Triggers: Bop
+                // L Trigger: Bop (hold to bop, release to lower)
                 Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
-                Buttons.XboxRightTriggerButton.whileTrue(intake.bopArmCommand());
+                // R Trigger: Bop toggle (press to start, press again to stop and lower)
+                Buttons.XboxRightTriggerButton.toggleOnTrue(intake.bopArmCommand());
                 // Right Bumper: Intake up
                 Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
                 // Left Bumper: Intake down
@@ -370,5 +383,27 @@ public class RobotContainer {
 
         public Command getAutonomousCommand() {
                 return autoChooser.getSelected();
+        }
+
+        /**
+         * Logs swerve drive and steer motor currents for all 4 modules.
+         * Called from {@link Robot#robotPeriodic()} when CURRENT_LOGGING is enabled.
+         * Swerve motors are managed by YAGSL in the lib, so we log from outside.
+         *
+         * <p>Uses getAppliedOutput() (duty cycle 0-1) since YAGSL's SwerveMotor
+         * doesn't expose current directly. Multiply by ~60A (stall current at
+         * that duty cycle) for a rough current estimate, or check PDH channel
+         * currents for true values.
+         */
+        public void logSwerveCurrent() {
+                if (!Constants.CURRENT_LOGGING) return;
+                var modules = swerve.getSwerveDrive().getModules();
+                for (int i = 0; i < modules.length && i < 4; i++) {
+                        String name = modules[i].configuration.name;
+                        Logger.recordOutput("Swerve/" + name + "/DriveOutput",
+                                modules[i].getDriveMotor().getAppliedOutput());
+                        Logger.recordOutput("Swerve/" + name + "/SteerOutput",
+                                modules[i].getAngleMotor().getAppliedOutput());
+                }
         }
 }

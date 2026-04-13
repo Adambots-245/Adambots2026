@@ -51,11 +51,11 @@ public final class Constants {
         // PathPlanner path-following PID (corrects position/heading error during auto)
         // These are NOT the same as YAGSL motor-level PIDs in pidfproperties.json.
         // Start at 5.0/0/0 and tune on the field — see SwerveConfig javadoc for tips.
-        public static final double kAutoTranslationP = 0.18;
+        public static final double kAutoTranslationP = 2.5;
         public static final double kAutoTranslationI = 0.0;
         public static final double kAutoTranslationD = 0.0;
 
-        public static final double kAutoRotationP = 0.18;
+        public static final double kAutoRotationP = 2.5;
         public static final double kAutoRotationI = 0.0;
         public static final double kAutoRotationD = 0.0;
 
@@ -76,29 +76,34 @@ public final class Constants {
         // Set to -1.0 to reverse flywheel direction (workaround for setInverted issue)
         public static final double kFlywheelDirection = -1.0;
 
-        // ==================== Flywheel PID (tested on test board) ====================
-        public static final double kFlywheelP = 0.3;
+        // ==================== Flywheel PID (VelocityTorqueCurrentFOC — Pro) ====================
+        // Units: kP in amps per RPS error, kFF not needed (torque mode).
+        // Old voltage-mode gains (kP=0.35 V/RPS, kFF=0.12 V/RPS) don't apply.
+        // Start at kP=5.0, tune on robot: increase if recovery is slow,
+        // decrease if flywheel oscillates or draws excessive current.
+        public static final double kFlywheelP = 5.0;   // was 0.35 (voltage mode)
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
-        public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
+        public static final double kFlywheelFF = 0;     // was 0.12 — torque mode doesn't need voltage FF
 
-        public static final double kFlywheelToleranceRPS = 1.0;
+        public static final double kFlywheelToleranceRPS = 2.5;  // was 1.0 — too tight, caused At Speed flutter
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
-        public static final double kLobShotRPS = 49.0;
+        public static final double kLobShotRPS = 62.0;
 
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
-        public static final double kFlywheelFreeCurrentLimit = 60.0;
+        public static final double kFlywheelFreeCurrentLimit = 40.0;
 
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {2.0, 42.0},
-            {2.5, 44.0},
-            {3.0, 49.5},
+            {1.5, 39.0},
+            {2.0, 40.5},
+            {2.5, 43.0},
+            {3.0, 46.0},
             {4.0, 53.0},
-            {5.0, 62.0}
+            {5.0, 59.0}
         };
 
         public static final double kMinRPS = kDefaultInterpolationTable[0][1];
@@ -117,7 +122,7 @@ public final class Constants {
         public static final double kIdleRPS = 20.0;
 
         /** Extra RPS added during feed to compensate for ball energy transfer to flywheel. */
-        public static final double kShotBoostRPS = 3.0;
+        public static final double kShotBoostRPS = 3;
 
         // Shooting zone bounds — robot X position that defines "near the hub"
         public static final double kRedShootingZoneMinX = 12.0;   // Red hub at x≈12.0
@@ -125,6 +130,8 @@ public final class Constants {
 
         /** Enable chassis shake during shooting to settle balls into carousel. */
         public static final boolean kShakeEnabled = false;
+        /** Enable bop (intake arm oscillation) while shooting to nudge balls toward hopper. */
+        public static final boolean kBopWhileShooting = true;
         /** Rotational speed for chassis shake (rad/s). */
         public static final double kShakeRotSpeed = 1.5;
         /** Period of one full shake cycle (seconds). */
@@ -153,8 +160,8 @@ public final class Constants {
         public static final double kTurretP = 18.0;
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretKV = 0.100;  // tuned on main (was 0.135)
-        public static final double kTurretKS = 0.15;   // kS works fine with Motion Magic (velocity profile damps backlash)
+        public static final double kTurretKV = 0.100;  // was kTurretFF
+        public static final double kTurretKS = 0.15;   // static friction compensation (Volts)
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
@@ -182,9 +189,9 @@ public final class Constants {
         // parking the turret at each mechanical stop, reading "Pot Raw (deg)"
         // on the Shooter tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 256;
+        public static final double kTurretPotAtZeroDeg = 282;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2266.0;
+        public static final double kTurretPotAtMaxDeg = 2245.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -279,8 +286,8 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.25;
-        public static final double kUptakeSpeed = 0.65;
+        public static final double kHopperSpeed = 0.30;
+        public static final double kUptakeSpeed = 0.70;
 
         // Jam detection
         public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed
@@ -512,16 +519,20 @@ public final class Constants {
         public static final double kArmBeltRatio = 2.0;        // e.g., 2.0 for 36T:18T belt
         public static final double kArmTotalGearRatio = kArmPlanetaryRatio * kArmBeltRatio;
 
-        public static final double kIntakeSpeed = 0.65;
+        public static final double kIntakeSpeed = 0.80;
 
         public static final double kArmRaisedPosition = 200.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
         public static final double kArmLoweredPosition = 98.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         // Bop positions: absolute throughbore degrees, captured the same way as
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
-        public static final double kBopBottomPosition = 98.0;  // bop oscillation low end
+        public static final double kBopBottomPosition = 105.0;  // bop oscillation low end
         public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
-        public static final double kBopSwitchTimeSeconds = 0.35; // seconds between bop direction changes
+        /** Optional dwell time at the bottom position before going back up.
+         *  0.0 = no dwell (bop as fast as the arm can move). Increase to slow down bop. */
+        public static final double kBopDwellSeconds = 0.0;
+        /** Position tolerance (degrees) for detecting arm arrival at bop endpoints. */
+        public static final double kBopPositionToleranceDeg = 3.0;
 
         /** Soft limit margin beyond lowered/raised, in degrees. The firmware
          *  cuts output if reported position drifts this far past either end
@@ -535,8 +546,8 @@ public final class Constants {
         public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
-        public static final int kRollerStatorCurrentLimit = 50;  // stator amps (torque limiting — prevents stall damage)
-        public static final int kRollerSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
+        public static final int kRollerStatorCurrentLimit = 45;  // stator amps (torque limiting — prevents stall damage)
+        public static final int kRollerSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 45;  // stator amps (torque limiting)

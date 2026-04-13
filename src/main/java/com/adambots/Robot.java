@@ -42,12 +42,9 @@ public class Robot extends LoggedRobot {
 
         // Publish to NT so DataLogManager captures AdvantageKit outputs in
         // its .wpilog file — works even without a USB stick on the robot.
-        // Also enables live AdvantageScope viewing via network connection.
         Logger.addDataReceiver(new NT4Publisher());
 
-        // Also log to USB stick if one is present (higher throughput, no
-        // network bandwidth impact). Safe to call even without USB — the
-        // writer handles the missing drive gracefully.
+        // Also log to USB stick if present (higher throughput, no bandwidth impact).
         Logger.addDataReceiver(new WPILOGWriter());
 
         Logger.start();
@@ -99,6 +96,7 @@ public class Robot extends LoggedRobot {
         // block in order for anything in the Command-based framework to work.
         CommandScheduler.getInstance().run();
         container.getTuningPeriodic().run();
+        container.logSwerveCurrent();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
         Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);

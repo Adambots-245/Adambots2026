@@ -171,6 +171,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
 
             // Back-right ArduCam (on back-right swerve module, facing backward)
@@ -189,6 +190,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
         }
 

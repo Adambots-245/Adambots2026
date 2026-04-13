@@ -97,7 +97,7 @@ public class ShooterSubsystem extends SubsystemBase {
     public void setFlywheelRPS(double rps) {
         targetRPS = rps;
         double effectiveRPS = rps + (shotBoostActive ? ShooterConstants.kShotBoostRPS : 0);
-        leftFlywheel.set(ControlMode.VELOCITY, effectiveRPS * ShooterConstants.kFlywheelDirection);
+        leftFlywheel.set(ControlMode.VELOCITY_FOC_TORQUE, effectiveRPS * ShooterConstants.kFlywheelDirection);
     }
 
     public void stopFlywheel() {

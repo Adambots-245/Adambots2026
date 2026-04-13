@@ -76,11 +76,15 @@ public final class Constants {
         // Set to -1.0 to reverse flywheel direction (workaround for setInverted issue)
         public static final double kFlywheelDirection = -1.0;
 
-        // ==================== Flywheel PID (tested on test board) ====================
-        public static final double kFlywheelP = 0.35;
+        // ==================== Flywheel PID (VelocityTorqueCurrentFOC — Pro) ====================
+        // Units: kP in amps per RPS error, kFF not needed (torque mode).
+        // Old voltage-mode gains (kP=0.35 V/RPS, kFF=0.12 V/RPS) don't apply.
+        // Start at kP=5.0, tune on robot: increase if recovery is slow,
+        // decrease if flywheel oscillates or draws excessive current.
+        public static final double kFlywheelP = 5.0;   // was 0.35 (voltage mode)
         public static final double kFlywheelI = 0;
         public static final double kFlywheelD = 0;
-        public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
+        public static final double kFlywheelFF = 0;     // was 0.12 — torque mode doesn't need voltage FF
 
         public static final double kFlywheelToleranceRPS = 2.5;  // was 1.0 — too tight, caused At Speed flutter
 

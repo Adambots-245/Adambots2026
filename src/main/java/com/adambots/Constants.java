@@ -143,28 +143,38 @@ public final class Constants {
         //     of buzzing at the friction breakaway boundary. Start at 0.25 and
         //     tune: too low = buzz remains, too high = turret "jumps" when
         //     correcting small errors.
-        public static final double kTurretP = 18.0;
+        // PID gains — tuned for 4:1 planetary (44.4:1 total).
+        // The planetary multiplies motor rotations per turret degree by 4×,
+        // so kP should be ~4× lower than without the planetary to get the
+        // same turret-level response. Start here and tune on the robot.
+        public static final double kTurretP = 5.0;     // was 18 without planetary
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretKV = 0.100;  // was kTurretFF
-        public static final double kTurretKS = 0.15;   // static friction compensation (Volts)
+        public static final double kTurretKV = 0.025;  // was 0.100 — 4× more motor rot per turret rot
+        public static final double kTurretKS = 0.10;   // static friction compensation (Volts) — planetary reduces stiction
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
         // ==================== Motion Magic Profile ====================
-        public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor
-        public static final double kTurretAcceleration = 80.0;      // RPS/s at motor
+        // Conservative 2× increase (not 4×) — turret runs at half the old
+        // output speed. Safer for initial testing with the planetary.
+        // To match pre-planetary turret speed, use 80 RPS / 320 RPS/s.
+        public static final double kTurretCruiseVelocity = 40.0;   // RPS at motor (2× old — half old turret speed)
+        public static final double kTurretAcceleration = 160.0;    // RPS/s at motor (2× old — half old turret accel)
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
-        // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
-        public static final double kTurretGearRatio = 200.0 / 18.0;
+        // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion.
+        // The motor has a 4:1 planetary before the 18T pinion.
+        // The pot has its own separate 18T pinion (no planetary).
+        public static final double kTurretPotGearRatio = 200.0 / 18.0;            // pot → turret
+        public static final double kTurretMotorGearRatio = (200.0 / 18.0) * 4.0;  // motor → turret (via 4:1 planetary)
 
         // ==================== Potentiometer Calibration ====================
-        // The 10-turn potentiometer is coupled 1:1 to the motor shaft (pre-
-        // gearbox), so pot rotation equals motor rotation. Calibrate by
-        // parking the turret at each mechanical stop, reading "Pot Raw (deg)"
-        // on the Shooter tab, and putting the value here.
+        // The 10-turn potentiometer has its own 18T pinion on the 200T ring
+        // gear (no planetary in its path). Calibrate by parking the turret
+        // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
+        // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
         public static final double kTurretPotAtZeroDeg = 282;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
@@ -176,16 +186,14 @@ public final class Constants {
          * with the motor-encoder-based {@code getTurretAngleDegrees()} readback
          * and the pot-based {@code getPotAngleDegrees()} will drift.
          *
-         * <p>Derivation: the pot is on the motor shaft (1:1), so the raw pot
-         * travel between the two mechanical stops equals the motor travel in
-         * degrees. Dividing by the motor-to-turret gear ratio gives the
-         * physical turret range.
+         * <p>Derivation: the pot has its own 18T pinion (no planetary), so
+         * pot travel / pot gear ratio = turret range.
          *
          * <p>With the current values:
-         * {@code (2266 − 256) / (200/18) = 2010 / 11.11 ≈ 180.9°}
+         * {@code (2245 − 282) / (200/18) = 1963 / 11.11 ≈ 176.7°}
          */
         public static final double kTurretMaxDegrees =
-            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretGearRatio;
+            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretPotGearRatio;
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
@@ -193,7 +201,12 @@ public final class Constants {
 
         /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
          *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */
-        public static final double kTurretJogPercent = 0.10;
+        public static final double kTurretJogPercent = 0.25;  // was 0.10 — need more voltage through 4:1 planetary
+
+        /** Joystick deadband for proportional turret jog (integrated into auto-track). */
+        public static final double kTurretJogDeadband = 0.10;
+        /** Max percent output for joystick jog. Joystick input is squared for fine control. */
+        public static final double kTurretJogMaxPercent = 0.35;
 
         /** Soft limit margin beyond [0, kTurretMaxDegrees], in turret degrees.
          *  Firmware cuts motor output if position drifts this far outside the

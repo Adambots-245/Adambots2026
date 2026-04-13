@@ -385,8 +385,19 @@ public final class Constants {
         /** Maximum distance to recognize AprilTags for odometry cameras (meters) */
         public static final double kOdomMaxTagDistance = 4.0;
 
+        /** Minimum tag image area (% of frame) for odometry cameras.
+         *  Fuzzy distant tags report wrong PnP distances, so area-based filtering
+         *  is more reliable than distance. A 6" tag at ~4m occupies ~0.5-1.0%.
+         *  Start at 0.5%, increase if mid-field pose is still unstable. */
+        public static final double kOdomMinTagAreaPercent = 0.5;
+
         /** Maximum distance to recognize AprilTags for alignment camera (meters) */
         public static final double kAlignMaxTagDistance = 6.0;
+
+        /** Maximum disagreement between vision pose and odometry pose (meters).
+         *  Vision measurements further than this from the current odom estimate are
+         *  rejected as outliers (e.g. bad PnP from fuzzy distant tags). */
+        public static final double kMaxOdomVisionDisagreement = 2.0;
 
         // ==================== AprilTag Groups ====================
         // Game-specific tag groups for filtering and detection

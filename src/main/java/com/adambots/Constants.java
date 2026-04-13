@@ -82,7 +82,7 @@ public final class Constants {
         public static final double kFlywheelD = 0;
         public static final double kFlywheelFF = kNominalVoltage / kMotorFreeSpeedRPS; // 0.12 V/RPS
 
-        public static final double kFlywheelToleranceRPS = 1.0;
+        public static final double kFlywheelToleranceRPS = 2.5;  // was 1.0 — too tight, caused At Speed flutter
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
         public static final double kLobShotRPS = 62.0;

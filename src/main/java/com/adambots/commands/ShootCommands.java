@@ -27,10 +27,21 @@ public final class ShootCommands {
     /** Max time to wait for flywheel to reach target speed before feeding anyway. */
     public static final double kSpinUpTimeoutSeconds = 3.0;
 
-    /** Fire gate debounce — speed must hold steady for this long before feeding. */
-    public static final double kFireGateDebounceSeconds = 0.08;
+    /** Fire gate debounce — speed must hold steady for this long before feeding.
+     *  0.15s prevents false triggers from flywheel oscillation (~2-3 RPS natural wobble). */
+    public static final double kFireGateDebounceSeconds = 0.15;
 
     private ShootCommands() {}
+
+    /**
+     * Creates a gated feed command: hopper only feeds while the flywheel is at speed.
+     * When the flywheel drops below tolerance (e.g. during a shot RPM dip that exceeds
+     * the tolerance band), the hopper pauses until speed recovers. This prevents balls
+     * from being launched at under-speed and producing inconsistent shots.
+     */
+    private static Command gatedFeedCommand(HopperSubsystem hopper, ShooterSubsystem shooter) {
+        return hopper.gatedFeedCommand(shooter::isAtSpeed);
+    }
 
     /**
      * Wraps a shoot command to suppress turret auto-tracking while shooting.
@@ -98,7 +109,7 @@ public final class ShootCommands {
                 .withTimeout(kSpinUpTimeoutSeconds),
             Commands.parallel(
                 spinUpFeed,
-                hopper.feedCommand()
+                gatedFeedCommand(hopper, shooter)
             ).withTimeout(kShootDurationSeconds),
             stopAllCommand(shooter, hopper)
         );
@@ -159,7 +170,7 @@ public final class ShootCommands {
                 shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
-                    hopper.feedCommand()
+                    gatedFeedCommand(hopper, shooter)
                 ).withTimeout(kShootDurationSeconds);
             }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
@@ -189,7 +200,7 @@ public final class ShootCommands {
                 shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
-                    hopper.feedCommand()
+                    gatedFeedCommand(hopper, shooter)
                 ).withTimeout(kShootDurationSeconds);
             }, Set.of(shooter, hopper)),
             stopAllCommand(shooter, hopper)
@@ -226,7 +237,7 @@ public final class ShootCommands {
 
         return Commands.sequence(
             spinUp.until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds)),
-            Commands.parallel(spinUpFeed, hopper.feedCommand())
+            Commands.parallel(spinUpFeed, gatedFeedCommand(hopper, shooter))
         ).finallyDo(() -> {
             shooter.stopFlywheel();
         }).withName("Hold Shoot");
@@ -263,7 +274,7 @@ public final class ShootCommands {
                 shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
-                    hopper.feedCommand());
+                    gatedFeedCommand(hopper, shooter));
             }, Set.of(shooter, hopper))
         ).finallyDo(() -> {
             shooter.setShotBoost(false);
@@ -291,7 +302,7 @@ public final class ShootCommands {
                 shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
-                    hopper.feedCommand(),
+                    gatedFeedCommand(hopper, shooter),
                     intake.bopArmCommand());
             }, Set.of(shooter, hopper, intake))
         ).finallyDo(() -> {
@@ -344,7 +355,7 @@ public final class ShootCommands {
                 shooter.setShotBoost(true);
                 return Commands.parallel(
                     shooter.spinForDistanceCommand(() -> dist),
-                    hopper.feedCommand(),
+                    gatedFeedCommand(hopper, shooter),
                     intake.bopArmCommand()
                 ).withTimeout(kShootDurationSeconds);
             }, Set.of(shooter, hopper, intake)),
@@ -354,16 +365,21 @@ public final class ShootCommands {
     }
 
     /**
-     * Lob shot: simultaneously intake + spin flywheel at fixed RPS + feed hopper.
+     * Lob shot: spin flywheel to lob RPS → wait for speed → intake + feed while held.
      * Hold button to run, release to stop all.
      */
     public static Command lobShotCommand(
             ShooterSubsystem shooter, HopperSubsystem hopper, IntakeSubsystem intake) {
-        return Commands.parallel(
-            intake.runIntakeCommand(),
-            shooter.spinUpCommand(shooter::lobShotRPS),
-            hopper.feedCommand()
-        ).withName("Lob Shot");
+        return Commands.sequence(
+            shooter.spinUpCommand(shooter::lobShotRPS)
+                .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
+                .withTimeout(kSpinUpTimeoutSeconds),
+            Commands.parallel(
+                intake.runIntakeCommand(),
+                shooter.spinUpCommand(shooter::lobShotRPS),
+                gatedFeedCommand(hopper, shooter))
+        ).finallyDo(() -> shooter.stopFlywheel())
+         .withName("Lob Shot");
     }
 
     /**
@@ -383,7 +399,7 @@ public final class ShootCommands {
             Commands.runOnce(() -> shooter.setShotBoost(true)),
             Commands.parallel(
                 shooter.spinUpCommand(rpsSupplier),
-                hopper.feedCommand())
+                gatedFeedCommand(hopper, shooter))
         ).finallyDo(() -> {
             shooter.setShotBoost(false);
             shooter.stopFlywheel();

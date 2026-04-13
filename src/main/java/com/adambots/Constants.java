@@ -476,7 +476,11 @@ public final class Constants {
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
         public static final double kBopBottomPosition = 105.0;  // bop oscillation low end
         public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
-        public static final double kBopSwitchTimeSeconds = 0.3; // seconds between bop direction changes
+        /** Optional dwell time at the bottom position before going back up.
+         *  0.0 = no dwell (bop as fast as the arm can move). Increase to slow down bop. */
+        public static final double kBopDwellSeconds = 0.0;
+        /** Position tolerance (degrees) for detecting arm arrival at bop endpoints. */
+        public static final double kBopPositionToleranceDeg = 3.0;
 
         /** Soft limit margin beyond lowered/raised, in degrees. The firmware
          *  cuts output if reported position drifts this far past either end

@@ -293,7 +293,7 @@ public final class ShootCommands {
             IntakeSubsystem intake,
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
-            Commands.parallel(
+            Commands.deadline(
                 shooter.spinForDistanceCommand(distanceSupplier)
                     .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),
@@ -346,7 +346,7 @@ public final class ShootCommands {
             IntakeSubsystem intake,
             DoubleSupplier distanceSupplier) {
         return Commands.sequence(
-            Commands.parallel(
+            Commands.deadline(
                 shooter.spinForDistanceCommand(distanceSupplier)
                     .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),

@@ -59,10 +59,11 @@ public class TurretSubsystem extends SubsystemBase {
     // Scan direction for SWEEP mode: +1 = toward max, -1 = toward zero
     private int scanDirection = 1;
 
-    // Tracking improvements: dead zone, debounce, brake, warmup
+    // Tracking improvements: dead zone, debounce, brake, warmup, stale decay
     private int trackingDebounceCount = 0;
     private int cameraBrakeFrames = 0;
     private int sweepWarmupFrames = TurretTrackingConstants.kSweepWarmupFrames;
+    private int staleFrameCount = 0;
 
     // Throttled tracking diagnostics (1 Hz)
     private double lastTrackLogTime = 0;
@@ -398,22 +399,46 @@ public class TurretSubsystem extends SubsystemBase {
                 // Dead zone + debounce: hold steady unless offset exceeds tolerance for N frames
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    staleFrameCount = 0;
+                    // DEADZONE: hold position. Do NOT apply angVelLead here —
+                    // it causes drift that re-triggers tracking unnecessarily.
+                    setTurretAngle(lastSetpointDegrees);
                     lastTrackAction = "DEADZONE hold";
                 } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    setTurretAngle(lastSetpointDegrees);
                     lastTrackAction = "DEBOUNCE " + trackingDebounceCount;
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
+                    staleFrameCount = 0;
                     setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
                     lastTrackAction = "LIMIT clamp=" + String.format("%.1f", rawTarget);
                 } else if (hubFresh.getAsBoolean()) {
+                    staleFrameCount = 0;
+                    // Non-linear gain: use lower gain for large corrections from stale data
+                    double gain = Math.abs(camAngle) > TurretTrackingConstants.kLargeCorrectionThresholdDeg
+                        ? TurretTrackingConstants.kLargeCorrectionGain
+                        : TurretTrackingConstants.kCameraTrackingGain;
                     double smoothed = lastSetpointDegrees
-                        + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
-                    setTurretAngle(smoothed + angVelLead);
-                    lastTrackAction = "TRACK fresh";
+                        + (rawTarget - lastSetpointDegrees) * gain;
+                    // Rate-limit setpoint change to prevent violent slews
+                    double delta = smoothed + angVelLead - lastSetpointDegrees;
+                    delta = MathUtil.clamp(delta,
+                        -TurretTrackingConstants.kMaxSetpointChangeDeg,
+                         TurretTrackingConstants.kMaxSetpointChangeDeg);
+                    setTurretAngle(lastSetpointDegrees + delta);
+                    lastTrackAction = String.format("TRACK fresh g=%.2f", gain);
                 } else {
-                    setTurretAngle(lastSetpointDegrees + angVelLead);
-                    lastTrackAction = "HOLD stale";
+                    // Stale frame: count up. After kStaleDecayFrames, stop
+                    // driving toward the old target — it's too stale to trust.
+                    staleFrameCount++;
+                    if (staleFrameCount < TurretTrackingConstants.kStaleDecayFrames) {
+                        setTurretAngle(lastSetpointDegrees);
+                        lastTrackAction = "HOLD stale " + staleFrameCount;
+                    } else {
+                        // Stale too long — hold current position, don't chase old target
+                        lastSetpointDegrees = currentAngle;
+                        setTurretAngle(currentAngle);
+                        lastTrackAction = "STALE EXPIRED";
+                    }
                 }
             } else {
                 // SWEEP: continuous smooth scan, reverse at limits

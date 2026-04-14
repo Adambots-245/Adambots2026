@@ -195,9 +195,9 @@ public final class Constants {
         // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
         // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 282;
+        public static final double kTurretPotAtZeroDeg = 240;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2245.0;
+        public static final double kTurretPotAtMaxDeg = 2540.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -216,7 +216,7 @@ public final class Constants {
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
-        public static final double kTurretForwardDegrees = 87.5;
+        public static final double kTurretForwardDegrees = 99.0;
 
         /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
          *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */

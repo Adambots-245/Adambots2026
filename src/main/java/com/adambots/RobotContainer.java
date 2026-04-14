@@ -269,16 +269,16 @@ public class RobotContainer {
                 Buttons.XboxDPadN.whileTrue(
                                 turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
 
-                // Start: None
-                Buttons.XboxStartButton.onTrue(Commands.none());
-                                                // climber.extendCommand()
-                                                // .until(climber::isAtRaisedLimit)
-                                                // .andThen(climber.lockCommand()));
-                // Back: None
-                Buttons.XboxBackButton.onTrue(Commands.none());
-                                                // climber.retractCommand()
-                                                // .until(climber::isAtLoweredLimit)
-                                                // .andThen(climber.lockCommand()));    
+                // Start: Extend climber → lock when at top
+                Buttons.XboxStartButton.onTrue(
+                                climber.extendCommand()
+                                .until(climber::isAtRaisedLimit)
+                                .andThen(climber.lockCommand()));
+                // Back: Retract climber → lock when at bottom
+                Buttons.XboxBackButton.onTrue(
+                                climber.retractCommand()
+                                .until(climber::isAtLoweredLimit)
+                                .andThen(climber.lockCommand()));    
 
         }
 

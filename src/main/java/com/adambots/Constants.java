@@ -160,12 +160,11 @@ public final class Constants {
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
         // ==================== Motion Magic Profile ====================
-        // Higher cruise/accel so the motor reaches steady-state faster on
-        // small tracking corrections (3-5° moves). At 40/160 the motor never
-        // reached cruise — perpetually in the acceleration phase, causing jerk.
-        // At 100/500 a 4° move completes in ~40ms instead of ~80ms.
-        public static final double kTurretCruiseVelocity = 100.0;  // RPS at motor (was 40)
-        public static final double kTurretAcceleration = 500.0;    // RPS/s at motor (was 160)
+        // Simulation-optimized for tracking. Median correction is 0.8° turret —
+        // all profiles are triangular (never reach cruise). Lower values produce
+        // smoother motion for these tiny moves. Large slews (>15°) are rare.
+        public static final double kTurretCruiseVelocity = 80.0;   // RPS at motor (simulation-optimized)
+        public static final double kTurretAcceleration = 400.0;    // RPS/s at motor (simulation-optimized)
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
@@ -231,17 +230,17 @@ public final class Constants {
         public static final double kTrackingToleranceDeg = 2.5;  // was 2.0 — slightly wider to avoid jitter with Motion Magic
         /** Proportional gain applied to camera yaw for turret correction.
          *  Higher = fewer setpoint changes = fewer Motion Magic restarts. */
-        public static final double kCameraTrackingGain = 0.70;  // was 0.35 — too slow, turret never converged before DEADZONE
+        public static final double kCameraTrackingGain = 0.90;  // simulation-optimized — 90% correction per frame, 1 frame to converge
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
-        public static final double kAngularVelLeadTime = 0.05;  // was 0.02 — too short vs ~80ms camera latency
+        public static final double kAngularVelLeadTime = 0.03;  // simulation-optimized — 0.05 caused drift in HOLD stale
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
-        public static final int kTrackingDebounceFrames = 1;  // was 3 — 60ms delay before tracking, reduced to 1 frame
+        public static final int kTrackingDebounceFrames = 0;  // simulation-optimized — any delay hurts MM profile restarts
         /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
          *  Lets turret decelerate before tracking starts, preventing overshoot. */
         public static final int kCameraBrakeFrames = 2;  // was 15 — 300ms dead time on SWEEP→CAMERA, reduced to 40ms

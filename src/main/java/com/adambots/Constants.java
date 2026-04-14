@@ -247,14 +247,15 @@ public final class Constants {
         public static final int kSweepWarmupFrames = 0;  // was 50 — 1 second delay before sweep, now starts immediately
 
         /** Max setpoint change per frame (degrees). Prevents violent slews from
-         *  stale camera data. At 50 Hz, 5 deg/frame = 250 deg/sec max turret rate. */
-        public static final double kMaxSetpointChangeDeg = 5.0;
+         *  stale camera data. At 50 Hz, 10 deg/frame = 500 deg/sec max turret rate.
+         *  Was 5 when camera was at 0.5 Hz — raised now that camera is at 8.8 Hz. */
+        public static final double kMaxSetpointChangeDeg = 10.0;
 
         /** CamYaw threshold for switching to low gain. Large corrections from
          *  stale data should approach gradually, not jump 90% in one frame. */
-        public static final double kLargeCorrectionThresholdDeg = 10.0;
+        public static final double kLargeCorrectionThresholdDeg = 15.0;  // was 10 — raised to let more corrections use full gain
         /** Gain for large corrections (|camYaw| > threshold). */
-        public static final double kLargeCorrectionGain = 0.30;
+        public static final double kLargeCorrectionGain = 0.50;  // was 0.30 — faster acquisition for large offsets
 
         /** Frames of stale data before the turret stops chasing the old setpoint
          *  and holds its current position. At 50 Hz, 25 frames = 0.5 seconds. */

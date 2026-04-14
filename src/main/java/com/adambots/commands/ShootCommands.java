@@ -28,8 +28,9 @@ public final class ShootCommands {
     public static final double kSpinUpTimeoutSeconds = 3.0;
 
     /** Fire gate debounce — speed must hold steady for this long before feeding.
-     *  0.15s prevents false triggers from flywheel oscillation (~2-3 RPS natural wobble). */
-    public static final double kFireGateDebounceSeconds = 0.15;
+     *  With 2.5 RPS tolerance, 0.08s is sufficient to filter oscillation without
+     *  adding excessive delay to the spin-up pipeline (~700ms + debounce). */
+    public static final double kFireGateDebounceSeconds = 0.08;
 
     private ShootCommands() {}
 

@@ -220,8 +220,8 @@ public final class Constants {
         public static final double kTurretSoftLimitMarginDeg = 6.0;
 
         // ==================== Current Limits ====================
-        public static final double kTurretStallCurrentLimit = 30.0;  // was 60 — reduced for 4:1 planetary torque multiplication
-        public static final double kTurretFreeCurrentLimit = 20.0;  // was 40 — same effective turret torque as old 60/40
+        public static final double kTurretStallCurrentLimit = 40.0;  // was 30 — raised for higher MM accel (500 RPS/s)
+        public static final double kTurretFreeCurrentLimit = 25.0;  // was 20 — headroom for tracking corrections
     }
 
     // ==================== TurretTrackingConstants ====================

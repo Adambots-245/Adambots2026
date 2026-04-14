@@ -242,10 +242,10 @@ public final class Constants {
     public static final class TurretTrackingConstants {
         /** Degrees tolerance to consider turret "on target" for tracking (dead zone).
          *  Camera offsets smaller than this are ignored to prevent chasing noise. */
-        public static final double kTrackingToleranceDeg = 1.5;  // was 7.0 — turret sat in DEADZONE 92% of the time
+        public static final double kTrackingToleranceDeg = 2.5;  // simulation-optimized — below 2° chases camera noise
         /** Proportional gain applied to camera yaw for turret correction.
          *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.70;  // was 0.40 — too slow, 70% converges in 2-3 frames
+        public static final double kCameraTrackingGain = 0.80;  // simulation-optimized — 80% converges in 1-2 frames
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep (legacy,
@@ -264,7 +264,7 @@ public final class Constants {
          *  Lower = faster approach but more aggressive. Higher = smoother.
          *  Team 5000 uses a 2-sample rolling filter at 250Hz ≈ 8ms.
          *  0.2s is conservative — the turret closes the gap in ~200ms. */
-        public static final double kConvergeTimeSec = 0.12;  // was 0.2 — faster approach to match camera latency (~80ms)
+        public static final double kConvergeTimeSec = 0.15;  // simulation-optimized — gentler FF prevents backlash overshoot
         // Robot rotation compensation is now handled via velocity feedforward
         // (PositionVoltage .withVelocity) instead of position-offset lead.
         // See TurretSubsystem.autoTrackCommand for details.
@@ -280,7 +280,7 @@ public final class Constants {
 
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
-        public static final int kTrackingDebounceFrames = 1;
+        public static final int kTrackingDebounceFrames = 0;  // simulation-optimized — EWMA gain 0.80 already filters noise
         /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
          *  Lets turret decelerate before tracking starts, preventing overshoot. */
         /** Frames to brake when transitioning SWEEP → CAMERA. With percent-

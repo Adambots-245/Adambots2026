@@ -183,11 +183,11 @@ public final class Constants {
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
-        // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion.
-        // The motor has a 4:1 planetary before the 18T pinion.
-        // The pot has its own separate 18T pinion (no planetary).
-        public static final double kTurretPotGearRatio = 200.0 / 18.0;            // pot → turret
-        public static final double kTurretMotorGearRatio = (200.0 / 18.0) * 4.0;  // motor → turret (via 4:1 planetary)
+        // WCP GreyT Turret: 200-tooth ring gear.
+        // Motor has a 4:1 planetary before a 20T pinion.
+        // Pot has its own separate 18T pinion (no planetary).
+        public static final double kTurretPotGearRatio = 200.0 / 18.0;            // pot → turret (18T pinion)
+        public static final double kTurretMotorGearRatio = (200.0 / 20.0) * 4.0;  // motor → turret (20T pinion + 4:1 planetary)
 
         // ==================== Potentiometer Calibration ====================
         // The 10-turn potentiometer has its own 18T pinion on the 200T ring

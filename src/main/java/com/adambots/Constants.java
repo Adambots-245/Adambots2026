@@ -86,7 +86,7 @@ public final class Constants {
         public static final double kFlywheelD = 0;
         public static final double kFlywheelFF = 0;     // was 0.12 — torque mode doesn't need voltage FF
 
-        public static final double kFlywheelToleranceRPS = 2.5;  // was 1.0 — too tight, caused At Speed flutter
+        public static final double kFlywheelToleranceRPS = 3.5;  // was 2.5 — shot boost adds 3 RPS above base target, causing at_speed chatter at 2.5
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
         public static final double kLobShotRPS = 62.0;
@@ -98,12 +98,12 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {1.5, 39.0},
-            {2.0, 40.5},
-            {2.5, 43.0},
-            {3.0, 46.0},
-            {4.0, 53.0},
-            {5.0, 59.0}
+            {1.5, 39.0 + 2},
+            {2.0, 40.5 + 2},
+            {2.5, 43.0 + 2},
+            {3.0, 46.0 + 3},
+            {4.0, 53.0 + 3},
+            {5.0, 59.0 + 3}
         };
 
         public static final double kMinRPS = kDefaultInterpolationTable[0][1];

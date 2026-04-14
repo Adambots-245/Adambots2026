@@ -476,20 +476,23 @@ public class TurretSubsystem extends SubsystemBase {
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
                     // DEADZONE: coast with position = current (error=0).
-                    // kP and kS produce zero output. Only kV × small
-                    // approach velocity applies, gently nudging toward
-                    // setpoint without backlash fighting.
+                    // kP and kS produce zero output. Only kV × velocity
+                    // applies. Includes rotation compensation so the turret
+                    // counter-rotates during DEADZONE instead of drifting.
                     double dzErrorDeg = lastSetpointDegrees - currentAngle;
-                    double dzVelDPS = dzErrorDeg / TurretTrackingConstants.kConvergeTimeSec;
+                    double dzVelDPS = dzErrorDeg / TurretTrackingConstants.kConvergeTimeSec
+                        + rotationCompVelDPS;
                     dzVelDPS = MathUtil.clamp(dzVelDPS, -300, 300);
                     double dzVelRPS = (dzVelDPS / 360.0) * TurretConstants.kTurretMotorGearRatio;
                     double dzCurrentRot = (currentAngle / 360.0) * TurretConstants.kTurretMotorGearRatio;
                     turretMotor.setPositionWithVelocityFF(dzCurrentRot, dzVelRPS);
                     lastTrackAction = "DEADZONE coast";
                 } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
-                    // Coast like DEADZONE — no kP/kS backlash fighting
+                    // Coast like DEADZONE — no kP/kS backlash fighting.
+                    // Includes rotation compensation.
                     double dbErrorDeg = lastSetpointDegrees - currentAngle;
-                    double dbVelDPS = dbErrorDeg / TurretTrackingConstants.kConvergeTimeSec;
+                    double dbVelDPS = dbErrorDeg / TurretTrackingConstants.kConvergeTimeSec
+                        + rotationCompVelDPS;
                     dbVelDPS = MathUtil.clamp(dbVelDPS, -300, 300);
                     double dbVelRPS = (dbVelDPS / 360.0) * TurretConstants.kTurretMotorGearRatio;
                     double dbCurrentRot = (currentAngle / 360.0) * TurretConstants.kTurretMotorGearRatio;
@@ -532,7 +535,8 @@ public class TurretSubsystem extends SubsystemBase {
                     // kS alone. We're replicating that by zeroing the
                     // position error intentionally on stale frames.
                     double errorDeg = lastSetpointDegrees - currentAngle;
-                    double coastVelDPS = errorDeg / TurretTrackingConstants.kConvergeTimeSec;
+                    double coastVelDPS = errorDeg / TurretTrackingConstants.kConvergeTimeSec
+                        + rotationCompVelDPS;
                     coastVelDPS = MathUtil.clamp(coastVelDPS, -300, 300);
                     double coastVelRPS = (coastVelDPS / 360.0) * TurretConstants.kTurretMotorGearRatio;
                     // Position = current (error=0), velocity = approach

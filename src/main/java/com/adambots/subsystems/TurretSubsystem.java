@@ -722,8 +722,8 @@ public class TurretSubsystem extends SubsystemBase {
                     trackingMode = TrackingMode.CAMERA;
                     locked[0] = true;
                     // Low-pass filter: smooth the command to reduce MM trajectory
-                    // restarts. 0.3 = 30% new target per cycle → settles in ~5 cycles (100ms).
-                    smoothedAngle[0] += (clampedAngle - smoothedAngle[0]) * 0.3;
+                    // restarts. 0.5 = 50% new target per cycle → settles in ~3 cycles (60ms).
+                    smoothedAngle[0] += (clampedAngle - smoothedAngle[0]) * 0.5;
                     setTurretAngle(smoothedAngle[0]);
                     lastTrackAction = String.format("TRACK %.1f°", smoothedAngle[0]);
                 }

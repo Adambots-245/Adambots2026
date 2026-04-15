@@ -207,7 +207,7 @@ public final class Constants {
          *  Measure from swerve module diagonal intersection to ring gear center.
          *  Using shooter camera position as proxy until measured. */
         public static final double kTurretPivotX = -0.20;  // 20cm behind center
-        public static final double kTurretPivotY = 0.12;  // 12cm right of center (negative = right)
+        public static final double kTurretPivotY = 0.9;  // 12cm right of center (negative = right)
 
         /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
          *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */

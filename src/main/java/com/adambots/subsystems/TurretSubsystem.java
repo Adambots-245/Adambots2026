@@ -155,6 +155,33 @@ public class TurretSubsystem extends SubsystemBase {
             .apply();
     }
 
+    // ==================== Manual Jog Helper ====================
+
+    /**
+     * Handles manual joystick jog override. Call at the top of any tracking
+     * command's execute loop. Returns true if jog is active (caller should
+     * skip tracking logic), false if jog is inactive (proceed with tracking).
+     */
+    boolean handleManualJog(DoubleSupplier manualJogInput) {
+        double jogRaw = manualJogInput.getAsDouble();
+        double jogDeadbanded = MathUtil.applyDeadband(jogRaw, TurretConstants.kTurretJogDeadband);
+        if (jogDeadbanded != 0.0) {
+            double jogOutput = Math.copySign(jogDeadbanded * jogDeadbanded, jogDeadbanded)
+                * TurretConstants.kTurretJogMaxPercent;
+            turretMotor.set(jogOutput);
+            trackingMode = TrackingMode.JOG;
+            lastTrackAction = String.format("JOG %.0f%%", jogOutput * 100);
+            holdAngleDegrees = getTurretAngleDegrees();
+            return true;
+        }
+        if (trackingMode == TrackingMode.JOG) {
+            holdAngleDegrees = getTurretAngleDegrees();
+            lastSetpointDegrees = holdAngleDegrees;
+            trackingMode = TrackingMode.HOLD;
+        }
+        return false;
+    }
+
     // ==================== Turret Control ====================
 
     public void setTurretAngle(double degrees) {
@@ -335,27 +362,7 @@ public class TurretSubsystem extends SubsystemBase {
             scanDirection = 1;
         }, this)
         .andThen(run(() -> {
-            // Manual jog override: always available regardless of auto-track toggle.
-            // Joystick outside deadband → proportional percent output.
-            double jogRaw = manualJogInput.getAsDouble();
-            double jogDeadbanded = MathUtil.applyDeadband(jogRaw, TurretConstants.kTurretJogDeadband);
-            if (jogDeadbanded != 0.0) {
-                // Square the input (preserve sign) for fine low-speed control
-                double jogOutput = Math.copySign(jogDeadbanded * jogDeadbanded, jogDeadbanded)
-                    * TurretConstants.kTurretJogMaxPercent;
-                turretMotor.set(jogOutput);
-                trackingMode = TrackingMode.JOG;
-                lastTrackAction = String.format("JOG %.0f%%", jogOutput * 100);
-                // Seed hold angle so auto-track/hold resumes from where the operator left off
-                holdAngleDegrees = getTurretAngleDegrees();
-                return;
-            }
-            // Returning from JOG → seed setpoint for smooth handoff
-            if (trackingMode == TrackingMode.JOG) {
-                holdAngleDegrees = getTurretAngleDegrees();
-                lastSetpointDegrees = holdAngleDegrees;
-                trackingMode = TrackingMode.HOLD;
-            }
+            if (handleManualJog(manualJogInput)) return;
 
             // Auto-track toggle (Button 5)
             if (!autoTrackEnabled) {
@@ -520,22 +527,7 @@ public class TurretSubsystem extends SubsystemBase {
             scanDirection = 1;
         }, this)
         .andThen(run(() -> {
-            // Manual jog override — always available
-            double jogRaw = manualJogInput.getAsDouble();
-            double jogDeadbanded = MathUtil.applyDeadband(jogRaw, TurretConstants.kTurretJogDeadband);
-            if (jogDeadbanded != 0.0) {
-                double jogOutput = Math.copySign(jogDeadbanded * jogDeadbanded, jogDeadbanded)
-                    * TurretConstants.kTurretJogMaxPercent;
-                turretMotor.set(jogOutput);
-                trackingMode = TrackingMode.JOG;
-                lastTrackAction = String.format("JOG %.0f%%", jogOutput * 100);
-                holdAngleDegrees = getTurretAngleDegrees();
-                return;
-            }
-            if (trackingMode == TrackingMode.JOG) {
-                holdAngleDegrees = getTurretAngleDegrees();
-                trackingMode = TrackingMode.HOLD;
-            }
+            if (handleManualJog(manualJogInput)) return;
 
             double currentAngle = getTurretAngleDegrees();
 

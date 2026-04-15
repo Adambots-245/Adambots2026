@@ -165,28 +165,28 @@ public class RobotContainer {
                                                                 InputCurve.CUBIC, true),
                                                 Constants.DriveConstants.kTranslationScale));
 
-                // Turret tracking: simple proportional tracker
+                // Turret tracking: pose-lock tracker (OPTION 1 — active)
                 if (visionSubsystem != null) {
                         var xboxJog = (java.util.function.DoubleSupplier) () -> {
                                 var xbox = Buttons.getXboxController();
                                 return xbox != null ? xbox.getLeftX() : 0.0;
                         };
-                        turret.setDefaultCommand(turret.simpleTrackCommand(
+                        turret.setDefaultCommand(turret.poseTrackCommand(
                                         visionSubsystem::getHubAngle,
                                         visionSubsystem::isHubVisible,
                                         visionSubsystem::isTrackingDataFresh,
-                                        visionSubsystem::getHubPoseAngle,
-                                        visionSubsystem::isHubPoseVisible,
+                                        swerve::getPose,
+                                        visionSubsystem::getHubCenter,
                                         xboxJog));
-                        // OPTION 2: Pose-lock tracker (uncomment to try)
-                        // turret.setDefaultCommand(turret.poseTrackCommand(
+                        // OPTION 2: Simple proportional tracker
+                        // turret.setDefaultCommand(turret.simpleTrackCommand(
                         //                 visionSubsystem::getHubAngle,
                         //                 visionSubsystem::isHubVisible,
                         //                 visionSubsystem::isTrackingDataFresh,
-                        //                 swerve::getPose,
-                        //                 visionSubsystem::getHubCenter,
+                        //                 visionSubsystem::getHubPoseAngle,
+                        //                 visionSubsystem::isHubPoseVisible,
                         //                 xboxJog));
-                        // OPTION 3: Motion Magic auto-track (uncomment to revert)
+                        // OPTION 3: Motion Magic auto-track
                         // turret.setDefaultCommand(turret.autoTrackCommand(
                         //                 visionSubsystem::getHubAngle,
                         //                 visionSubsystem::isHubVisible,

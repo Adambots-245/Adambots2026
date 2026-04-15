@@ -664,9 +664,20 @@ public class TurretSubsystem extends SubsystemBase {
             var pose = poseSupplier.get();
             var hub = hubCenter.get();
 
-            // Compute pose-based turret angle (runs every cycle at 50 Hz)
-            double dx = hub.getX() - pose.getX();
-            double dy = hub.getY() - pose.getY();
+            // Compute turret pivot position in field frame (not robot center).
+            // The turret pivot is offset from the robot center — using robot
+            // center introduces aim error at close range (~7° at 1.5m).
+            double headingRad = pose.getRotation().getRadians();
+            double pivotX = pose.getX()
+                + Constants.VisionConstants.kShooterCameraX * Math.cos(headingRad)
+                - Constants.VisionConstants.kShooterCameraY * Math.sin(headingRad);
+            double pivotY = pose.getY()
+                + Constants.VisionConstants.kShooterCameraX * Math.sin(headingRad)
+                + Constants.VisionConstants.kShooterCameraY * Math.cos(headingRad);
+
+            // Compute bearing from turret pivot to hub center
+            double dx = hub.getX() - pivotX;
+            double dy = hub.getY() - pivotY;
             double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
             double robotHeading = pose.getRotation().getDegrees();
             double robotRelative = worldBearing - robotHeading;

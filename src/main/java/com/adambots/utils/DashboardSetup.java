@@ -49,6 +49,7 @@ public final class DashboardSetup {
         if (Constants.COMMANDS_TAB) configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
         if (Constants.INTAKE_TAB && tuningManager != null)  tuningManager.setupIntakeTunables();
         if (Constants.HOPPER_TAB && tuningManager != null)  tuningManager.setupHopperTunables();
+        if (Constants.TURRET_TAB && tuningManager != null)  tuningManager.setupTrackingTunables();
 
         if (Constants.TUNING_ENABLED) {
             configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);

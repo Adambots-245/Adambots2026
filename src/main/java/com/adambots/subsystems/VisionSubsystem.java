@@ -35,6 +35,8 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
+
+import org.littletonrobotics.junction.Logger;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -132,6 +134,10 @@ public class VisionSubsystem extends SubsystemBase {
     private int diagTagsRejectedNotHub = 0;
     private double diagLastAmbiguity = -1;
 
+    // Camera health tracking — detects pipeline offline (USB disconnect, driver crash)
+    private double lastCameraResultTime = 0;
+    private boolean cameraOnline = true;
+
     // Throttled logging (1 Hz)
     private double lastLogTimestamp = 0;
 
@@ -170,6 +176,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
 
             // Back-right ArduCam (on back-right swerve module, facing backward)
@@ -188,6 +195,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
         }
 
@@ -227,7 +235,8 @@ public class VisionSubsystem extends SubsystemBase {
                 .multiTagStdDevs(Meters.of(VisionConstants.kMultiTagStdDevs[0]),
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
-                .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
+                .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
         }
 
@@ -495,24 +504,76 @@ public class VisionSubsystem extends SubsystemBase {
             hubBlendedAngleDegrees = poseAngleTurretRelative;
         }
 
-        // Throttled diagnostic log (1 Hz) for RioLog copy-paste troubleshooting
-        if (Constants.VISION_TAB) {
-            double now = Timer.getFPGATimestamp();
-            if (now - lastLogTimestamp >= 1.0) {
-                lastLogTimestamp = now;
-                Pose2d p = poseSupplier.get();
-                int tier = (int) SmartDashboard.getNumber("Turret/TrackingTier", 0);
+        // ==================== Structured logging (AdvantageScope) ====================
+        // Always active — writes to WPILog on USB stick. Open in AdvantageScope
+        // to review the full vision pipeline for any mode.
+        //
+        // Camera pipeline (Approach A)
+        Logger.recordOutput("Vision/CamRawAngle", rawCamAngle);
+        Logger.recordOutput("Vision/CamEWMAAngle", hubCamAngleDegrees);
+        Logger.recordOutput("Vision/CamRawDist", rawCamDist);
+        Logger.recordOutput("Vision/CamEWMADist", hubCamDistanceMeters);
+        Logger.recordOutput("Vision/CamHasTarget", hubCamHasTarget);
+        Logger.recordOutput("Vision/CamSticky", hubCamSticky);
+        Logger.recordOutput("Vision/CamOnline", cameraOnline);
+        Logger.recordOutput("Vision/CamTagsSeen", diagTagsSeen);
+        Logger.recordOutput("Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
+        Logger.recordOutput("Vision/CamLastAmbiguity", diagLastAmbiguity);
+        //
+        // Pose pipeline (Approach B)
+        Pose2d currentPose = poseSupplier.get();
+        Logger.recordOutput("Vision/PoseX", currentPose.getX());
+        Logger.recordOutput("Vision/PoseY", currentPose.getY());
+        Logger.recordOutput("Vision/PoseHeading", currentPose.getRotation().getDegrees());
+        Logger.recordOutput("Vision/PoseRawAngle", rawPoseAngle);
+        Logger.recordOutput("Vision/PoseRawDist", rawPoseDist);
+        Logger.recordOutput("Vision/PoseFilteredDist", hubPoseDistanceMeters);
+        Logger.recordOutput("Vision/PoseAngle", hubPoseAngleDegrees);
+        Logger.recordOutput("Vision/PoseHasTarget", hubPoseHasTarget);
+        //
+        // Turret-relative conversion (critical for modes 2/3 — if this is wrong,
+        // pose-based tracking goes to the wrong direction)
+        Logger.recordOutput("Vision/TurretAngle", turretAngleSupplier.getAsDouble());
+        Logger.recordOutput("Vision/PoseAngleTurretRelative", poseAngleTurretRelative);
+        //
+        // Blended output (mode 3)
+        Logger.recordOutput("Vision/BlendedAngle", hubBlendedAngleDegrees);
+        Logger.recordOutput("Vision/BlendedDist", hubBlendedDistanceMeters);
+        //
+        // Final output (what the auto-track loop actually consumes)
+        Logger.recordOutput("Vision/Mode", visionMode);
+        Logger.recordOutput("Vision/OutputAngle", getHubAngle());
+        Logger.recordOutput("Vision/OutputDist", getHubDistance());
+        Logger.recordOutput("Vision/OutputVisible", isHubVisible());
+        Logger.recordOutput("Vision/OutputFresh", isTrackingDataFresh());
+        Logger.recordOutput("Vision/HubTagCount", hubVisibleTagCount);
+
+        // ==================== Console log (1 Hz, always active) ====================
+        // Human-readable summary for RioLog / driver station quick check.
+        {
+            double now2 = Timer.getFPGATimestamp();
+            if (now2 - lastLogTimestamp >= 1.0) {
+                lastLogTimestamp = now2;
                 String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;
                 System.out.printf(
-                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d id=%d lastA=%.2f) pose=%s dist=%.2f/%.2f ang=%.1f/%.1f tier=%d tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
+                    "[Vision] mode=%s cam=%s(seen=%d ambig=%d notHub=%d lastA=%.2f) "
+                    + "pose=%s dist=%.2f/%.2f ang=%.1f/%.1f "
+                    + "poseRel=%.1f turretAng=%.1f "
+                    + "blend=%.1f/%.2f out=%.1f/%.2f "
+                    + "tags=%d pose=(%.1f,%.1f,%.0f°) hub=(%.1f,%.1f)%n",
                     modeName,
-                    hubCamHasTarget ? "T" : "F", diagTagsSeen, diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
+                    hubCamHasTarget ? "T" : "F", diagTagsSeen,
+                    diagTagsRejectedAmbiguity, diagTagsRejectedNotHub, diagLastAmbiguity,
                     hubPoseHasTarget ? "T" : "F",
                     hubCamDistanceMeters, hubPoseDistanceMeters,
                     hubCamAngleDegrees, hubPoseAngleDegrees,
-                    tier, hubVisibleTagCount,
-                    p.getX(), p.getY(), p.getRotation().getDegrees(),
+                    poseAngleTurretRelative, turretAngleSupplier.getAsDouble(),
+                    hubBlendedAngleDegrees, hubBlendedDistanceMeters,
+                    getHubAngle(), getHubDistance(),
+                    hubVisibleTagCount,
+                    currentPose.getX(), currentPose.getY(),
+                    currentPose.getRotation().getDegrees(),
                     hc.getX(), hc.getY());
             }
         }
@@ -542,6 +603,7 @@ public class VisionSubsystem extends SubsystemBase {
         cam.getEstimatedGlobalPose();
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
+        // Sim debug logging (1 Hz)
         if (RobotBase.isSimulation() && System.currentTimeMillis() % 1000 < 20) {
             int nTargets = resultOpt.isPresent() && resultOpt.get().hasTargets() ? resultOpt.get().getTargets().size() : 0;
             StringBuilder tagIds = new StringBuilder();
@@ -551,6 +613,16 @@ public class VisionSubsystem extends SubsystemBase {
             System.out.printf("[VISION-DBG] targets=%d ids=[%s] hubCamHas=%s sticky=%s holdoff=%d turretAngle=%.1f%n",
                 nTargets, tagIds.toString().trim(), hubCamHasTarget, hubCamSticky, hubCamHoldoffCounter,
                 turretAngleSupplier.getAsDouble());
+        }
+
+        // Camera health: track last time we got any result
+        double now = Timer.getFPGATimestamp();
+        if (resultOpt.isPresent()) {
+            lastCameraResultTime = now;
+            cameraOnline = true;
+        } else if (lastCameraResultTime > 0
+                && now - lastCameraResultTime > VisionConstants.kCameraOfflineThresholdSeconds) {
+            cameraOnline = false;
         }
 
         if (resultOpt.isEmpty() || !resultOpt.get().hasTargets()) {
@@ -663,6 +735,17 @@ public class VisionSubsystem extends SubsystemBase {
         return visionMode == 0 ? hubCamSticky : hubPoseHasTarget;
     }
 
+    /** Mode-aware freshness: camera-only modes require actual detection per frame;
+     *  blended/pose modes treat pose data as always fresh. */
+    public boolean isTrackingDataFresh() {
+        if (visionMode == 0) return hubCamHasTarget;
+        return isHubVisible();
+    }
+
+    /** Whether the camera pipeline is online (receiving results, even if no tags visible).
+     *  False means USB disconnect, driver crash, or pipeline failure. */
+    public boolean isCameraOnline() { return cameraOnline; }
+
     // ==================== Hub Approach A Getters (camera-only) ====================
 
     public double getHubCamDistance() { return hubCamDistanceMeters; }
@@ -671,13 +754,6 @@ public class VisionSubsystem extends SubsystemBase {
     public boolean isHubCamVisible() { return hubCamSticky; }
     /** Raw per-frame detection — true only when PV actually sees hub tags this frame. */
     public boolean isHubCamFresh() { return hubCamHasTarget; }
-
-    /** Mode-aware freshness: camera-only modes require actual detection per frame;
-     *  blended/pose modes treat pose data as always fresh. */
-    public boolean isTrackingDataFresh() {
-        if (visionMode == 0) return hubCamHasTarget;
-        return isHubVisible();
-    }
 
     // ==================== Hub Approach B Getters (pose-based) ====================
 

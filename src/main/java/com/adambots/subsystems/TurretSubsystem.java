@@ -659,11 +659,13 @@ public class TurretSubsystem extends SubsystemBase {
 
         // Mutable state for the lock phase
         boolean[] locked = { false };
+        double[] smoothedAngle = { TurretConstants.kTurretForwardDegrees };
 
         return Commands.runOnce(() -> {
             holdAngleDegrees = getTurretAngleDegrees();
             scanDirection = 1;
             locked[0] = false;
+            smoothedAngle[0] = getTurretAngleDegrees();
         }, this)
         .andThen(run(() -> {
             if (handleManualJog(manualJogInput)) return;
@@ -719,8 +721,11 @@ public class TurretSubsystem extends SubsystemBase {
                 } else {
                     trackingMode = TrackingMode.CAMERA;
                     locked[0] = true;
-                    setTurretAngle(clampedAngle);
-                    lastTrackAction = String.format("TRACK %.1f°", clampedAngle);
+                    // Low-pass filter: smooth the command to reduce MM trajectory
+                    // restarts. 0.3 = 30% new target per cycle → settles in ~5 cycles (100ms).
+                    smoothedAngle[0] += (clampedAngle - smoothedAngle[0]) * 0.3;
+                    setTurretAngle(smoothedAngle[0]);
+                    lastTrackAction = String.format("TRACK %.1f°", smoothedAngle[0]);
                 }
             } else {
                 // No valid pose (at origin) — slow sweep until odom cameras initialize

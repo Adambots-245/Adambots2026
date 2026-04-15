@@ -182,6 +182,33 @@ public class TurretSubsystem extends SubsystemBase {
         return false;
     }
 
+    // ==================== Pose-to-Turret Conversion ====================
+
+    /**
+     * Converts a robot-relative bearing (from getYawToPoint) to a turret angle.
+     * The shooter/camera faces backward, so hub at ±180° robot-relative
+     * maps to turret forward (kTurretForwardDegrees).
+     *
+     * @param poseAngleDeg robot-relative bearing to hub (0°=front, ±180°=back)
+     * @return turret angle in degrees [0, kTurretMaxDegrees]
+     */
+    /**
+     * Converts a robot-relative bearing to the hub into a turret angle.
+     * The shooter/camera faces backward, so hub at ±180° robot-relative
+     * maps to turret forward (kTurretForwardDegrees = 99°).
+     *
+     * <p>The result is NOT clamped — callers should clamp to [0, kTurretMaxDegrees].
+     * Out-of-range values indicate the hub is unreachable by the turret.
+     */
+    static double poseAngleToTurretAngle(double poseAngleDeg) {
+        double raw = TurretConstants.kTurretForwardDegrees + poseAngleDeg - 180.0;
+        // Normalize result to be near the turret's valid range.
+        // Turret range is roughly [0, 256]. Center on kTurretForwardDegrees (99°).
+        while (raw > TurretConstants.kTurretForwardDegrees + 180) raw -= 360;
+        while (raw < TurretConstants.kTurretForwardDegrees - 180) raw += 360;
+        return raw;
+    }
+
     // ==================== Turret Control ====================
 
     public void setTurretAngle(double degrees) {
@@ -553,11 +580,12 @@ public class TurretSubsystem extends SubsystemBase {
             } else {
                 // === HUB NOT VISIBLE ===
                 if (hubPoseValid.getAsBoolean()) {
-                    // Pose available: point turret toward hub bearing
+                    // Pose available: point turret toward hub bearing.
+                    // poseAngle is robot-relative (0°=front, ±180°=back).
+                    // Camera/shooter faces backward, so hub at 180° = turret forward.
                     trackingMode = TrackingMode.CAMERA;
                     double bearing = hubPoseAngle.getAsDouble();
-                    // Convert robot-relative bearing to turret angle
-                    double turretTarget = TurretConstants.kTurretForwardDegrees + bearing;
+                    double turretTarget = poseAngleToTurretAngle(bearing);
                     turretTarget = MathUtil.clamp(turretTarget, 0, TurretConstants.kTurretMaxDegrees);
                     setTurretAngle(turretTarget);
                     lastTrackAction = String.format("POSE aim=%.1f", turretTarget);
@@ -584,6 +612,134 @@ public class TurretSubsystem extends SubsystemBase {
             holdAngleDegrees = getTurretAngleDegrees();
         })
         .withName("Simple Track");
+    }
+
+    // ==================== Pose-Lock Tracker Command ====================
+
+    /**
+     * Pose-lock tracker — uses odometry + gyro for smooth continuous tracking,
+     * camera only needed to acquire and refine.
+     *
+     * <p><b>Phase 1 (Acquire):</b> Use pose-based bearing to point turret at
+     * the hub. If pose is unavailable, slow sweep. Once camera sees the hub,
+     * record the world-frame hub position and transition to Phase 2.
+     *
+     * <p><b>Phase 2 (Lock):</b> Continuously compute turret angle from
+     * {@code atan2(hubY - robotY, hubX - robotX) - robotHeading}. This runs
+     * at the control loop rate (50 Hz from gyro/odometry), not the camera
+     * rate. Result: smooth, continuous motion with no stepping or jitter.
+     *
+     * <p><b>Refine:</b> When fresh camera frames arrive, use the small camYaw
+     * offset to correct drift in the locked hub position.
+     *
+     * @param cameraYaw      turret-relative camera yaw offset (degrees)
+     * @param hubVisible     sticky hub visibility
+     * @param hubFresh       true only on frames with fresh camera data
+     * @param poseSupplier   robot pose (for bearing computation)
+     * @param hubCenter      hub center position on the field
+     * @param manualJogInput raw joystick axis [-1, 1] for manual override
+     */
+    public Command poseTrackCommand(
+            DoubleSupplier cameraYaw,
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh,
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier,
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Translation2d> hubCenter,
+            DoubleSupplier manualJogInput) {
+
+        // Mutable state for the lock phase
+        boolean[] locked = { false };
+
+        return Commands.runOnce(() -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+            scanDirection = 1;
+            locked[0] = false;
+        }, this)
+        .andThen(run(() -> {
+            if (handleManualJog(manualJogInput)) return;
+
+            double currentAngle = getTurretAngleDegrees();
+            var pose = poseSupplier.get();
+            var hub = hubCenter.get();
+
+            // Compute pose-based turret angle (runs every cycle at 50 Hz)
+            double dx = hub.getX() - pose.getX();
+            double dy = hub.getY() - pose.getY();
+            double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+            double robotHeading = pose.getRotation().getDegrees();
+            double robotRelative = worldBearing - robotHeading;
+            double poseTurretAngle = poseAngleToTurretAngle(robotRelative);
+
+            if (hubVisible.getAsBoolean() && hubFresh.getAsBoolean()) {
+                // Camera sees hub with fresh data — we can lock or refine
+                locked[0] = true;
+                trackingMode = TrackingMode.CAMERA;
+
+                // Refine: use camYaw to correct the pose-based angle.
+                // Small camYaw means pose is accurate; large means drift.
+                // Blend: 80% pose, 20% camera correction for stability.
+                double camYaw = cameraYaw.getAsDouble();
+                double correctedAngle = poseTurretAngle + camYaw * 0.2;
+                correctedAngle = MathUtil.clamp(correctedAngle, 0, TurretConstants.kTurretMaxDegrees);
+                setTurretAngle(correctedAngle);
+                lastTrackAction = String.format("LOCK+CAM %.1f° yaw=%.1f", correctedAngle, camYaw);
+
+            } else if (locked[0]) {
+                // Locked but no fresh camera — use pure pose (smooth, 50 Hz)
+                trackingMode = TrackingMode.CAMERA;
+                double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
+
+                // If pose points outside turret range, we've lost the lock
+                if (poseTurretAngle < -10 || poseTurretAngle > TurretConstants.kTurretMaxDegrees + 10) {
+                    locked[0] = false;
+                    lastTrackAction = "LOCK LOST (out of range)";
+                } else {
+                    setTurretAngle(clampedAngle);
+                    lastTrackAction = String.format("LOCK %.1f°", clampedAngle);
+                }
+
+            } else if (hubVisible.getAsBoolean()) {
+                // Hub visible but stale — use pose to aim, wait for fresh frame to lock
+                trackingMode = TrackingMode.CAMERA;
+                double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
+                setTurretAngle(clampedAngle);
+                lastTrackAction = String.format("POSE AIM %.1f°", clampedAngle);
+
+            } else {
+                // Hub not visible, not locked — acquire
+                locked[0] = false;
+
+                // Try pose-based pointing if pose is valid (not at origin)
+                if (pose.getTranslation().getNorm() > 1.0) {
+                    trackingMode = TrackingMode.CAMERA;
+                    double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
+                    setTurretAngle(clampedAngle);
+                    lastTrackAction = String.format("ACQUIRE pose=%.1f°", clampedAngle);
+                } else {
+                    // No valid pose — slow sweep
+                    trackingMode = TrackingMode.SWEEP;
+                    if (currentAngle >= TurretConstants.kTurretMaxDegrees
+                            - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                    else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                    turretMotor.set(scanDirection * TurretTrackingConstants.kSimpleTrackSweepPercent);
+                    lastTrackAction = "SWEEP dir=" + scanDirection;
+                }
+            }
+
+            // Logging
+            Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+            Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+            Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+            Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
+            Logger.recordOutput("Turret/Locked", locked[0]);
+            Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
+            Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+        }))
+        .finallyDo(interrupted -> {
+            turretMotor.set(0);
+            holdAngleDegrees = getTurretAngleDegrees();
+        })
+        .withName("Pose Track");
     }
 
     // ==================== Manual Align Command ====================

@@ -216,6 +216,8 @@ public class TurretSubsystem extends SubsystemBase {
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretMotorGearRatio;
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
+        // If MM stutters with pose tracking, switch to plain PID (same gains, no trajectory):
+        // turretMotor.set(ControlMode.POSITION, rotations);
     }
 
     public void stopTurret() {

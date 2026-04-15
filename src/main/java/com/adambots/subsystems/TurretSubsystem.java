@@ -201,9 +201,17 @@ public class TurretSubsystem extends SubsystemBase {
      * Out-of-range values indicate the hub is unreachable by the turret.
      */
     static double poseAngleToTurretAngle(double poseAngleDeg) {
+        // kTurretForwardDegrees (99°) = turret body pointing robot-forward.
+        // The shooter faces BACKWARD on the turret (180° from turret forward).
+        // poseAngleDeg = robot-relative bearing to hub (0°=front, ±180°=back).
+        //
+        // To aim the SHOOTER at the hub:
+        //   Hub in front (0°) → turret backward (-81°) → out of range (correct)
+        //   Hub behind (180°) → turret forward (99°) → shooter aims at hub (correct)
+        //
+        // The -180° converts from "where turret body points" to "where shooter aims".
         double raw = TurretConstants.kTurretForwardDegrees + poseAngleDeg - 180.0;
         // Normalize result to be near the turret's valid range.
-        // Turret range is roughly [0, 256]. Center on kTurretForwardDegrees (99°).
         while (raw > TurretConstants.kTurretForwardDegrees + 180) raw -= 360;
         while (raw < TurretConstants.kTurretForwardDegrees - 180) raw += 360;
         return raw;
@@ -660,6 +668,18 @@ public class TurretSubsystem extends SubsystemBase {
         .andThen(run(() -> {
             if (handleManualJog(manualJogInput)) return;
 
+            // Auto-track toggle (Button 5) — same as autoTrackCommand
+            if (!autoTrackEnabled) {
+                if (wasAutoTracking) {
+                    holdAngleDegrees = getTurretAngleDegrees();
+                    wasAutoTracking = false;
+                }
+                trackingMode = TrackingMode.HOLD;
+                setTurretAngle(holdAngleDegrees);
+                return;
+            }
+            wasAutoTracking = true;
+
             double currentAngle = getTurretAngleDegrees();
             var pose = poseSupplier.get();
             var hub = hubCenter.get();
@@ -718,6 +738,9 @@ public class TurretSubsystem extends SubsystemBase {
             Logger.recordOutput("Turret/TrackAction", lastTrackAction);
             Logger.recordOutput("Turret/CurrentAngle", currentAngle);
             Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
+            Logger.recordOutput("Turret/WorldBearing", worldBearing);
+            Logger.recordOutput("Turret/RobotRelative", robotRelative);
+            Logger.recordOutput("Turret/RobotHeading", robotHeading);
             Logger.recordOutput("Turret/Locked", locked[0]);
             Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
             Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());

@@ -246,6 +246,15 @@ public final class Constants {
         /** Frames to hold at forward before allowing sweep on startup.
          *  Gives vision time to initialize and detect hub tags. */
         public static final int kSweepWarmupFrames = 0;  // was 50 — 1 second delay before sweep, now starts immediately
+
+        // ==================== Simple Tracker ====================
+        /** Proportional gain: percent output per degree of camera yaw.
+         *  K=0.003: 10° → 3% output → ~32°/s turret speed. */
+        public static final double kSimpleTrackK = 0.008;
+        /** Max percent output during simple tracking. */
+        public static final double kSimpleTrackMaxPercent = 0.25;
+        /** Slow sweep percent output for when hub is not visible and no pose. */
+        public static final double kSimpleTrackSweepPercent = 0.08;
     }
 
     // ==================== HopperConstants ====================

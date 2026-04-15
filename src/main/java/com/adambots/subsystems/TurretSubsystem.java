@@ -488,6 +488,112 @@ public class TurretSubsystem extends SubsystemBase {
         .withName("Auto Track Hub");
     }
 
+    // ==================== Simple Tracker Command ====================
+
+    /**
+     * Simple proportional tracker — minimal complexity, one tuning knob (K).
+     *
+     * <p>When hub camera has a fresh frame: apply {@code camYaw * K} as percent
+     * output. The turret moves proportionally to the offset and stops naturally
+     * as it centers on the hub. When stale: output zero, planetary holds position.
+     *
+     * <p>When hub is not visible: use pose-based bearing to point the turret
+     * toward the hub (one-shot Motion Magic), or slow sweep if no pose available.
+     *
+     * @param cameraYaw    turret-relative camera yaw offset (degrees)
+     * @param hubVisible   sticky hub visibility
+     * @param hubFresh     true only on frames with fresh camera data
+     * @param hubPoseAngle pose-based bearing to hub (degrees, robot-relative)
+     * @param hubPoseValid whether pose-based bearing is available
+     * @param manualJogInput raw joystick axis [-1, 1] for manual override
+     */
+    public Command simpleTrackCommand(
+            DoubleSupplier cameraYaw,
+            BooleanSupplier hubVisible,
+            BooleanSupplier hubFresh,
+            DoubleSupplier hubPoseAngle,
+            BooleanSupplier hubPoseValid,
+            DoubleSupplier manualJogInput) {
+
+        return Commands.runOnce(() -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+            scanDirection = 1;
+        }, this)
+        .andThen(run(() -> {
+            // Manual jog override — always available
+            double jogRaw = manualJogInput.getAsDouble();
+            double jogDeadbanded = MathUtil.applyDeadband(jogRaw, TurretConstants.kTurretJogDeadband);
+            if (jogDeadbanded != 0.0) {
+                double jogOutput = Math.copySign(jogDeadbanded * jogDeadbanded, jogDeadbanded)
+                    * TurretConstants.kTurretJogMaxPercent;
+                turretMotor.set(jogOutput);
+                trackingMode = TrackingMode.JOG;
+                lastTrackAction = String.format("JOG %.0f%%", jogOutput * 100);
+                holdAngleDegrees = getTurretAngleDegrees();
+                return;
+            }
+            if (trackingMode == TrackingMode.JOG) {
+                holdAngleDegrees = getTurretAngleDegrees();
+                trackingMode = TrackingMode.HOLD;
+            }
+
+            double currentAngle = getTurretAngleDegrees();
+
+            if (hubVisible.getAsBoolean()) {
+                // === HUB VISIBLE ===
+                trackingMode = TrackingMode.CAMERA;
+
+                if (hubFresh.getAsBoolean()) {
+                    // Fresh frame: proportional percent output
+                    double camYaw = cameraYaw.getAsDouble();
+                    double output = camYaw * TurretTrackingConstants.kSimpleTrackK;
+                    output = MathUtil.clamp(output,
+                        -TurretTrackingConstants.kSimpleTrackMaxPercent,
+                         TurretTrackingConstants.kSimpleTrackMaxPercent);
+                    turretMotor.set(output);
+                    holdAngleDegrees = currentAngle;
+                    lastTrackAction = String.format("TRACK %.1f%% yaw=%.1f", output * 100, camYaw);
+                } else {
+                    // Stale frame: stop motor, planetary holds position
+                    turretMotor.set(0);
+                    lastTrackAction = "HOLD";
+                }
+            } else {
+                // === HUB NOT VISIBLE ===
+                if (hubPoseValid.getAsBoolean()) {
+                    // Pose available: point turret toward hub bearing
+                    trackingMode = TrackingMode.CAMERA;
+                    double bearing = hubPoseAngle.getAsDouble();
+                    // Convert robot-relative bearing to turret angle
+                    double turretTarget = TurretConstants.kTurretForwardDegrees + bearing;
+                    turretTarget = MathUtil.clamp(turretTarget, 0, TurretConstants.kTurretMaxDegrees);
+                    setTurretAngle(turretTarget);
+                    lastTrackAction = String.format("POSE aim=%.1f", turretTarget);
+                } else {
+                    // No pose: slow sweep
+                    trackingMode = TrackingMode.SWEEP;
+                    if (currentAngle >= TurretConstants.kTurretMaxDegrees
+                            - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                    else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                    turretMotor.set(scanDirection * TurretTrackingConstants.kSimpleTrackSweepPercent);
+                    lastTrackAction = "SWEEP dir=" + scanDirection;
+                }
+            }
+
+            // Logging
+            Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+            Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+            Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+            Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
+            Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+        }))
+        .finallyDo(interrupted -> {
+            turretMotor.set(0);
+            holdAngleDegrees = getTurretAngleDegrees();
+        })
+        .withName("Simple Track");
+    }
+
     // ==================== Manual Align Command ====================
 
     /**

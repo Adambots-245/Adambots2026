@@ -259,13 +259,13 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.30;
+        public static final double kHopperSpeed = 0.40;  // was 0.30 — more torque to prevent jam stalls
         public static final double kUptakeSpeed = 0.70;
 
         // Jam detection
-        public static final double kJamVelocityThreshold = 0.5; // RPS — agitator below this = jammed
-        public static final double kJamReverseDuration = 0.5;    // seconds to reverse when jam detected
-        public static final double kJamGracePeriod = 0.25;       // seconds before jam detection activates after feed starts
+        public static final double kJamVelocityThreshold = 2.0;  // was 0.5 — detect jams earlier before full stall
+        public static final double kJamReverseDuration = 0.5;     // seconds to reverse when jam detected
+        public static final double kJamGracePeriod = 0.50;        // was 0.25 — longer grace prevents buzz loop re-trigger
 
         // Current limits
         public static final double kHopperSupplyCurrentLimit = 50.0;

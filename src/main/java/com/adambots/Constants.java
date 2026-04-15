@@ -418,6 +418,14 @@ public final class Constants {
         /** Blue alliance HUB tags - primary targets for scoring */
         public static final int[] kBlueHubTags = {18, 19, 20, 21, 24, 25, 26, 27};
 
+        /** Hardcoded hub center coordinates from official WPILib 2026 field layout.
+         *  Derived from geometric center of all hub tag positions in 2026-rebuilt-welded.json.
+         *  Using hardcoded values eliminates field-to-field tag placement variation. */
+        public static final double kRedHubCenterX = 12.004;
+        public static final double kRedHubCenterY = 4.035;
+        public static final double kBlueHubCenterX = 4.537;
+        public static final double kBlueHubCenterY = 4.035;
+
         /** Red alliance TOWER BACKBOARD tags (for climb alignment and pose estimation) */
         public static final int[] kRedTowerTags = {15, 16};
 

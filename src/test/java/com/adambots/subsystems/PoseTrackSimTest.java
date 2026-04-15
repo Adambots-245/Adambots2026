@@ -353,23 +353,66 @@ class PoseTrackSimTest {
     }
 
     @Test
-    void testLockRefinement_smallCamYaw() {
-        // When locked, a small camYaw (2°) should only adjust by 20% (0.4°)
-        double poseTurretAngle = 99.0;
-        double camYaw = 2.0;
-        double correctedAngle = poseTurretAngle + camYaw * 0.2;
-        assertEquals(99.4, correctedAngle, 0.01,
-            "2° camYaw should refine by 0.4° (20% blend)");
+    void testHardcodedHubCenters() {
+        // Verify hardcoded hub centers match expected positions from WPILib field layout
+        assertEquals(12.004, com.adambots.Constants.VisionConstants.kRedHubCenterX, 0.01,
+            "Red hub X should be ~12.004m");
+        assertEquals(4.035, com.adambots.Constants.VisionConstants.kRedHubCenterY, 0.01,
+            "Red hub Y should be ~4.035m (field center)");
+        assertEquals(4.537, com.adambots.Constants.VisionConstants.kBlueHubCenterX, 0.01,
+            "Blue hub X should be ~4.537m");
+        assertEquals(4.035, com.adambots.Constants.VisionConstants.kBlueHubCenterY, 0.01,
+            "Blue hub Y should be ~4.035m (field center)");
     }
 
     @Test
-    void testLockRefinement_largeCamYaw() {
-        // Large camYaw (15°) — indicates pose drift, correct by 3°
-        double poseTurretAngle = 99.0;
-        double camYaw = 15.0;
-        double correctedAngle = poseTurretAngle + camYaw * 0.2;
-        assertEquals(102.0, correctedAngle, 0.01,
-            "15° camYaw should refine by 3° (20% blend)");
+    void testPurePoseTracking_noCameraBlend() {
+        // Pure pose tracking: turret angle should equal poseAngleToTurretAngle
+        // with no camera correction applied
+        double poseAngle = 170.0;  // hub slightly left of behind
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(poseAngle);
+        assertEquals(89.0, turretAngle, 0.01,
+            "Pure pose: 170° relative should give exactly 89° turret (no blend)");
+    }
+
+    @Test
+    void testFullPipeline_redHub_hardcoded() {
+        // Full pipeline using hardcoded red hub center
+        double hubX = 12.004, hubY = 4.035;
+        double robotX = 14.0, robotY = 4.0;
+        double robotHeading = 0.0;  // facing +X, back toward hub
+
+        double dx = hubX - robotX;
+        double dy = hubY - robotY;
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+        double robotRelative = worldBearing - robotHeading;
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub is almost directly behind → turret near forward
+        assertTrue(turretAngle > 95 && turretAngle < 103,
+            "Red hub from (14,4) heading 0° should give turret ~99°, was " + turretAngle);
+        System.out.printf("Red hub hardcoded: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
+    }
+
+    @Test
+    void testFullPipeline_blueHub_hardcoded() {
+        // Full pipeline using hardcoded blue hub center
+        double hubX = 4.537, hubY = 4.035;
+        double robotX = 2.0, robotY = 4.0;
+        double robotHeading = 180.0;  // facing -X (toward blue wall), back toward hub
+
+        double dx = hubX - robotX;
+        double dy = hubY - robotY;
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+        double robotRelative = worldBearing - robotHeading;
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub is behind → turret near forward
+        assertTrue(turretAngle > 95 && turretAngle < 103,
+            "Blue hub from (2,4) heading 180° should give turret ~99°, was " + turretAngle);
+        System.out.printf("Blue hub hardcoded: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
     }
 
     @Test

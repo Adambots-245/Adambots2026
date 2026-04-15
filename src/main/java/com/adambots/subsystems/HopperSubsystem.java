@@ -104,6 +104,11 @@ public class HopperSubsystem extends SubsystemBase {
         //
         boolean currentlyFeeding = hopperMotor.getOutputPercent() > 0;
 
+        if (!HopperConstants.kJamDetectionEnabled) {
+            wasFeedingLastCycle = currentlyFeeding;
+            return;
+        }
+
         // --- REVERSING state: motors are running backward to clear a jam ---
         if (reversing) {
             if (reverseTimer.hasElapsed(HopperConstants.kJamReverseDuration)) {

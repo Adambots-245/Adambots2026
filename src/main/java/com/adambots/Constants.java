@@ -262,7 +262,8 @@ public final class Constants {
         public static final double kHopperSpeed = 0.40;  // was 0.30 — more torque to prevent jam stalls
         public static final double kUptakeSpeed = 0.70;
 
-        // Jam detection
+        // Jam detection (set kJamDetectionEnabled = false to disable entirely)
+        public static final boolean kJamDetectionEnabled = true;
         public static final double kJamVelocityThreshold = 0.5;  // RPS — true stall (near zero)
         public static final double kJamStallDuration = 0.3;       // seconds velocity must stay below threshold to confirm jam
         public static final double kJamReverseDuration = 0.5;     // seconds to reverse when jam confirmed

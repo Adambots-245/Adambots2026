@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecondPerSecond;
 import static edu.wpi.first.units.Units.Degrees;
 
 import com.adambots.Constants;
+import com.adambots.Constants.SimulationConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.TurretTrackingConstants;
 import com.adambots.lib.actuators.BaseMotor;
@@ -17,6 +18,9 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -70,6 +74,10 @@ public class TurretSubsystem extends SubsystemBase {
     private double lastTrackLogTime = 0;
     private String lastTrackAction = "INIT";
 
+    // Simulation
+    private SingleJointedArmSim turretSim;
+    private int simDebugCounter = 0;
+
     public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
         this.turretMotor = turretMotor;
         this.turretPot = turretPot;
@@ -79,6 +87,10 @@ public class TurretSubsystem extends SubsystemBase {
         double absoluteDeg = getPotAngleDegrees();
         double rotations = (absoluteDeg / 360.0) * TurretConstants.kTurretMotorGearRatio;
         turretMotor.setPosition(rotations);
+
+        if (RobotBase.isSimulation()) {
+            setupSimulation();
+        }
     }
 
     private void configureMotors() {
@@ -153,6 +165,47 @@ public class TurretSubsystem extends SubsystemBase {
                 RotationsPerSecondPerSecond.of(accelRPSPerSec),
                 0)
             .apply();
+    }
+
+    // ==================== Simulation ====================
+
+    private void setupSimulation() {
+        turretSim = new SingleJointedArmSim(
+            DCMotor.getKrakenX60Foc(1),
+            TurretConstants.kTurretMotorGearRatio,
+            SimulationConstants.kTurretMOI,
+            0.3, // arm length (visual only)
+            Math.toRadians(-TurretConstants.kTurretMaxDegrees),
+            Math.toRadians(TurretConstants.kTurretMaxDegrees),
+            false, // no gravity for horizontal turret
+            0.0);
+        // Seed encoder so turret starts at forward position
+        double fwdRot = (TurretConstants.kTurretForwardDegrees / 360.0) * TurretConstants.kTurretMotorGearRatio;
+        turretMotor.setPosition(fwdRot);
+        holdAngleDegrees = TurretConstants.kTurretForwardDegrees;
+        System.out.printf("[TURRET-SIM] Initialized at forward=%.1f° (%.4f rot)%n",
+            TurretConstants.kTurretForwardDegrees, fwdRot);
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        if (turretSim == null) return;
+
+        double voltage = turretMotor.getSimMotorVoltage();
+        turretSim.setInputVoltage(voltage);
+        turretSim.update(0.02);
+
+        double simAngleDeg = Math.toDegrees(turretSim.getAngleRads());
+        double angleRot = (simAngleDeg / 360.0) * TurretConstants.kTurretMotorGearRatio;
+        double velRotPerSec = Math.toDegrees(turretSim.getVelocityRadPerSec())
+            / 360.0 * TurretConstants.kTurretMotorGearRatio;
+        turretMotor.setSimPosition(angleRot);
+        turretMotor.setSimVelocity(velRotPerSec);
+
+        if (simDebugCounter++ % 50 == 0) {
+            System.out.printf("[TURRET-SIM] voltage=%.2f simAngle=%.1f encoderAngle=%.1f%n",
+                voltage, simAngleDeg, getTurretAngleDegrees());
+        }
     }
 
     // ==================== Manual Jog Helper ====================

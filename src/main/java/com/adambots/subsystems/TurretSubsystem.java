@@ -269,6 +269,8 @@ public class TurretSubsystem extends SubsystemBase {
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretMotorGearRatio;
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
+        // If MM stutters with pose tracking, switch to plain PID (same gains, no trajectory):
+        // turretMotor.set(ControlMode.POSITION, rotations);
     }
 
     public void stopTurret() {
@@ -723,60 +725,34 @@ public class TurretSubsystem extends SubsystemBase {
             double robotRelative = worldBearing - robotHeading;
             double poseTurretAngle = poseAngleToTurretAngle(robotRelative);
 
-            if (hubVisible.getAsBoolean() && hubFresh.getAsBoolean()) {
-                // Camera sees hub with fresh data — we can lock or refine
-                locked[0] = true;
-                trackingMode = TrackingMode.CAMERA;
-
-                // Refine: use camYaw to correct the pose-based angle.
-                // Small camYaw means pose is accurate; large means drift.
-                // Blend: 80% pose, 20% camera correction for stability.
-                double camYaw = cameraYaw.getAsDouble();
-                double correctedAngle = poseTurretAngle + camYaw * 0.2;
-                correctedAngle = MathUtil.clamp(correctedAngle, 0, TurretConstants.kTurretMaxDegrees);
-                setTurretAngle(correctedAngle);
-                lastTrackAction = String.format("LOCK+CAM %.1f° yaw=%.1f", correctedAngle, camYaw);
-
-            } else if (locked[0]) {
-                // Locked but no fresh camera — use pure pose (smooth, 50 Hz)
-                trackingMode = TrackingMode.CAMERA;
+            // Pure pose-based tracking: always point at the hardcoded hub center.
+            // No camera blending — the hub center is a known field coordinate,
+            // and the pose (from gyro + 3 odom cameras) is the most accurate
+            // bearing source. Camera is only used to confirm hub visibility.
+            if (pose.getTranslation().getNorm() > 1.0) {
+                // Valid pose — point at hub center
                 double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
 
-                // If pose points outside turret range, we've lost the lock
                 if (poseTurretAngle < -10 || poseTurretAngle > TurretConstants.kTurretMaxDegrees + 10) {
-                    locked[0] = false;
-                    lastTrackAction = "LOCK LOST (out of range)";
+                    // Hub is unreachable (in front of robot) — face forward
+                    trackingMode = TrackingMode.HOLD;
+                    setTurretAngle(TurretConstants.kTurretForwardDegrees);
+                    lastTrackAction = "OUT OF RANGE";
                 } else {
-                    setTurretAngle(clampedAngle);
-                    lastTrackAction = String.format("LOCK %.1f°", clampedAngle);
-                }
-
-            } else if (hubVisible.getAsBoolean()) {
-                // Hub visible but stale — use pose to aim, wait for fresh frame to lock
-                trackingMode = TrackingMode.CAMERA;
-                double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
-                setTurretAngle(clampedAngle);
-                lastTrackAction = String.format("POSE AIM %.1f°", clampedAngle);
-
-            } else {
-                // Hub not visible, not locked — acquire
-                locked[0] = false;
-
-                // Try pose-based pointing if pose is valid (not at origin)
-                if (pose.getTranslation().getNorm() > 1.0) {
                     trackingMode = TrackingMode.CAMERA;
-                    double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
+                    locked[0] = true;
                     setTurretAngle(clampedAngle);
-                    lastTrackAction = String.format("ACQUIRE pose=%.1f°", clampedAngle);
-                } else {
-                    // No valid pose — slow sweep
-                    trackingMode = TrackingMode.SWEEP;
-                    if (currentAngle >= TurretConstants.kTurretMaxDegrees
-                            - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
-                    else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
-                    turretMotor.set(scanDirection * TurretTrackingConstants.kSimpleTrackSweepPercent);
-                    lastTrackAction = "SWEEP dir=" + scanDirection;
+                    lastTrackAction = String.format("TRACK %.1f°", clampedAngle);
                 }
+            } else {
+                // No valid pose (at origin) — slow sweep until odom cameras initialize
+                locked[0] = false;
+                trackingMode = TrackingMode.SWEEP;
+                if (currentAngle >= TurretConstants.kTurretMaxDegrees
+                        - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                turretMotor.set(scanDirection * TurretTrackingConstants.kSimpleTrackSweepPercent);
+                lastTrackAction = "SWEEP dir=" + scanDirection;
             }
 
             // Logging

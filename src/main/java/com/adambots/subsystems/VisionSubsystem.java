@@ -766,9 +766,13 @@ public class VisionSubsystem extends SubsystemBase {
     /** Number of hub tags currently visible. */
     public int getHubVisibleTagCount() { return hubVisibleTagCount; }
 
-    /** Returns the hub center for the current alliance. */
+    /** Returns the hub center for the current alliance.
+     *  Uses hardcoded coordinates from official field layout to eliminate
+     *  field-to-field tag placement variation. */
     public Translation2d getHubCenter() {
-        return Utils.isOnRedAlliance() ? redHubCenter : blueHubCenter;
+        return Utils.isOnRedAlliance()
+            ? new Translation2d(VisionConstants.kRedHubCenterX, VisionConstants.kRedHubCenterY)
+            : new Translation2d(VisionConstants.kBlueHubCenterX, VisionConstants.kBlueHubCenterY);
     }
 
     // ==================== Generic Tag Visibility (any tag group) ====================

@@ -201,16 +201,17 @@ public class TurretSubsystem extends SubsystemBase {
      * Out-of-range values indicate the hub is unreachable by the turret.
      */
     static double poseAngleToTurretAngle(double poseAngleDeg) {
-        // kTurretForwardDegrees (99°) = turret body pointing robot-forward.
-        // The shooter faces BACKWARD on the turret (180° from turret forward).
-        // poseAngleDeg = robot-relative bearing to hub (0°=front, ±180°=back).
+        // kTurretForwardDegrees (99°) = shooter points straight back (toward hub).
+        // Turret rotation is OPPOSITE to WPILib bearing convention:
+        //   WPILib: +angle = CCW (left)
+        //   Turret: +angle = toward left (viewed from back), which is CCW from back
         //
-        // To aim the SHOOTER at the hub:
-        //   Hub in front (0°) → turret backward (-81°) → out of range (correct)
-        //   Hub behind (180°) → turret forward (99°) → shooter aims at hub (correct)
-        //
-        // The -180° converts from "where turret body points" to "where shooter aims".
-        double raw = TurretConstants.kTurretForwardDegrees + poseAngleDeg - 180.0;
+        // Formula: 99 + (180 - robotRelative) = 279 - robotRelative
+        //   Hub behind (180°) → 279 - 180 = 99° → straight back ✓
+        //   Hub left   (90°)  → 279 - 90  = 189° → turret left ✓
+        //   Hub right  (-90°) → 279 + 90  = 369° → normalize → 9° → turret right ✓
+        //   Hub front  (0°)   → 279 - 0   = 279° → normalize → -81° → unreachable ✓
+        double raw = TurretConstants.kTurretForwardDegrees + 180.0 - poseAngleDeg;
         // Normalize result to be near the turret's valid range.
         while (raw > TurretConstants.kTurretForwardDegrees + 180) raw -= 360;
         while (raw < TurretConstants.kTurretForwardDegrees - 180) raw += 360;
@@ -224,7 +225,6 @@ public class TurretSubsystem extends SubsystemBase {
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretMotorGearRatio;
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
-        // If MM stutters with pose tracking, switch to plain PID (same gains, no trajectory):
         // turretMotor.set(ControlMode.POSITION, rotations);
     }
 

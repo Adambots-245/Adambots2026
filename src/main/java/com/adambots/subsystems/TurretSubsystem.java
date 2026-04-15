@@ -669,11 +669,11 @@ public class TurretSubsystem extends SubsystemBase {
             // center introduces aim error at close range (~7° at 1.5m).
             double headingRad = pose.getRotation().getRadians();
             double pivotX = pose.getX()
-                + Constants.VisionConstants.kShooterCameraX * Math.cos(headingRad)
-                - Constants.VisionConstants.kShooterCameraY * Math.sin(headingRad);
+                + TurretConstants.kTurretPivotX * Math.cos(headingRad)
+                - TurretConstants.kTurretPivotY * Math.sin(headingRad);
             double pivotY = pose.getY()
-                + Constants.VisionConstants.kShooterCameraX * Math.sin(headingRad)
-                + Constants.VisionConstants.kShooterCameraY * Math.cos(headingRad);
+                + TurretConstants.kTurretPivotX * Math.sin(headingRad)
+                + TurretConstants.kTurretPivotY * Math.cos(headingRad);
 
             // Compute bearing from turret pivot to hub center
             double dx = hub.getX() - pivotX;

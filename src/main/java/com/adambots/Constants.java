@@ -202,6 +202,13 @@ public final class Constants {
          *  Re-measure after any change to the pot calibration. */
         public static final double kTurretForwardDegrees = 99.0;
 
+        /** Turret pivot offset from robot center (meters).
+         *  X = forward/back (negative = behind center), Y = left/right.
+         *  Measure from swerve module diagonal intersection to ring gear center.
+         *  Using shooter camera position as proxy until measured. */
+        public static final double kTurretPivotX = -0.20;  // ~8 inches behind center
+        public static final double kTurretPivotY = 0.0;    // centered
+
         /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
          *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */
         public static final double kTurretJogPercent = 0.25;  // was 0.10 — need more voltage through 4:1 planetary

@@ -263,8 +263,9 @@ public final class Constants {
         public static final double kUptakeSpeed = 0.70;
 
         // Jam detection
-        public static final double kJamVelocityThreshold = 2.0;  // was 0.5 — detect jams earlier before full stall
-        public static final double kJamReverseDuration = 0.5;     // seconds to reverse when jam detected
+        public static final double kJamVelocityThreshold = 0.5;  // RPS — true stall (near zero)
+        public static final double kJamStallDuration = 0.3;       // seconds velocity must stay below threshold to confirm jam
+        public static final double kJamReverseDuration = 0.5;     // seconds to reverse when jam confirmed
         public static final double kJamGracePeriod = 0.50;        // was 0.25 — longer grace prevents buzz loop re-trigger
 
         // Current limits

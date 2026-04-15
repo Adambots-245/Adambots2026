@@ -178,7 +178,15 @@ public class RobotContainer {
                                         visionSubsystem::getHubPoseAngle,
                                         visionSubsystem::isHubPoseVisible,
                                         xboxJog));
-                        // OLD: Motion Magic auto-track (uncomment to revert)
+                        // OPTION 2: Pose-lock tracker (uncomment to try)
+                        // turret.setDefaultCommand(turret.poseTrackCommand(
+                        //                 visionSubsystem::getHubAngle,
+                        //                 visionSubsystem::isHubVisible,
+                        //                 visionSubsystem::isTrackingDataFresh,
+                        //                 swerve::getPose,
+                        //                 visionSubsystem::getHubCenter,
+                        //                 xboxJog));
+                        // OPTION 3: Motion Magic auto-track (uncomment to revert)
                         // turret.setDefaultCommand(turret.autoTrackCommand(
                         //                 visionSubsystem::getHubAngle,
                         //                 visionSubsystem::isHubVisible,

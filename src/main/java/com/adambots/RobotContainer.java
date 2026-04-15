@@ -165,18 +165,27 @@ public class RobotContainer {
                                                                 InputCurve.CUBIC, true),
                                                 Constants.DriveConstants.kTranslationScale));
 
-                // Turret auto-track: visible → track, not visible → search
+                // Turret tracking: simple proportional tracker
                 if (visionSubsystem != null) {
-                        turret.setDefaultCommand(turret.autoTrackCommand(
+                        var xboxJog = (java.util.function.DoubleSupplier) () -> {
+                                var xbox = Buttons.getXboxController();
+                                return xbox != null ? xbox.getLeftX() : 0.0;
+                        };
+                        turret.setDefaultCommand(turret.simpleTrackCommand(
                                         visionSubsystem::getHubAngle,
                                         visionSubsystem::isHubVisible,
                                         visionSubsystem::isTrackingDataFresh,
-                                        shooter::isInShootingZone,
-                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
-                                        () -> {
-                                                var xbox = Buttons.getXboxController();
-                                                return xbox != null ? xbox.getLeftX() : 0.0;
-                                        }));
+                                        visionSubsystem::getHubPoseAngle,
+                                        visionSubsystem::isHubPoseVisible,
+                                        xboxJog));
+                        // OLD: Motion Magic auto-track (uncomment to revert)
+                        // turret.setDefaultCommand(turret.autoTrackCommand(
+                        //                 visionSubsystem::getHubAngle,
+                        //                 visionSubsystem::isHubVisible,
+                        //                 visionSubsystem::isTrackingDataFresh,
+                        //                 shooter::isInShootingZone,
+                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        //                 xboxJog));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }

@@ -26,6 +26,7 @@ public final class Constants {
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
+    public static final boolean TURRET_TAB  = TUNING_ENABLED && true;
 
     /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
     public static final boolean CURRENT_LOGGING = true;
@@ -145,32 +146,42 @@ public final class Constants {
         //     of buzzing at the friction breakaway boundary. Start at 0.25 and
         //     tune: too low = buzz remains, too high = turret "jumps" when
         //     correcting small errors.
-        public static final double kTurretP = 18.0;
+        // PID gains — tuned for 4:1 planetary (44.4:1 total).
+        // The planetary multiplies motor rotations per turret degree by 4×,
+        // so kP should be ~4× lower than without the planetary to get the
+        // same turret-level response. Start here and tune on the robot.
+        public static final double kTurretP = 5.0;     // was 18 without planetary
         public static final double kTurretI = 0;
         public static final double kTurretD = 0.1;
-        public static final double kTurretKV = 0.100;  // was kTurretFF
-        public static final double kTurretKS = 0.15;   // static friction compensation (Volts)
+        public static final double kTurretKV = 0.025;  // was 0.100 — 4× more motor rot per turret rot
+        public static final double kTurretKS = 0.10;   // static friction compensation (Volts) — planetary reduces stiction
         public static final double kTurretKA = 0.0;    // accel feedforward (0 for now)
         public static final double kTurretKG = 0.0;    // gravity (0 — turret is horizontal)
 
         // ==================== Motion Magic Profile ====================
-        public static final double kTurretCruiseVelocity = 20.0;   // RPS at motor
-        public static final double kTurretAcceleration = 80.0;      // RPS/s at motor
+        // Simulation-optimized for tracking. Median correction is 0.8° turret —
+        // all profiles are triangular (never reach cruise). Lower values produce
+        // smoother motion for these tiny moves. Large slews (>15°) are rare.
+        public static final double kTurretCruiseVelocity = 80.0;   // RPS at motor (simulation-optimized)
+        public static final double kTurretAcceleration = 400.0;    // RPS/s at motor (simulation-optimized)
         public static final double kTurretJerk = 0.0;              // 0 = trapezoidal (no s-curve)
 
         // ==================== Turret Mechanical ====================
-        // WCP GreyT Turret: 200-tooth ring gear / 18-tooth pinion
-        public static final double kTurretGearRatio = 200.0 / 18.0;
+        // WCP GreyT Turret: 200-tooth ring gear.
+        // Motor has a 4:1 planetary before a 20T pinion.
+        // Pot has its own separate 18T pinion (no planetary).
+        public static final double kTurretPotGearRatio = 200.0 / 18.0;            // pot → turret (18T pinion)
+        public static final double kTurretMotorGearRatio = (200.0 / 20.0) * 4.0;  // motor → turret (20T pinion + 4:1 planetary)
 
         // ==================== Potentiometer Calibration ====================
-        // The 10-turn potentiometer is coupled 1:1 to the motor shaft (pre-
-        // gearbox), so pot rotation equals motor rotation. Calibrate by
-        // parking the turret at each mechanical stop, reading "Pot Raw (deg)"
-        // on the Shooter tab, and putting the value here.
+        // The 10-turn potentiometer has its own 18T pinion on the 200T ring
+        // gear (no planetary in its path). Calibrate by parking the turret
+        // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
+        // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 240;
+        public static final double kTurretPotAtZeroDeg = 145;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2540.0;
+        public static final double kTurretPotAtMaxDeg = 2990.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -178,16 +189,14 @@ public final class Constants {
          * with the motor-encoder-based {@code getTurretAngleDegrees()} readback
          * and the pot-based {@code getPotAngleDegrees()} will drift.
          *
-         * <p>Derivation: the pot is on the motor shaft (1:1), so the raw pot
-         * travel between the two mechanical stops equals the motor travel in
-         * degrees. Dividing by the motor-to-turret gear ratio gives the
-         * physical turret range.
+         * <p>Derivation: the pot has its own 18T pinion (no planetary), so
+         * pot travel / pot gear ratio = turret range.
          *
          * <p>With the current values:
-         * {@code (2266 − 256) / (200/18) = 2010 / 11.11 ≈ 180.9°}
+         * {@code (2245 − 282) / (200/18) = 1963 / 11.11 ≈ 176.7°}
          */
         public static final double kTurretMaxDegrees =
-            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretGearRatio;
+            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretPotGearRatio;
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
@@ -195,7 +204,12 @@ public final class Constants {
 
         /** Percent-output magnitude for manual jog (Turret Left/Right, D-pad E/W).
          *  0.15 ≈ 15% voltage. Adjust for feel — higher = faster jog, lower = finer. */
-        public static final double kTurretJogPercent = 0.10;
+        public static final double kTurretJogPercent = 0.25;  // was 0.10 — need more voltage through 4:1 planetary
+
+        /** Joystick deadband for proportional turret jog (integrated into auto-track). */
+        public static final double kTurretJogDeadband = 0.10;
+        /** Max percent output for joystick jog. Joystick input is squared for fine control. */
+        public static final double kTurretJogMaxPercent = 0.35;
 
         /** Soft limit margin beyond [0, kTurretMaxDegrees], in turret degrees.
          *  Firmware cuts motor output if position drifts this far outside the
@@ -204,34 +218,34 @@ public final class Constants {
         public static final double kTurretSoftLimitMarginDeg = 6.0;
 
         // ==================== Current Limits ====================
-        public static final double kTurretStallCurrentLimit = 60.0;
-        public static final double kTurretFreeCurrentLimit = 40.0;
+        public static final double kTurretStallCurrentLimit = 40.0;  // was 30 — raised for higher MM accel (500 RPS/s)
+        public static final double kTurretFreeCurrentLimit = 25.0;  // was 20 — headroom for tracking corrections
     }
 
     // ==================== TurretTrackingConstants ====================
     public static final class TurretTrackingConstants {
         /** Degrees tolerance to consider turret "on target" for tracking (dead zone).
          *  Camera offsets smaller than this are ignored to prevent chasing noise. */
-        public static final double kTrackingToleranceDeg = 2.0;
+        public static final double kTrackingToleranceDeg = 2.5;  // was 2.0 — slightly wider to avoid jitter with Motion Magic
         /** Proportional gain applied to camera yaw for turret correction.
-         *  1.0 = full correction each cycle (overshoots), 0.15 = gradual convergence. */
-        public static final double kCameraTrackingGain = 0.35;
+         *  Higher = fewer setpoint changes = fewer Motion Magic restarts. */
+        public static final double kCameraTrackingGain = 0.90;  // simulation-optimized — 90% correction per frame, 1 frame to converge
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
         /** Degrees to move per cycle during continuous scan sweep */
         public static final double kScanStepDeg = 4.5;
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
-        public static final double kAngularVelLeadTime = 0.02;
+        public static final double kAngularVelLeadTime = 0.03;  // simulation-optimized — 0.05 caused drift in HOLD stale
         /** Consecutive frames outside dead zone before applying correction.
          *  Filters single-frame jitter from camera noise. */
-        public static final int kTrackingDebounceFrames = 3;
+        public static final int kTrackingDebounceFrames = 0;  // simulation-optimized — any delay hurts MM profile restarts
         /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
          *  Lets turret decelerate before tracking starts, preventing overshoot. */
-        public static final int kCameraBrakeFrames = 15;
+        public static final int kCameraBrakeFrames = 2;  // was 15 — 300ms dead time on SWEEP→CAMERA, reduced to 40ms
         /** Frames to hold at forward before allowing sweep on startup.
          *  Gives vision time to initialize and detect hub tags. */
-        public static final int kSweepWarmupFrames = 50;
+        public static final int kSweepWarmupFrames = 0;  // was 50 — 1 second delay before sweep, now starts immediately
     }
 
     // ==================== HopperConstants ====================
@@ -482,8 +496,8 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.80;
 
-        public static final double kArmRaisedPosition = 200.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
-        public static final double kArmLoweredPosition = 98.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
+        public static final double kArmRaisedPosition = 193.0;   // throughbore degrees when arm is raised (retracted) — CALIBRATE
+        public static final double kArmLoweredPosition = 100.0; // throughbore degrees when arm is lowered (deployed) — CALIBRATE
         // Bop positions: absolute throughbore degrees, captured the same way as
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.

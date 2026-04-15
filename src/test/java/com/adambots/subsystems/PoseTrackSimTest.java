@@ -186,6 +186,164 @@ class PoseTrackSimTest {
         // Visual check: turret angle should shift opposite to heading
     }
 
+    // ==================== Red Alliance Tests ====================
+
+    @Test
+    void testRedAlliance_backToHub() {
+        // Red hub at (12, 8.23), robot at (14, 6), heading 180° (facing blue, back toward red)
+        double hubX = 12.0, hubY = 8.23;
+        double dx = hubX - 14.0;
+        double dy = hubY - 6.0;
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));  // ~132° (hub is behind-left)
+        double robotHeading = 180.0;
+        double robotRelative = worldBearing - robotHeading;  // ~-48°
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub is behind-left in world, but robot faces 180° so it's behind-right
+        // in robot frame → turret should be right of forward
+        assertTrue(turretAngle > TURRET_FORWARD && turretAngle < TURRET_MAX,
+            "Red hub behind-right (robot frame) should give turret > 99°, was " + turretAngle);
+        System.out.printf("Red back-to-hub: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
+    }
+
+    @Test
+    void testRedAlliance_robotLeftOfHub() {
+        // Robot at (12, 3) — directly below hub (12, 8.23)
+        // Heading 180° (facing blue, back toward red wall)
+        double hubX = 12.0, hubY = 8.23;
+        double dx = hubX - 12.0;  // 0
+        double dy = hubY - 3.0;   // 5.23
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));  // 90° (hub is directly +Y)
+        double robotHeading = 180.0;
+        double robotRelative = worldBearing - robotHeading;  // -90° (hub is to the right behind)
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub is 90° to the right in robot frame → turret should be right of forward
+        assertTrue(turretAngle > TURRET_FORWARD,
+            "Hub to the right should give turret > 99°, was " + turretAngle);
+        assertEquals(189.0, turretAngle, 1.0,
+            "Hub at -90° relative should map to turret ~189°");
+        System.out.printf("Red left-of-hub: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
+    }
+
+    @Test
+    void testRedAlliance_robotRightOfHub() {
+        // Robot at (12, 12) — above hub (12, 8.23)
+        // Heading 180°
+        double hubX = 12.0, hubY = 8.23;
+        double dx = hubX - 12.0;  // 0
+        double dy = hubY - 12.0;  // -3.77
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));  // -90° (hub is directly -Y)
+        double robotHeading = 180.0;
+        double robotRelative = worldBearing - robotHeading;  // -270° → normalizes to 90°
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub is to the left in robot frame → turret should be left of forward
+        assertTrue(turretAngle < TURRET_FORWARD,
+            "Hub to the left should give turret < 99°, was " + turretAngle);
+        assertEquals(9.0, turretAngle, 1.0,
+            "Hub at 90° relative should map to turret ~9°");
+        System.out.printf("Red right-of-hub: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
+    }
+
+    @Test
+    void testRedAlliance_robotTurned45() {
+        // Robot at (14, 6), heading 225° (turned 45° from facing blue)
+        // Back is facing roughly toward red hub
+        double hubX = 12.0, hubY = 8.23;
+        double dx = hubX - 14.0;
+        double dy = hubY - 6.0;
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));  // ~132°
+        double robotHeading = 225.0;
+        double robotRelative = worldBearing - robotHeading;  // ~-93°
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        assertTrue(turretAngle > 0 && turretAngle < TURRET_MAX,
+            "Should be reachable, was " + turretAngle);
+        System.out.printf("Red turned 45°: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
+    }
+
+    // ==================== Blue Alliance Tests ====================
+
+    @Test
+    void testBlueAlliance_backToHub() {
+        // Blue hub at (4.54, 8.23), robot at (2, 6), heading 0° (facing red, back toward blue)
+        double hubX = 4.54, hubY = 8.23;
+        double dx = hubX - 2.0;
+        double dy = hubY - 6.0;
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));  // ~41°
+        double robotHeading = 0.0;
+        double robotRelative = worldBearing - robotHeading;  // ~41°
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub is in front-right → turret needs to point far left (may be out of range)
+        System.out.printf("Blue back-to-hub (heading 0°): bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+            worldBearing, robotRelative, turretAngle);
+    }
+
+    @Test
+    void testBlueAlliance_backActuallyFacingHub() {
+        // Blue hub at (4.54, 8.23), robot at (2, 6)
+        // Heading = bearing + 180 (back faces hub)
+        double hubX = 4.54, hubY = 8.23;
+        double dx = hubX - 2.0;
+        double dy = hubY - 6.0;
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+        double robotHeading = worldBearing + 180.0;  // back faces hub
+        double robotRelative = worldBearing - robotHeading;
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        assertEquals(TURRET_FORWARD, turretAngle, 1.0,
+            "Blue: back facing hub should give turret forward (99°)");
+        System.out.printf("Blue back-facing-hub: heading=%.1f° relative=%.1f° turret=%.1f°%n",
+            robotHeading, robotRelative, turretAngle);
+    }
+
+    @Test
+    void testBlueAlliance_robotLeftOfHub() {
+        // Robot at (4.54, 3) — below hub (4.54, 8.23), heading 0° (facing red)
+        double hubX = 4.54, hubY = 8.23;
+        double dx = hubX - 4.54;  // 0
+        double dy = hubY - 3.0;   // 5.23
+        double worldBearing = Math.toDegrees(Math.atan2(dy, dx));  // 90°
+        double robotHeading = 0.0;
+        double robotRelative = worldBearing - robotHeading;  // 90° (hub is to the left)
+        double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+        // Hub at 90° robot-relative (left side) → turret should be far left
+        assertEquals(9.0, turretAngle, 1.0,
+            "Hub at 90° relative should map to turret ~9°");
+        System.out.printf("Blue left-of-hub: turret=%.1f°%n", turretAngle);
+    }
+
+    @Test
+    void testBlueAlliance_movingAcrossField() {
+        // Robot sweeping from Y=3 to Y=12 at X=3, heading 0° (facing red)
+        // Blue hub at (4.54, 8.23)
+        double hubX = 4.54, hubY = 8.23;
+        double robotHeading = 0.0;
+
+        System.out.println("Blue alliance, moving Y=3→12 at X=3, heading 0°:");
+        for (double robotY = 3; robotY <= 12; robotY += 1.5) {
+            double dx = hubX - 3.0;
+            double dy = hubY - robotY;
+            double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+            double robotRelative = worldBearing - robotHeading;
+            double turretAngle = TurretSubsystem.poseAngleToTurretAngle(robotRelative);
+
+            System.out.printf("  Y=%.1f: bearing=%.1f° relative=%.1f° turret=%.1f°%n",
+                robotY, worldBearing, robotRelative, turretAngle);
+        }
+        // As robot moves from below hub to above hub, turret should sweep
+        // from one side to the other through forward (99°)
+    }
+
+    // ==================== Existing tests below ====================
+
     @Test
     void testPoseAtOrigin_fallsBackToSweep() {
         // Pose at (0,0) means odom hasn't initialized — norm < 1.0

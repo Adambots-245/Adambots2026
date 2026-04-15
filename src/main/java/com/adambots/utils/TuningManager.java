@@ -49,12 +49,17 @@ public class TuningManager {
     private GenericEntry turretKVEntry, turretKSEntry;
     private GenericEntry trackingToleranceEntry;
     private GenericEntry potAtZeroEntry, potAtMaxEntry;
+    // Tracking tab entries
+    private GenericEntry trackGainEntry, leadTimeEntry, toleranceEntry;
+    private GenericEntry mmCruiseEntry, mmAccelEntry, trackKPEntry, trackKSEntry;
 
     private double lastTurretP = TurretConstants.kTurretP;
     private double lastTurretI = TurretConstants.kTurretI;
     private double lastTurretD = TurretConstants.kTurretD;
     private double lastTurretKV = TurretConstants.kTurretKV;
     private double lastTurretKS = TurretConstants.kTurretKS;
+    private double lastMMCruise = TurretConstants.kTurretCruiseVelocity;
+    private double lastMMAccel = TurretConstants.kTurretAcceleration;
 
     // ==================== Intake entries + cache ====================
     private GenericEntry intakeArmPEntry, intakeArmIEntry, intakeArmDEntry;
@@ -146,6 +151,32 @@ public class TuningManager {
         advance(pos, cols);
         Dash.add("Pot Raw (deg)", turret::getRawPotDegrees, pos[0], pos[1]);
         advance(pos, cols);
+    }
+
+    /** Creates turret tracking tunables on a dedicated Turret tab. */
+    public void setupTrackingTunables() {
+        Dash.useTab("Turret");
+        int col = 0, row = 0;
+
+        trackGainEntry = Dash.addTunable("Track Gain", TurretTrackingConstants.kCameraTrackingGain, col++, row);
+        leadTimeEntry = Dash.addTunable("Lead Time (s)", TurretTrackingConstants.kAngularVelLeadTime, col++, row);
+        toleranceEntry = Dash.addTunable("Tolerance (deg)", TurretTrackingConstants.kTrackingToleranceDeg, col++, row);
+
+        // MM profile + PID (row 2) — all live-tunable
+        row++; col = 0;
+        mmCruiseEntry = Dash.addTunable("MM Cruise (RPS)", TurretConstants.kTurretCruiseVelocity, col++, row);
+        mmAccelEntry = Dash.addTunable("MM Accel (RPS/s)", TurretConstants.kTurretAcceleration, col++, row);
+        trackKPEntry = Dash.addTunable("kP", TurretConstants.kTurretP, col++, row);
+        trackKSEntry = Dash.addTunable("kS", TurretConstants.kTurretKS, col++, row);
+
+        // Live readouts
+        row++; col = 0;
+        Dash.add("Turret Angle", turret::getTurretAngleDegrees, col++, row);
+        Dash.add("Pot Angle", turret::getPotAngleDegrees, col++, row);
+        Dash.add("Pot Raw", turret::getRawPotDegrees, col++, row);
+        Dash.add("Auto-Track", turret::isAutoTrackEnabled, col++, row);
+
+        Dash.useDefaultTab();
     }
 
     /** Creates intake tunable entries on the Intake tab. */
@@ -314,6 +345,32 @@ public class TuningManager {
         turret.setTrackingTolerance(trackingToleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg));
         turret.setPotAtZeroDeg(potAtZeroEntry.getDouble(TurretConstants.kTurretPotAtZeroDeg));
         turret.setPotAtMaxDeg(potAtMaxEntry.getDouble(TurretConstants.kTurretPotAtMaxDeg));
+
+        // Tracking tab tunables
+        if (trackGainEntry != null) {
+            turret.setCameraTrackingGain(trackGainEntry.getDouble(TurretTrackingConstants.kCameraTrackingGain));
+            turret.setAngularVelLeadTime(leadTimeEntry.getDouble(TurretTrackingConstants.kAngularVelLeadTime));
+            turret.setTrackingTolerance(toleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg));
+
+            // MM profile — reconfigure on change
+            double cruise = mmCruiseEntry.getDouble(TurretConstants.kTurretCruiseVelocity);
+            double accel = mmAccelEntry.getDouble(TurretConstants.kTurretAcceleration);
+            if (cruise != lastMMCruise || accel != lastMMAccel) {
+                turret.setMotionMagicProfile(cruise, accel);
+                lastMMCruise = cruise;
+                lastMMAccel = accel;
+            }
+
+            // PID kP and kS — reconfigure on change
+            double kPVal = trackKPEntry.getDouble(TurretConstants.kTurretP);
+            double kSVal = trackKSEntry.getDouble(TurretConstants.kTurretKS);
+            if (kPVal != lastTurretP || kSVal != lastTurretKS) {
+                turret.setTurretPID(kPVal, TurretConstants.kTurretI, TurretConstants.kTurretD,
+                    TurretConstants.kTurretKV, kSVal, TurretConstants.kTurretKA, TurretConstants.kTurretKG);
+                lastTurretP = kPVal;
+                lastTurretKS = kSVal;
+            }
+        }
     }
 
     private void applyIntakeTunables() {

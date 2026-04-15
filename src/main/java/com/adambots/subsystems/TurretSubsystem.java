@@ -40,6 +40,8 @@ public class TurretSubsystem extends SubsystemBase {
     private final BaseAbsoluteEncoder turretPot;
 
     private double trackingToleranceDeg = TurretTrackingConstants.kTrackingToleranceDeg;
+    private double cameraTrackingGain = TurretTrackingConstants.kCameraTrackingGain;
+    private double angularVelLeadTime = TurretTrackingConstants.kAngularVelLeadTime;
 
     // Track last setpoint for isAtTarget()
     private double lastSetpointDegrees = TurretConstants.kTurretForwardDegrees;
@@ -59,11 +61,10 @@ public class TurretSubsystem extends SubsystemBase {
     // Scan direction for SWEEP mode: +1 = toward max, -1 = toward zero
     private int scanDirection = 1;
 
-    // Tracking improvements: dead zone, debounce, brake, warmup, stale decay
+    // Tracking improvements: dead zone, debounce, brake, warmup
     private int trackingDebounceCount = 0;
     private int cameraBrakeFrames = 0;
     private int sweepWarmupFrames = TurretTrackingConstants.kSweepWarmupFrames;
-    private int staleFrameCount = 0;
 
     // Throttled tracking diagnostics (1 Hz)
     private double lastTrackLogTime = 0;
@@ -139,6 +140,19 @@ public class TurretSubsystem extends SubsystemBase {
 
     public void setPotAtMaxDeg(double deg) {
         potAtMaxDeg = deg;
+    }
+
+    // Tracking tunable setters
+    public void setCameraTrackingGain(double gain) { cameraTrackingGain = gain; }
+    public void setAngularVelLeadTime(double sec) { angularVelLeadTime = sec; }
+
+    public void setMotionMagicProfile(double cruiseRPS, double accelRPSPerSec) {
+        turretMotor.configure()
+            .motionMagic(
+                RotationsPerSecond.of(cruiseRPS),
+                RotationsPerSecondPerSecond.of(accelRPSPerSec),
+                0)
+            .apply();
     }
 
     // ==================== Turret Control ====================
@@ -368,7 +382,7 @@ public class TurretSubsystem extends SubsystemBase {
             // so the turret must lead in the positive-angle direction (+lead).
             // No negation needed — positive omega produces positive lead directly.
             double angVelLead = robotAngularVelDegPerSec.getAsDouble()
-                * TurretTrackingConstants.kAngularVelLeadTime;
+                * angularVelLeadTime;
             angVelLead = MathUtil.clamp(angVelLead, -8.0, 8.0);
 
             double currentAngle = getTurretAngleDegrees();
@@ -396,49 +410,26 @@ public class TurretSubsystem extends SubsystemBase {
                 // Compute target from current angle + turret-relative offset
                 double camAngle = cameraAngle.getAsDouble();
                 double rawTarget = currentAngle + camAngle;
-                // Dead zone + debounce: hold steady unless offset exceeds tolerance for N frames
+                // Simple MM tracking: fresh → correct, stale → hold.
+                // No rate limiter, no non-linear gain, no stale decay.
+                // The gain is applied ONLY on fresh camera frames to prevent
+                // stale data from being re-applied across multiple cycles.
                 if (Math.abs(camAngle) < trackingToleranceDeg) {
                     trackingDebounceCount = 0;
-                    staleFrameCount = 0;
-                    // DEADZONE: hold position. Do NOT apply angVelLead here —
-                    // it causes drift that re-triggers tracking unnecessarily.
-                    setTurretAngle(lastSetpointDegrees);
+                    setTurretAngle(lastSetpointDegrees + angVelLead);
                     lastTrackAction = "DEADZONE hold";
-                } else if (++trackingDebounceCount < TurretTrackingConstants.kTrackingDebounceFrames) {
-                    setTurretAngle(lastSetpointDegrees);
-                    lastTrackAction = "DEBOUNCE " + trackingDebounceCount;
                 } else if (rawTarget < 0 || rawTarget > TurretConstants.kTurretMaxDegrees) {
-                    staleFrameCount = 0;
                     setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
                     lastTrackAction = "LIMIT clamp=" + String.format("%.1f", rawTarget);
                 } else if (hubFresh.getAsBoolean()) {
-                    staleFrameCount = 0;
-                    // Non-linear gain: use lower gain for large corrections from stale data
-                    double gain = Math.abs(camAngle) > TurretTrackingConstants.kLargeCorrectionThresholdDeg
-                        ? TurretTrackingConstants.kLargeCorrectionGain
-                        : TurretTrackingConstants.kCameraTrackingGain;
                     double smoothed = lastSetpointDegrees
-                        + (rawTarget - lastSetpointDegrees) * gain;
-                    // Rate-limit setpoint change to prevent violent slews
-                    double delta = smoothed + angVelLead - lastSetpointDegrees;
-                    delta = MathUtil.clamp(delta,
-                        -TurretTrackingConstants.kMaxSetpointChangeDeg,
-                         TurretTrackingConstants.kMaxSetpointChangeDeg);
-                    setTurretAngle(lastSetpointDegrees + delta);
-                    lastTrackAction = String.format("TRACK fresh g=%.2f", gain);
+                        + (rawTarget - lastSetpointDegrees) * cameraTrackingGain;
+                    setTurretAngle(smoothed + angVelLead);
+                    lastTrackAction = "TRACK fresh";
                 } else {
-                    // Stale frame: count up. After kStaleDecayFrames, stop
-                    // driving toward the old target — it's too stale to trust.
-                    staleFrameCount++;
-                    if (staleFrameCount < TurretTrackingConstants.kStaleDecayFrames) {
-                        setTurretAngle(lastSetpointDegrees);
-                        lastTrackAction = "HOLD stale " + staleFrameCount;
-                    } else {
-                        // Stale too long — hold current position, don't chase old target
-                        lastSetpointDegrees = currentAngle;
-                        setTurretAngle(currentAngle);
-                        lastTrackAction = "STALE EXPIRED";
-                    }
+                    // Stale: hold last setpoint, let MM finish its profile
+                    setTurretAngle(lastSetpointDegrees + angVelLead);
+                    lastTrackAction = "HOLD stale";
                 }
             } else {
                 // SWEEP: continuous smooth scan, reverse at limits
@@ -529,7 +520,7 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(MathUtil.clamp(rawTarget, 0, TurretConstants.kTurretMaxDegrees));
                 } else if (hubFresh.getAsBoolean()) {
                     double smoothed = lastSetpointDegrees
-                        + (rawTarget - lastSetpointDegrees) * TurretTrackingConstants.kCameraTrackingGain;
+                        + (rawTarget - lastSetpointDegrees) * cameraTrackingGain;
                     setTurretAngle(smoothed);
                 } else {
                     setTurretAngle(lastSetpointDegrees);

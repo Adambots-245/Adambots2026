@@ -230,7 +230,16 @@ public class RobotContainer {
                 // Button 12: Lower intake but do not run
                 Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); 
                 // Button 13: None
-                Buttons.JoystickButton13.onTrue(Commands.none());
+                // Button 13: Force pose reset from vision (only if cameras see 2+ tags)
+                Buttons.JoystickButton13.onTrue(Commands.runOnce(() -> {
+                        if (visionSubsystem != null && visionSubsystem.getHubVisibleTagCount() >= 2) {
+                                swerve.resetOdometry(swerve.getPose());
+                                System.out.println("[POSE RESET] Forced from vision — tags visible: "
+                                        + visionSubsystem.getHubVisibleTagCount());
+                        } else {
+                                System.out.println("[POSE RESET] Skipped — not enough tags visible");
+                        }
+                }));
                 // Button 14: None
                 Buttons.JoystickButton14.onTrue(Commands.none());
                 // Button 15: None

@@ -494,36 +494,20 @@ public class TurretSubsystem extends SubsystemBase {
             // Always active — writes to WPILog. Lets you see exactly what the
             // auto-track loop received and what it commanded, overlaid with
             // the Vision/ signals in AdvantageScope.
-            double camAngleVal = cameraAngle.getAsDouble();
-            double omegaVal = robotAngularVelDegPerSec.getAsDouble();
-            Logger.recordOutput("Turret/TrackMode", trackingMode.name());
-            Logger.recordOutput("Turret/TrackAction", lastTrackAction);
-            Logger.recordOutput("Turret/CurrentAngle", currentAngle);
-            Logger.recordOutput("Turret/Setpoint", lastSetpointDegrees);
-            Logger.recordOutput("Turret/CamYawInput", camAngleVal);
-            Logger.recordOutput("Turret/AngVelLead", angVelLead);
-            Logger.recordOutput("Turret/RobotOmegaDegPerSec", omegaVal);
-            Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
-            Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
-            Logger.recordOutput("Turret/InShootingZone", inShootingZone.getAsBoolean());
-            Logger.recordOutput("Turret/AutoTrackEnabled", autoTrackEnabled);
-            Logger.recordOutput("Turret/JogInput", manualJogInput.getAsDouble());
-            Logger.recordOutput("Turret/Debounce", trackingDebounceCount);
-            Logger.recordOutput("Turret/BrakeFrames", cameraBrakeFrames);
-            Logger.recordOutput("Turret/HoldAngle", holdAngleDegrees);
-
-            // Console log (1 Hz) — human-readable summary for RioLog quick check
-            double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-            if (now - lastTrackLogTime >= 1.0) {
-                lastTrackLogTime = now;
-                System.out.printf(
-                    "[Turret] mode=%s action=%s angle=%.1f setpt=%.1f camYaw=%.1f lead=%.1f omega=%.0f visible=%s fresh=%s inZone=%s autoTrack=%s debounce=%d brake=%d%n",
-                    trackingMode, lastTrackAction,
-                    currentAngle, lastSetpointDegrees, camAngleVal,
-                    angVelLead, omegaVal,
-                    hubVisible.getAsBoolean(), hubFresh.getAsBoolean(),
-                    inShootingZone.getAsBoolean(), autoTrackEnabled,
-                    trackingDebounceCount, cameraBrakeFrames);
+            if (Constants.LOGGING_ENABLED) {
+                double camAngleVal = cameraAngle.getAsDouble();
+                double omegaVal = robotAngularVelDegPerSec.getAsDouble();
+                Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+                Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+                Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+                Logger.recordOutput("Turret/Setpoint", lastSetpointDegrees);
+                Logger.recordOutput("Turret/CamYawInput", camAngleVal);
+                Logger.recordOutput("Turret/AngVelLead", angVelLead);
+                Logger.recordOutput("Turret/RobotOmegaDegPerSec", omegaVal);
+                Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
+                Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+                Logger.recordOutput("Turret/InShootingZone", inShootingZone.getAsBoolean());
+                Logger.recordOutput("Turret/AutoTrackEnabled", autoTrackEnabled);
             }
         }))
         .finallyDo(interrupted -> {
@@ -610,12 +594,13 @@ public class TurretSubsystem extends SubsystemBase {
                 }
             }
 
-            // Logging
-            Logger.recordOutput("Turret/TrackMode", trackingMode.name());
-            Logger.recordOutput("Turret/TrackAction", lastTrackAction);
-            Logger.recordOutput("Turret/CurrentAngle", currentAngle);
-            Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
-            Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+            if (Constants.LOGGING_ENABLED) {
+                Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+                Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+                Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+                Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
+                Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+            }
         }))
         .finallyDo(interrupted -> {
             turretMotor.set(0);
@@ -745,17 +730,19 @@ public class TurretSubsystem extends SubsystemBase {
                 lastTrackAction = "SWEEP dir=" + scanDirection;
             }
 
-            // Logging
-            Logger.recordOutput("Turret/TrackMode", trackingMode.name());
-            Logger.recordOutput("Turret/TrackAction", lastTrackAction);
-            Logger.recordOutput("Turret/CurrentAngle", currentAngle);
-            Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
-            Logger.recordOutput("Turret/WorldBearing", worldBearing);
-            Logger.recordOutput("Turret/RobotRelative", robotRelative);
-            Logger.recordOutput("Turret/RobotHeading", robotHeading);
-            Logger.recordOutput("Turret/Locked", locked[0]);
-            Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
-            Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+            // Logging — gated behind LOGGING_ENABLED for competition performance
+            if (Constants.LOGGING_ENABLED) {
+                Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+                Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+                Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+                Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
+                Logger.recordOutput("Turret/WorldBearing", worldBearing);
+                Logger.recordOutput("Turret/RobotRelative", robotRelative);
+                Logger.recordOutput("Turret/RobotHeading", robotHeading);
+                Logger.recordOutput("Turret/Locked", locked[0]);
+                Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
+                Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
+            }
         }))
         .finallyDo(interrupted -> {
             turretMotor.set(0);

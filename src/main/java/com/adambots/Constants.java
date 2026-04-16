@@ -15,7 +15,7 @@ package com.adambots;
 public final class Constants {
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = true;
+    public static final boolean TUNING_ENABLED = false;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -24,12 +24,17 @@ public final class Constants {
     public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB   = TUNING_ENABLED && true;
+    public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
-    public static final boolean TURRET_TAB  = TUNING_ENABLED && true;
+    public static final boolean TURRET_TAB  = TUNING_ENABLED && false;
 
-    /** Log motor stator current to WPILog for post-match analysis in AdvantageScope. */
+    /** Log motor stator current to WPILog — lightweight, leave on for competition. */
     public static final boolean CURRENT_LOGGING = true;
+
+    /** Enable detailed subsystem logging (turret tracking, vision diagnostics).
+     *  Set false for competition to reduce CPU/bandwidth overhead.
+     *  AdvantageKit core (timestamp, pose) and current logging still run. */
+    public static final boolean LOGGING_ENABLED = false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
     public static final int kShuffleboardCols = 10;

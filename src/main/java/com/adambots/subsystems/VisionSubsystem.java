@@ -476,7 +476,7 @@ public class VisionSubsystem extends SubsystemBase {
         // Human-readable summary for RioLog / driver station quick check.
         {
             double now2 = Timer.getFPGATimestamp();
-            if (now2 - lastLogTimestamp >= 1.0) {
+            if (Constants.LOGGING_ENABLED && now2 - lastLogTimestamp >= 1.0) {
                 lastLogTimestamp = now2;
                 String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;

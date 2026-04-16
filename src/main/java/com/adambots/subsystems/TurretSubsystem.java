@@ -32,8 +32,8 @@ import org.littletonrobotics.junction.Logger;
  */
 public class TurretSubsystem extends SubsystemBase {
 
-    /** Tracking state for telemetry. CAMERA = actively tracking hub (pose-based). */
-    enum TrackingMode { HOLD, CAMERA, SWEEP, JOG }
+    /** Tracking state for telemetry. */
+    enum TrackingMode { HOLD, TRACKING, SWEEP, JOG }
 
     private final BaseMotor turretMotor;
     private final BaseAbsoluteEncoder turretPot;
@@ -407,16 +407,19 @@ public class TurretSubsystem extends SubsystemBase {
                     setTurretAngle(TurretConstants.kTurretForwardDegrees);
                     lastTrackAction = "OUT OF RANGE";
                 } else {
-                    trackingMode = TrackingMode.CAMERA;
+                    trackingMode = TrackingMode.TRACKING;
                     locked[0] = true;
-                    // Angular velocity lead: anticipate where the hub will be
-                    // by the time Motion Magic finishes its profile. The turret
-                    // convention is inverted (higher angle = left), so negate omega.
+                    // Angular velocity lead: anticipate robot rotation so turret
+                    // doesn't lag. Negated because turret angle convention is
+                    // inverted from WPILib bearing convention.
                     double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
                         * TurretTrackingConstants.kAngularVelLeadTime;
+                    // Clamp AFTER adding lead to prevent commanding past limits
+                    double targetWithLead = MathUtil.clamp(
+                        clampedAngle + angVelLead, 0, TurretConstants.kTurretMaxDegrees);
                     // Low-pass filter: smooth the command to reduce MM trajectory
                     // restarts. 0.5 = 50% new target per cycle → settles in ~3 cycles (60ms).
-                    smoothedAngle[0] += (clampedAngle + angVelLead - smoothedAngle[0]) * 0.5;
+                    smoothedAngle[0] += (targetWithLead - smoothedAngle[0]) * 0.5;
                     setTurretAngle(smoothedAngle[0]);
                     lastTrackAction = String.format("TRACK %.1f° lead=%.1f", smoothedAngle[0], angVelLead);
                 }
@@ -444,8 +447,8 @@ public class TurretSubsystem extends SubsystemBase {
             }
         }))
         .finallyDo(interrupted -> {
-            turretMotor.set(0);
             holdAngleDegrees = getTurretAngleDegrees();
+            setTurretAngle(holdAngleDegrees);
         })
         .withName("Pose Track");
     }
@@ -496,7 +499,7 @@ public class TurretSubsystem extends SubsystemBase {
                 double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
                     * TurretTrackingConstants.kAngularVelLeadTime;
                 smoothedAngle[0] += (clampedAngle + angVelLead - smoothedAngle[0]) * 0.5;
-                trackingMode = TrackingMode.CAMERA;
+                trackingMode = TrackingMode.TRACKING;
                 setTurretAngle(smoothedAngle[0]);
             } else {
                 // No valid pose — slow sweep

@@ -398,9 +398,6 @@ public class TurretSubsystem extends SubsystemBase {
             // Pure pose-based tracking: always point at the hardcoded hub center.
             // Bearing is computed from gyro + odometry at 50 Hz — no camera needed.
             if (pose.getTranslation().getNorm() > 1.0) {
-                // Valid pose — point at hub center
-                double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
-
                 if (poseTurretAngle < -10 || poseTurretAngle > TurretConstants.kTurretMaxDegrees + 10) {
                     // Hub is unreachable (in front of robot) — face forward
                     trackingMode = TrackingMode.HOLD;
@@ -414,9 +411,10 @@ public class TurretSubsystem extends SubsystemBase {
                     // inverted from WPILib bearing convention.
                     double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
                         * TurretTrackingConstants.kAngularVelLeadTime;
-                    // Clamp AFTER adding lead to prevent commanding past limits
+                    // Single clamp on final target (raw + lead) — avoids deadzone
+                    // from pre-clamping the raw angle before adding lead.
                     double targetWithLead = MathUtil.clamp(
-                        clampedAngle + angVelLead, 0, TurretConstants.kTurretMaxDegrees);
+                        poseTurretAngle + angVelLead, 0, TurretConstants.kTurretMaxDegrees);
                     // Low-pass filter: smooth the command to reduce MM trajectory
                     // restarts. 0.5 = 50% new target per cycle → settles in ~3 cycles (60ms).
                     smoothedAngle[0] += (targetWithLead - smoothedAngle[0]) * 0.5;
@@ -451,6 +449,129 @@ public class TurretSubsystem extends SubsystemBase {
             setTurretAngle(holdAngleDegrees);
         })
         .withName("Pose Track");
+    }
+
+    // ==================== Pose-Lock Tracker with TOF Lead ====================
+
+    /**
+     * Pose-lock tracker with time-of-flight lead compensation for shooting
+     * while moving. Same as poseTrackCommand but aims AHEAD of the hub center
+     * to compensate for robot motion during ball flight time.
+     *
+     * <p>The lead point is: {@code hubCenter - fieldVelocity * TOF}. The turret
+     * aims at where the hub will be relative to the ball's trajectory, not
+     * where it is now.
+     *
+     * @param poseSupplier   robot pose (for bearing computation)
+     * @param hubCenter      hub center position on the field (hardcoded)
+     * @param fieldVelocitySupplier robot velocity in field frame (m/s)
+     * @param tofSupplier    ball time-of-flight in seconds (from interpolation table)
+     * @param robotAngularVelDegPerSec robot yaw rate for rotation lead
+     * @param manualJogInput raw joystick axis [-1, 1] for manual override
+     */
+    public Command poseTrackCommandTOF(
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier,
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Translation2d> hubCenter,
+            java.util.function.Supplier<edu.wpi.first.math.kinematics.ChassisSpeeds> fieldVelocitySupplier,
+            DoubleSupplier tofSupplier,
+            DoubleSupplier robotAngularVelDegPerSec,
+            DoubleSupplier manualJogInput) {
+
+        boolean[] locked = { false };
+        double[] smoothedAngle = { TurretConstants.kTurretForwardDegrees };
+
+        return Commands.runOnce(() -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+            scanDirection = 1;
+            locked[0] = false;
+            smoothedAngle[0] = getTurretAngleDegrees();
+        }, this)
+        .andThen(run(() -> {
+            if (handleManualJog(manualJogInput)) return;
+
+            if (!autoTrackEnabled) {
+                if (wasAutoTracking) {
+                    holdAngleDegrees = getTurretAngleDegrees();
+                    wasAutoTracking = false;
+                }
+                trackingMode = TrackingMode.HOLD;
+                setTurretAngle(holdAngleDegrees);
+                return;
+            }
+            wasAutoTracking = true;
+
+            double currentAngle = getTurretAngleDegrees();
+            var pose = poseSupplier.get();
+            var hub = hubCenter.get();
+
+            // Compute turret pivot in field frame
+            double headingRad = pose.getRotation().getRadians();
+            double pivotX = pose.getX()
+                + TurretConstants.kTurretPivotX * Math.cos(headingRad)
+                - TurretConstants.kTurretPivotY * Math.sin(headingRad);
+            double pivotY = pose.getY()
+                + TurretConstants.kTurretPivotX * Math.sin(headingRad)
+                + TurretConstants.kTurretPivotY * Math.cos(headingRad);
+
+            // TOF lead compensation: aim where the hub will be relative to
+            // the ball's trajectory. The robot moves during ball flight, so
+            // the ball needs to be launched offset from the hub center.
+            var fieldVel = fieldVelocitySupplier.get();
+            double tof = tofSupplier.getAsDouble();
+            double leadX = hub.getX() - fieldVel.vxMetersPerSecond * tof;
+            double leadY = hub.getY() - fieldVel.vyMetersPerSecond * tof;
+
+            // Compute bearing to lead point (not raw hub center)
+            double dx = leadX - pivotX;
+            double dy = leadY - pivotY;
+            double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+            double robotHeading = pose.getRotation().getDegrees();
+            double robotRelative = worldBearing - robotHeading;
+            double poseTurretAngle = poseAngleToTurretAngle(robotRelative);
+
+            if (pose.getTranslation().getNorm() > 1.0) {
+                double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);
+
+                if (poseTurretAngle < -10 || poseTurretAngle > TurretConstants.kTurretMaxDegrees + 10) {
+                    trackingMode = TrackingMode.HOLD;
+                    setTurretAngle(TurretConstants.kTurretForwardDegrees);
+                    lastTrackAction = "OUT OF RANGE";
+                } else {
+                    trackingMode = TrackingMode.TRACKING;
+                    locked[0] = true;
+                    double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
+                        * TurretTrackingConstants.kAngularVelLeadTime;
+                    double targetWithLead = MathUtil.clamp(
+                        clampedAngle + angVelLead, 0, TurretConstants.kTurretMaxDegrees);
+                    smoothedAngle[0] += (targetWithLead - smoothedAngle[0]) * 0.5;
+                    setTurretAngle(smoothedAngle[0]);
+                    lastTrackAction = String.format("TOF %.1f° tof=%.2fs", smoothedAngle[0], tof);
+                }
+            } else {
+                locked[0] = false;
+                trackingMode = TrackingMode.SWEEP;
+                if (currentAngle >= TurretConstants.kTurretMaxDegrees
+                        - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                turretMotor.set(scanDirection * TurretConstants.kTurretJogPercent * 0.4);
+                lastTrackAction = "SWEEP dir=" + scanDirection;
+            }
+
+            if (Constants.LOGGING_ENABLED) {
+                Logger.recordOutput("Turret/TrackMode", trackingMode.name());
+                Logger.recordOutput("Turret/TrackAction", lastTrackAction);
+                Logger.recordOutput("Turret/CurrentAngle", currentAngle);
+                Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
+                Logger.recordOutput("Turret/TOF", tof);
+                Logger.recordOutput("Turret/LeadX", leadX);
+                Logger.recordOutput("Turret/LeadY", leadY);
+            }
+        }))
+        .finallyDo(interrupted -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+            setTurretAngle(holdAngleDegrees);
+        })
+        .withName("Pose Track TOF");
     }
 
     // ==================== Manual Align Command ====================

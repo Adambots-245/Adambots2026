@@ -117,6 +117,31 @@ public class ShooterSubsystem extends SubsystemBase {
             ShooterConstants.kMinRPS, ShooterConstants.kMaxRPS);
     }
 
+    // ==================== Time of Flight ====================
+
+    /** Flywheel radius in meters (2 inches). */
+    private static final double FLYWHEEL_RADIUS_M = 0.0508;
+    /** Hood angle in radians (60°). */
+    private static final double HOOD_ANGLE_RAD = Math.toRadians(60.0);
+    /** Ball exit velocity as fraction of flywheel surface speed. */
+    private static final double EXIT_VELOCITY_MULTIPLIER = 0.85;
+
+    /**
+     * Estimates ball time-of-flight to the hub at a given distance.
+     * Computed from: distance / (exitVelocity × cos(hoodAngle)).
+     *
+     * @param distanceMeters distance to hub
+     * @return estimated TOF in seconds (clamped to 0.1-1.0s)
+     */
+    public double getEstimatedTOF(double distanceMeters) {
+        double rps = getRPSFromTable(distanceMeters);
+        double surfaceSpeed = rps * 2 * Math.PI * FLYWHEEL_RADIUS_M; // m/s
+        double exitSpeed = surfaceSpeed * EXIT_VELOCITY_MULTIPLIER;
+        double horizontalSpeed = exitSpeed * Math.cos(HOOD_ANGLE_RAD);
+        if (horizontalSpeed < 0.1) return 1.0; // safety fallback
+        return MathUtil.clamp(distanceMeters / horizontalSpeed, 0.1, 1.0);
+    }
+
     // ==================== Telemetry Getters ====================
 
     public double getLeftRPS() {

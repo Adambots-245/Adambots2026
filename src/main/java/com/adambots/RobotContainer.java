@@ -176,6 +176,14 @@ public class RobotContainer {
                                         visionSubsystem::getHubCenter,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
                                         xboxJog));
+                        // OPTION: Pose tracker with TOF lead (shoot while moving)
+                        // turret.setDefaultCommand(turret.poseTrackCommandTOF(
+                        //                 swerve::getPose,
+                        //                 visionSubsystem::getHubCenter,
+                        //                 swerve::getFieldVelocity,
+                        //                 () -> shooter.getEstimatedTOF(visionSubsystem.getHubDistance()),
+                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        //                 xboxJog));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }

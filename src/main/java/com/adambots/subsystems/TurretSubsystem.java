@@ -647,6 +647,7 @@ public class TurretSubsystem extends SubsystemBase {
      * @param hubFresh       true only on frames with fresh camera data
      * @param poseSupplier   robot pose (for bearing computation)
      * @param hubCenter      hub center position on the field
+     * @param robotAngularVelDegPerSec robot yaw rate for rotation lead compensation
      * @param manualJogInput raw joystick axis [-1, 1] for manual override
      */
     public Command poseTrackCommand(
@@ -655,6 +656,7 @@ public class TurretSubsystem extends SubsystemBase {
             BooleanSupplier hubFresh,
             java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier,
             java.util.function.Supplier<edu.wpi.first.math.geometry.Translation2d> hubCenter,
+            DoubleSupplier robotAngularVelDegPerSec,
             DoubleSupplier manualJogInput) {
 
         // Mutable state for the lock phase
@@ -721,11 +723,16 @@ public class TurretSubsystem extends SubsystemBase {
                 } else {
                     trackingMode = TrackingMode.CAMERA;
                     locked[0] = true;
+                    // Angular velocity lead: anticipate where the hub will be
+                    // by the time Motion Magic finishes its profile. The turret
+                    // convention is inverted (higher angle = left), so negate omega.
+                    double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
+                        * TurretTrackingConstants.kAngularVelLeadTime;
                     // Low-pass filter: smooth the command to reduce MM trajectory
                     // restarts. 0.5 = 50% new target per cycle → settles in ~3 cycles (60ms).
-                    smoothedAngle[0] += (clampedAngle - smoothedAngle[0]) * 0.5;
+                    smoothedAngle[0] += (clampedAngle + angVelLead - smoothedAngle[0]) * 0.5;
                     setTurretAngle(smoothedAngle[0]);
-                    lastTrackAction = String.format("TRACK %.1f°", smoothedAngle[0]);
+                    lastTrackAction = String.format("TRACK %.1f° lead=%.1f", smoothedAngle[0], angVelLead);
                 }
             } else {
                 // No valid pose (at origin) — slow sweep until odom cameras initialize

@@ -266,7 +266,7 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.40;  // was 0.30 — more torque to prevent jam stalls
+        public static final double kHopperSpeed = 0.30;  // was 0.30 — more torque to prevent jam stalls
         public static final double kUptakeSpeed = 0.70;
 
         // Jam detection (set kJamDetectionEnabled = false to disable entirely)

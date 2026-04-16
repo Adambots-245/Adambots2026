@@ -177,6 +177,7 @@ public class RobotContainer {
                                         visionSubsystem::isTrackingDataFresh,
                                         swerve::getPose,
                                         visionSubsystem::getHubCenter,
+                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
                                         xboxJog));
                         // OPTION 2: Simple proportional tracker
                         // turret.setDefaultCommand(turret.simpleTrackCommand(

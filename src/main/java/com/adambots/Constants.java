@@ -179,9 +179,9 @@ public final class Constants {
         // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
         // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 145;
+        public static final double kTurretPotAtZeroDeg = 107;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2990.0;
+        public static final double kTurretPotAtMaxDeg = 2660.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -200,7 +200,7 @@ public final class Constants {
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
-        public static final double kTurretForwardDegrees = 99.0;
+        public static final double kTurretForwardDegrees = 88.0;
 
         /** Turret pivot offset from robot center (meters).
          *  X = forward/back (negative = behind center), Y = left/right.
@@ -266,7 +266,7 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.30;  // was 0.30 — more torque to prevent jam stalls
+        public static final double kHopperSpeed = 0.50;  // was 0.30 — more torque to prevent jam stalls
         public static final double kUptakeSpeed = 0.70;
 
         // Jam detection (set kJamDetectionEnabled = false to disable entirely)

@@ -17,6 +17,7 @@ import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
+import com.adambots.lib.subsystems.CANdleSubsystem.AnimationTypes;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
 
@@ -270,12 +271,14 @@ public class RobotContainer {
                 Buttons.XboxStartButton.onTrue(
                                 climber.extendCommand()
                                 .until(climber::isAtRaisedLimit)
-                                .andThen(climber.lockCommand()));
+                                .andThen(climber.lockCommand())
+                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));
                 // Back: Retract climber → lock when at bottom
                 Buttons.XboxBackButton.onTrue(
                                 climber.retractCommand()
                                 .until(climber::isAtLoweredLimit)
-                                .andThen(climber.lockCommand()));    
+                                .andThen(climber.lockCommand())
+                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));    
 
         }
 

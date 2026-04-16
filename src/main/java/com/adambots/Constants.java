@@ -21,7 +21,7 @@ public final class Constants {
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
     public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
-    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
+    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && true;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
@@ -411,7 +411,7 @@ public final class Constants {
         /** Hardcoded hub center coordinates from official WPILib 2026 field layout.
          *  Derived from geometric center of all hub tag positions in 2026-rebuilt-welded.json.
          *  Using hardcoded values eliminates field-to-field tag placement variation. */
-        public static final double kRedHubCenterX = 12.004;
+        public static final double kRedHubCenterX = 12.004 + 0.1;
         public static final double kRedHubCenterY = 4.035;
         public static final double kBlueHubCenterX = 4.537;
         public static final double kBlueHubCenterY = 4.035;

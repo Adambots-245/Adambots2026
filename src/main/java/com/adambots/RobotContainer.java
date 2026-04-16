@@ -361,6 +361,18 @@ public class RobotContainer {
         }
 
         public void onTeleopInit(boolean noAutoRan) {
+                // If no auto ran (teleop-only practice), the pose starts at the
+                // blue-side default (~1, 4). Mirror to red side if on red alliance
+                // so the pose estimator converges quickly from nearby vision data.
+                if (noAutoRan && com.adambots.lib.utils.Utils.isOnRedAlliance()
+                        && swerve.getPose().getX() < 8.0) {
+                    var current = swerve.getPose();
+                    swerve.resetOdometry(new edu.wpi.first.math.geometry.Pose2d(
+                        16.541 - current.getX(),
+                        current.getY(),
+                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(
+                            180 - current.getRotation().getDegrees())));
+                }
         }
 
         /**

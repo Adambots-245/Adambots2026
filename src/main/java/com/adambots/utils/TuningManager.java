@@ -158,8 +158,6 @@ public class TuningManager {
         Dash.useTab("Turret");
         int col = 0, row = 0;
 
-        trackGainEntry = Dash.addTunable("Track Gain", TurretTrackingConstants.kCameraTrackingGain, col++, row);
-        leadTimeEntry = Dash.addTunable("Lead Time (s)", TurretTrackingConstants.kAngularVelLeadTime, col++, row);
         toleranceEntry = Dash.addTunable("Tolerance (deg)", TurretTrackingConstants.kTrackingToleranceDeg, col++, row);
 
         // MM profile + PID (row 2) — all live-tunable
@@ -348,8 +346,6 @@ public class TuningManager {
 
         // Tracking tab tunables
         if (trackGainEntry != null) {
-            turret.setCameraTrackingGain(trackGainEntry.getDouble(TurretTrackingConstants.kCameraTrackingGain));
-            turret.setAngularVelLeadTime(leadTimeEntry.getDouble(TurretTrackingConstants.kAngularVelLeadTime));
             turret.setTrackingTolerance(toleranceEntry.getDouble(TurretTrackingConstants.kTrackingToleranceDeg));
 
             // MM profile — reconfigure on change

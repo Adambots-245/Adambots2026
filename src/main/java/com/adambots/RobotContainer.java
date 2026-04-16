@@ -165,7 +165,7 @@ public class RobotContainer {
                                                                 InputCurve.CUBIC, true),
                                                 Constants.DriveConstants.kTranslationScale));
 
-                // Turret tracking: pose-lock tracker (OPTION 1 — active)
+                // Turret tracking: pose-lock tracker
                 if (visionSubsystem != null) {
                         var xboxJog = (java.util.function.DoubleSupplier) () -> {
                                 var xbox = Buttons.getXboxController();
@@ -179,22 +179,6 @@ public class RobotContainer {
                                         visionSubsystem::getHubCenter,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
                                         xboxJog));
-                        // OPTION 2: Simple proportional tracker
-                        // turret.setDefaultCommand(turret.simpleTrackCommand(
-                        //                 visionSubsystem::getHubAngle,
-                        //                 visionSubsystem::isHubVisible,
-                        //                 visionSubsystem::isTrackingDataFresh,
-                        //                 visionSubsystem::getHubPoseAngle,
-                        //                 visionSubsystem::isHubPoseVisible,
-                        //                 xboxJog));
-                        // OPTION 3: Motion Magic auto-track
-                        // turret.setDefaultCommand(turret.autoTrackCommand(
-                        //                 visionSubsystem::getHubAngle,
-                        //                 visionSubsystem::isHubVisible,
-                        //                 visionSubsystem::isTrackingDataFresh,
-                        //                 shooter::isInShootingZone,
-                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
-                        //                 xboxJog));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }

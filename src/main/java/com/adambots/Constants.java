@@ -236,37 +236,13 @@ public final class Constants {
 
     // ==================== TurretTrackingConstants ====================
     public static final class TurretTrackingConstants {
-        /** Degrees tolerance to consider turret "on target" for tracking (dead zone).
-         *  Camera offsets smaller than this are ignored to prevent chasing noise. */
-        public static final double kTrackingToleranceDeg = 2.5;  // was 2.0 — slightly wider to avoid jitter with Motion Magic
-        /** Proportional gain applied to camera yaw for turret correction.
-         *  Higher = fewer setpoint changes = fewer Motion Magic restarts. */
-        public static final double kCameraTrackingGain = 0.90;  // simulation-optimized — 90% correction per frame, 1 frame to converge
+        /** Degrees tolerance for isAtTarget trigger (used by shoot commands). */
+        public static final double kTrackingToleranceDeg = 2.5;
         /** Degrees margin from turret limits before reversing scan direction */
         public static final double kScanMarginDeg = 15.0;
-        /** Degrees to move per cycle during continuous scan sweep */
-        public static final double kScanStepDeg = 4.5;
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
-        public static final double kAngularVelLeadTime = 0.03;  // simulation-optimized — 0.05 caused drift in HOLD stale
-        /** Consecutive frames outside dead zone before applying correction.
-         *  Filters single-frame jitter from camera noise. */
-        public static final int kTrackingDebounceFrames = 0;  // simulation-optimized — any delay hurts MM profile restarts
-        /** Frames to brake (stop motor) when transitioning from SWEEP to CAMERA.
-         *  Lets turret decelerate before tracking starts, preventing overshoot. */
-        public static final int kCameraBrakeFrames = 2;  // was 15 — 300ms dead time on SWEEP→CAMERA, reduced to 40ms
-        /** Frames to hold at forward before allowing sweep on startup.
-         *  Gives vision time to initialize and detect hub tags. */
-        public static final int kSweepWarmupFrames = 0;  // was 50 — 1 second delay before sweep, now starts immediately
-
-        // ==================== Simple Tracker ====================
-        /** Proportional gain: percent output per degree of camera yaw.
-         *  K=0.003: 10° → 3% output → ~32°/s turret speed. */
-        public static final double kSimpleTrackK = 0.008;
-        /** Max percent output during simple tracking. */
-        public static final double kSimpleTrackMaxPercent = 0.25;
-        /** Slow sweep percent output for when hub is not visible and no pose. */
-        public static final double kSimpleTrackSweepPercent = 0.08;
+        public static final double kAngularVelLeadTime = 0.03;
     }
 
     // ==================== HopperConstants ====================

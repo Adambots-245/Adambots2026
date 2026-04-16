@@ -172,9 +172,6 @@ public class RobotContainer {
                                 return xbox != null ? xbox.getLeftX() : 0.0;
                         };
                         turret.setDefaultCommand(turret.poseTrackCommand(
-                                        visionSubsystem::getHubAngle,
-                                        visionSubsystem::isHubVisible,
-                                        visionSubsystem::isTrackingDataFresh,
                                         swerve::getPose,
                                         visionSubsystem::getHubCenter,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),

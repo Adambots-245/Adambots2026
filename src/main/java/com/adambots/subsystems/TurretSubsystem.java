@@ -13,7 +13,6 @@ import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseMotor.ControlMode;
 import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 
-import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
@@ -44,7 +43,7 @@ public class TurretSubsystem extends SubsystemBase {
     // Track last setpoint for isAtTarget()
     private double lastSetpointDegrees = TurretConstants.kTurretForwardDegrees;
 
-    // Potentiometer calibration: pot reading at turret 0° and 180° (tunable via dashboard)
+    // Potentiometer calibration: pot reading at turret 0° and max° (tunable via dashboard)
     private double potAtZeroDeg = TurretConstants.kTurretPotAtZeroDeg;
     private double potAtMaxDeg = TurretConstants.kTurretPotAtMaxDeg;
 
@@ -59,9 +58,7 @@ public class TurretSubsystem extends SubsystemBase {
     // Scan direction for SWEEP mode: +1 = toward max, -1 = toward zero
     private int scanDirection = 1;
 
-
-    // Throttled tracking diagnostics (1 Hz)
-    private double lastTrackLogTime = 0;
+    // Tracking diagnostics
     private String lastTrackAction = "INIT";
 
     public TurretSubsystem(BaseMotor turretMotor, BaseAbsoluteEncoder turretPot) {
@@ -87,10 +84,9 @@ public class TurretSubsystem extends SubsystemBase {
             .apply();
 
         // Extended PID with feedforward gains (kV, kS, kA, kG).
-        // kS is critical for turret: it adds a constant voltage in the direction
-        // of error to overcome static friction from the 3D-printed gear mesh and
-        // cable tray. Without it, the PID hovers at the friction breakaway
-        // boundary and buzzes.
+        // kS adds a constant voltage in the direction of error to overcome
+        // static friction. Without it, the PID hovers at the friction
+        // breakaway boundary and buzzes.
         turretMotor.setPID(0,
                 TurretConstants.kTurretP, TurretConstants.kTurretI,
                 TurretConstants.kTurretD,
@@ -211,7 +207,6 @@ public class TurretSubsystem extends SubsystemBase {
         lastSetpointDegrees = degrees;
         double rotations = (degrees / 360.0) * TurretConstants.kTurretMotorGearRatio;
         turretMotor.set(ControlMode.MOTION_MAGIC, rotations);
-        // turretMotor.set(ControlMode.POSITION, rotations);
     }
 
     public void stopTurret() {
@@ -274,7 +269,7 @@ public class TurretSubsystem extends SubsystemBase {
 
     // ==================== Command Factories ====================
 
-    /** Continuously aims turret at angle from supplier (for vision tracking). */
+    /** Continuously aims turret at angle from supplier. */
     public Command aimTurretCommand(DoubleSupplier angleSupplier) {
         return run(() -> setTurretAngle(angleSupplier.getAsDouble()))
             .withName("Aim Turret Dynamic");
@@ -341,18 +336,12 @@ public class TurretSubsystem extends SubsystemBase {
      * rotation, and a low-pass filter to smooth Motion Magic commands.
      * Falls back to slow sweep if pose is invalid (at field origin).
      *
-     * @param cameraYaw      unused (kept for interface compatibility)
-     * @param hubVisible     unused (kept for interface compatibility)
-     * @param hubFresh       unused (kept for interface compatibility)
      * @param poseSupplier   robot pose (for bearing computation)
      * @param hubCenter      hub center position on the field (hardcoded)
      * @param robotAngularVelDegPerSec robot yaw rate for rotation lead compensation
      * @param manualJogInput raw joystick axis [-1, 1] for manual override
      */
     public Command poseTrackCommand(
-            DoubleSupplier cameraYaw,
-            BooleanSupplier hubVisible,
-            BooleanSupplier hubFresh,
             java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier,
             java.util.function.Supplier<edu.wpi.first.math.geometry.Translation2d> hubCenter,
             DoubleSupplier robotAngularVelDegPerSec,
@@ -452,8 +441,6 @@ public class TurretSubsystem extends SubsystemBase {
                 Logger.recordOutput("Turret/RobotRelative", robotRelative);
                 Logger.recordOutput("Turret/RobotHeading", robotHeading);
                 Logger.recordOutput("Turret/Locked", locked[0]);
-                Logger.recordOutput("Turret/HubVisible", hubVisible.getAsBoolean());
-                Logger.recordOutput("Turret/HubFresh", hubFresh.getAsBoolean());
             }
         }))
         .finallyDo(interrupted -> {

@@ -27,13 +27,13 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Turret subsystem with position-controlled PID via onboard motor controller.
- * Uses a 10-turn potentiometer for absolute position sensing — no calibration needed.
- * The pot seeds the motor encoder on construction and re-syncs periodically.
+ * Turret subsystem with Motion Magic position control via onboard motor controller.
+ * Uses a 10-turn potentiometer for absolute position sensing at boot.
+ * Tracking uses pose-based bearing to hardcoded hub center (gyro + odometry at 50 Hz).
  */
 public class TurretSubsystem extends SubsystemBase {
 
-    /** Tracking state for telemetry. */
+    /** Tracking state for telemetry. CAMERA = actively tracking hub (pose-based). */
     enum TrackingMode { HOLD, CAMERA, SWEEP, JOG }
 
     private final BaseMotor turretMotor;
@@ -176,20 +176,15 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Pose-to-Turret Conversion ====================
 
     /**
-     * Converts a robot-relative bearing (from getYawToPoint) to a turret angle.
-     * The shooter/camera faces backward, so hub at ±180° robot-relative
-     * maps to turret forward (kTurretForwardDegrees).
-     *
-     * @param poseAngleDeg robot-relative bearing to hub (0°=front, ±180°=back)
-     * @return turret angle in degrees [0, kTurretMaxDegrees]
-     */
-    /**
      * Converts a robot-relative bearing to the hub into a turret angle.
-     * The shooter/camera faces backward, so hub at ±180° robot-relative
-     * maps to turret forward (kTurretForwardDegrees = 99°).
+     * The shooter points backward at kTurretForwardDegrees (99°), so
+     * hub at ±180° robot-relative maps to turret 99°.
      *
      * <p>The result is NOT clamped — callers should clamp to [0, kTurretMaxDegrees].
      * Out-of-range values indicate the hub is unreachable by the turret.
+     *
+     * @param poseAngleDeg robot-relative bearing to hub (0°=front, ±180°=back)
+     * @return turret angle in degrees (may be out of range)
      */
     static double poseAngleToTurretAngle(double poseAngleDeg) {
         // kTurretForwardDegrees (99°) = shooter points straight back (toward hub).
@@ -294,7 +289,7 @@ public class TurretSubsystem extends SubsystemBase {
      * "hold-to-move" interaction, Motion Magic is the wrong tool — setting a
      * new target every scheduler tick causes continuous trajectory resets
      * and audible buzz. A constant voltage command is smooth and natural.
-     * Go-to-angle commands (aim, forward, hold, auto-track, manual align)
+     * Go-to-angle commands (aim, forward, hold, pose-track, manual align)
      * correctly use Motion Magic via setTurretAngle() and are unchanged.
      *
      * <p>Position bounds during jog are enforced at the firmware level by
@@ -337,26 +332,20 @@ public class TurretSubsystem extends SubsystemBase {
     // ==================== Pose-Lock Tracker Command ====================
 
     /**
-     * Pose-lock tracker — uses odometry + gyro for smooth continuous tracking,
-     * camera only needed to acquire and refine.
+     * Pose-lock tracker — uses odometry + gyro for smooth continuous tracking.
+     * Computes turret angle from the hardcoded hub center and robot pose at
+     * 50 Hz (gyro rate). No camera dependency for tracking — the hub is a
+     * known field coordinate.
      *
-     * <p><b>Phase 1 (Acquire):</b> Use pose-based bearing to point turret at
-     * the hub. If pose is unavailable, slow sweep. Once camera sees the hub,
-     * record the world-frame hub position and transition to Phase 2.
+     * <p>Includes angular velocity lead compensation to anticipate robot
+     * rotation, and a low-pass filter to smooth Motion Magic commands.
+     * Falls back to slow sweep if pose is invalid (at field origin).
      *
-     * <p><b>Phase 2 (Lock):</b> Continuously compute turret angle from
-     * {@code atan2(hubY - robotY, hubX - robotX) - robotHeading}. This runs
-     * at the control loop rate (50 Hz from gyro/odometry), not the camera
-     * rate. Result: smooth, continuous motion with no stepping or jitter.
-     *
-     * <p><b>Refine:</b> When fresh camera frames arrive, use the small camYaw
-     * offset to correct drift in the locked hub position.
-     *
-     * @param cameraYaw      turret-relative camera yaw offset (degrees)
-     * @param hubVisible     sticky hub visibility
-     * @param hubFresh       true only on frames with fresh camera data
+     * @param cameraYaw      unused (kept for interface compatibility)
+     * @param hubVisible     unused (kept for interface compatibility)
+     * @param hubFresh       unused (kept for interface compatibility)
      * @param poseSupplier   robot pose (for bearing computation)
-     * @param hubCenter      hub center position on the field
+     * @param hubCenter      hub center position on the field (hardcoded)
      * @param robotAngularVelDegPerSec robot yaw rate for rotation lead compensation
      * @param manualJogInput raw joystick axis [-1, 1] for manual override
      */
@@ -418,9 +407,7 @@ public class TurretSubsystem extends SubsystemBase {
             double poseTurretAngle = poseAngleToTurretAngle(robotRelative);
 
             // Pure pose-based tracking: always point at the hardcoded hub center.
-            // No camera blending — the hub center is a known field coordinate,
-            // and the pose (from gyro + 3 odom cameras) is the most accurate
-            // bearing source. Camera is only used to confirm hub visibility.
+            // Bearing is computed from gyro + odometry at 50 Hz — no camera needed.
             if (pose.getTranslation().getNorm() > 1.0) {
                 // Valid pose — point at hub center
                 double clampedAngle = MathUtil.clamp(poseTurretAngle, 0, TurretConstants.kTurretMaxDegrees);

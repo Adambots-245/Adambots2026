@@ -24,7 +24,10 @@ import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
 
-import org.littletonrobotics.junction.Logger;
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.DEBUG;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -252,7 +255,12 @@ public class VisionSubsystem extends SubsystemBase {
             VisionConstants.kAmbiguityThreshold);
 
         if (Constants.VISION_TAB) setupDash();
-        Dash.add("Dist (m)", this::getHubDistance);
+        // Hub distance on default Shuffleboard — useful for pit crew / coach quick glance.
+        // Gated behind TUNING_ENABLED to avoid an always-on NT supplier at comp
+        // (the same value is logged to AdvantageKit as Vision/OutputDist at ESSENTIAL).
+        if (Constants.TUNING_ENABLED) {
+            Dash.add("Dist (m)", this::getHubDistance);
+        }
     }
 
     private void setupDash() {
@@ -430,51 +438,54 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         // ==================== Structured logging (AdvantageScope) ====================
-        // Always active — writes to WPILog on USB stick. Open in AdvantageScope
-        // to review the full vision pipeline for any mode.
-        if (Constants.LOGGING_ENABLED) {
-            // Camera pipeline (Approach A)
-            Logger.recordOutput("Vision/CamRawAngle", rawCamAngle);
-            Logger.recordOutput("Vision/CamEWMAAngle", hubCamAngleDegrees);
-            Logger.recordOutput("Vision/CamRawDist", rawCamDist);
-            Logger.recordOutput("Vision/CamEWMADist", hubCamDistanceMeters);
-            Logger.recordOutput("Vision/CamHasTarget", hubCamHasTarget);
-            Logger.recordOutput("Vision/CamSticky", hubCamSticky);
-            Logger.recordOutput("Vision/CamOnline", cameraOnline);
-            Logger.recordOutput("Vision/CamTagsSeen", diagTagsSeen);
-            Logger.recordOutput("Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
-            Logger.recordOutput("Vision/CamLastAmbiguity", diagLastAmbiguity);
-            // Pose pipeline (Approach B)
+        // 3-tier split: ESSENTIAL = things we need to diagnose "did vision work?" at comp,
+        // DIAGNOSTIC = pipeline internals for tuning, DEBUG = EWMA intermediates + conversions.
+        //
+        // ESSENTIAL (always on at comp — covers MICMP1's Vision blackout gap):
+        log(ESSENTIAL, "Vision/CamOnline", cameraOnline);
+        log(ESSENTIAL, "Vision/CamHasTarget", hubCamHasTarget);
+        log(ESSENTIAL, "Vision/HubTagCount", hubVisibleTagCount);
+        log(ESSENTIAL, "Vision/Mode", visionMode);
+        log(ESSENTIAL, "Vision/OutputAngle", getHubAngle());
+        log(ESSENTIAL, "Vision/OutputDist", getHubDistance());
+        log(ESSENTIAL, "Vision/OutputVisible", isHubVisible());
+        log(ESSENTIAL, "Vision/OutputFresh", isTrackingDataFresh());
+
+        // DIAGNOSTIC (bench / practice): pipeline internals, raw-vs-filtered pairs,
+        // rejection counters, pose-based approach outputs.
+        if (DIAGNOSTIC.enabled()) {
             Pose2d currentPose = poseSupplier.get();
-            Logger.recordOutput("Vision/PoseX", currentPose.getX());
-            Logger.recordOutput("Vision/PoseY", currentPose.getY());
-            Logger.recordOutput("Vision/PoseHeading", currentPose.getRotation().getDegrees());
-            Logger.recordOutput("Vision/PoseRawAngle", rawPoseAngle);
-            Logger.recordOutput("Vision/PoseRawDist", rawPoseDist);
-            Logger.recordOutput("Vision/PoseFilteredDist", hubPoseDistanceMeters);
-            Logger.recordOutput("Vision/PoseAngle", hubPoseAngleDegrees);
-            Logger.recordOutput("Vision/PoseHasTarget", hubPoseHasTarget);
-            // Turret-relative conversion
-            Logger.recordOutput("Vision/TurretAngle", turretAngleSupplier.getAsDouble());
-            Logger.recordOutput("Vision/PoseAngleTurretRelative", poseAngleTurretRelative);
-            // Blended output (mode 3)
-            Logger.recordOutput("Vision/BlendedAngle", hubBlendedAngleDegrees);
-            Logger.recordOutput("Vision/BlendedDist", hubBlendedDistanceMeters);
-            // Final output
-            Logger.recordOutput("Vision/Mode", visionMode);
-            Logger.recordOutput("Vision/OutputAngle", getHubAngle());
-            Logger.recordOutput("Vision/OutputDist", getHubDistance());
-            Logger.recordOutput("Vision/PoseBasedDist", getPoseBasedDistance());
-            Logger.recordOutput("Vision/OutputVisible", isHubVisible());
-            Logger.recordOutput("Vision/OutputFresh", isTrackingDataFresh());
-            Logger.recordOutput("Vision/HubTagCount", hubVisibleTagCount);
+            log(DIAGNOSTIC, "Vision/CamRawAngle", rawCamAngle);
+            log(DIAGNOSTIC, "Vision/CamEWMAAngle", hubCamAngleDegrees);
+            log(DIAGNOSTIC, "Vision/CamRawDist", rawCamDist);
+            log(DIAGNOSTIC, "Vision/CamEWMADist", hubCamDistanceMeters);
+            log(DIAGNOSTIC, "Vision/CamSticky", hubCamSticky);
+            log(DIAGNOSTIC, "Vision/CamTagsSeen", diagTagsSeen);
+            log(DIAGNOSTIC, "Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
+            log(DIAGNOSTIC, "Vision/CamLastAmbiguity", diagLastAmbiguity);
+            log(DIAGNOSTIC, "Vision/PoseX", currentPose.getX());
+            log(DIAGNOSTIC, "Vision/PoseY", currentPose.getY());
+            log(DIAGNOSTIC, "Vision/PoseHeading", currentPose.getRotation().getDegrees());
+            log(DIAGNOSTIC, "Vision/PoseRawAngle", rawPoseAngle);
+            log(DIAGNOSTIC, "Vision/PoseRawDist", rawPoseDist);
+            log(DIAGNOSTIC, "Vision/PoseFilteredDist", hubPoseDistanceMeters);
+            log(DIAGNOSTIC, "Vision/PoseAngle", hubPoseAngleDegrees);
+            log(DIAGNOSTIC, "Vision/PoseHasTarget", hubPoseHasTarget);
+            log(DIAGNOSTIC, "Vision/PoseBasedDist", getPoseBasedDistance());
+            log(DIAGNOSTIC, "Vision/BlendedAngle", hubBlendedAngleDegrees);
+            log(DIAGNOSTIC, "Vision/BlendedDist", hubBlendedDistanceMeters);
         }
 
-        // ==================== Console log (1 Hz, always active) ====================
-        // Human-readable summary for RioLog / driver station quick check.
-        {
+        // DEBUG (bench only): turret-relative conversions, secondary references
+        log(DEBUG, "Vision/TurretAngle", turretAngleSupplier.getAsDouble());
+        log(DEBUG, "Vision/PoseAngleTurretRelative", poseAngleTurretRelative);
+
+        // ==================== Console log (1 Hz, DIAGNOSTIC only) ====================
+        // Human-readable summary for RioLog / driver station quick check. Off at comp
+        // (LOG_LEVEL=ESSENTIAL) to avoid stdout spam; on at bench.
+        if (DIAGNOSTIC.enabled()) {
             double now2 = Timer.getFPGATimestamp();
-            if (Constants.LOGGING_ENABLED && now2 - lastLogTimestamp >= 1.0) {
+            if (now2 - lastLogTimestamp >= 1.0) {
                 lastLogTimestamp = now2;
                 String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;

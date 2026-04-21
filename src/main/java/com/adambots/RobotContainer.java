@@ -6,8 +6,6 @@ package com.adambots;
 
 import java.io.File;
 
-import org.littletonrobotics.junction.Logger;
-
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
@@ -33,6 +31,12 @@ import com.adambots.utils.DashboardSetup;
 import com.adambots.utils.HubActivation;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.util.PathPlannerLogging;
+
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
+import edu.wpi.first.math.geometry.Pose2d;
 
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -326,6 +330,18 @@ public class RobotContainer {
                                 turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5));
                 NamedCommands.registerCommand("waitForHub",
                                 visionSubsystem.waitForHubCommand().withTimeout(2.0));
+
+                // Log PathPlanner trajectory target/current/active-path at ESSENTIAL.
+                // These callbacks fire at PathPlanner's internal rate whenever a path-
+                // following command is active. Without these, post-match auto debugging
+                // is blind — we had this gap at MICMP1. Logger.recordOutput is thread-safe
+                // per AdvantageKit docs, so off-main-thread callbacks are fine.
+                PathPlannerLogging.setLogActivePathCallback(poses ->
+                                log(ESSENTIAL, "PathPlanner/ActivePath", poses.toArray(new Pose2d[0])));
+                PathPlannerLogging.setLogCurrentPoseCallback(pose ->
+                                log(ESSENTIAL, "PathPlanner/CurrentPose", pose));
+                PathPlannerLogging.setLogTargetPoseCallback(pose ->
+                                log(ESSENTIAL, "PathPlanner/TargetPose", pose));
         }
 
         // ==================== AUTO CHOOSER ====================
@@ -348,9 +364,15 @@ public class RobotContainer {
                                 visionSubsystem);
                 tuningPeriodic = tuning != null ? tuning : () -> {
                 };
-                Dash.add("Auto-Track", () -> turret.isAutoTrackEnabled());
-                if (visionSubsystem != null) {
-                        Dash.add("Camera Online", visionSubsystem::isCameraOnline);
+                // Dash.add registers suppliers that fire every Shuffleboard.update() tick
+                // even with TUNING_ENABLED=false — gate them to avoid always-on NT chatter.
+                // These two are duplicated in AdvantageKit ESSENTIAL logs ("Turret/Locked"
+                // and "Vision/CamOnline"), so comp doesn't need them on Shuffleboard.
+                if (Constants.TUNING_ENABLED) {
+                        Dash.add("Auto-Track", () -> turret.isAutoTrackEnabled());
+                        if (visionSubsystem != null) {
+                                Dash.add("Camera Online", visionSubsystem::isCameraOnline);
+                        }
                 }
         }
 
@@ -399,23 +421,26 @@ public class RobotContainer {
         }
 
         /**
-         * Logs swerve drive and steer motor currents for all 4 modules.
-         * Called from {@link Robot#robotPeriodic()} when CURRENT_LOGGING is enabled.
-         * Swerve motors are managed by YAGSL in the lib, so we log from outside.
+         * Logs swerve drive and steer motor applied output (duty cycle) for all 4
+         * modules at {@link com.adambots.logging.LogUtil.Level#DIAGNOSTIC}.
          *
-         * <p>Uses getAppliedOutput() (duty cycle 0-1) since YAGSL's SwerveMotor
-         * doesn't expose current directly. Multiply by ~60A (stall current at
-         * that duty cycle) for a rough current estimate, or check PDH channel
-         * currents for true values.
+         * <p>Called from {@link Robot#robotPeriodic()}. Swerve motors are managed by
+         * YAGSL in the lib, so we log from outside.
+         *
+         * <p>Note: this is <b>duty cycle (0–1)</b>, not current. Actual stator/supply
+         * currents are logged to the CTRE {@code .hoot} file when {@code SignalLogger}
+         * is enabled (see {@link Robot#robotInit()}) — use Tuner X → Log Extractor for
+         * the real numbers. Demoted from ESSENTIAL because the duty cycle is a weak
+         * proxy for current and PDH channel currents already cover the battery-side view.
          */
         public void logSwerveCurrent() {
-                if (!Constants.CURRENT_LOGGING) return;
+                if (!DIAGNOSTIC.enabled()) return;
                 var modules = swerve.getSwerveDrive().getModules();
                 for (int i = 0; i < modules.length && i < 4; i++) {
                         String name = modules[i].configuration.name;
-                        Logger.recordOutput("Swerve/" + name + "/DriveOutput",
+                        log(DIAGNOSTIC, "Swerve/" + name + "/DriveOutput",
                                 modules[i].getDriveMotor().getAppliedOutput());
-                        Logger.recordOutput("Swerve/" + name + "/SteerOutput",
+                        log(DIAGNOSTIC, "Swerve/" + name + "/SteerOutput",
                                 modules[i].getAngleMotor().getAppliedOutput());
                 }
         }

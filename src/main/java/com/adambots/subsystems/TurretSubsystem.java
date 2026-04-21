@@ -23,7 +23,10 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
-import org.littletonrobotics.junction.Logger;
+import static com.adambots.logging.LogUtil.DEBUG;
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
 
 /**
  * Turret subsystem with Motion Magic position control via onboard motor controller.
@@ -249,9 +252,11 @@ public class TurretSubsystem extends SubsystemBase {
         // Pot seeds motor encoder on construction — no continuous re-sync needed.
         // Continuous re-sync fights the PID controller and causes oscillation.
 
-        if (Constants.CURRENT_LOGGING) {
-            Logger.recordOutput("Turret/Current", turretMotor.getCurrentDraw().in(Amps));
-        }
+        // ESSENTIAL: current + angle + setpoint. Target angle lets us see PID tracking
+        // quality in post-match (did the turret ever reach commanded angle?).
+        log(ESSENTIAL, "Turret/Current", turretMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Turret/Angle", getTurretAngleDegrees());
+        log(ESSENTIAL, "Turret/TargetAngle", holdAngleDegrees);
 
         // Dashboard telemetry — only when tuning to reduce bandwidth
         if (Constants.TUNING_ENABLED) {
@@ -432,17 +437,15 @@ public class TurretSubsystem extends SubsystemBase {
                 lastTrackAction = "SWEEP dir=" + scanDirection;
             }
 
-            // Logging — gated behind LOGGING_ENABLED for competition performance
-            if (Constants.LOGGING_ENABLED) {
-                Logger.recordOutput("Turret/TrackMode", trackingMode.name());
-                Logger.recordOutput("Turret/TrackAction", lastTrackAction);
-                Logger.recordOutput("Turret/CurrentAngle", currentAngle);
-                Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
-                Logger.recordOutput("Turret/WorldBearing", worldBearing);
-                Logger.recordOutput("Turret/RobotRelative", robotRelative);
-                Logger.recordOutput("Turret/RobotHeading", robotHeading);
-                Logger.recordOutput("Turret/Locked", locked[0]);
-            }
+            // Split by level: state (ESSENTIAL) vs diagnostic geometry vs action string
+            log(ESSENTIAL, "Turret/TrackMode", trackingMode.name());
+            log(ESSENTIAL, "Turret/CurrentAngle", currentAngle);
+            log(ESSENTIAL, "Turret/Locked", locked[0]);
+            log(DIAGNOSTIC, "Turret/TrackAction", lastTrackAction);
+            log(DIAGNOSTIC, "Turret/PoseTurretAngle", poseTurretAngle);
+            log(DIAGNOSTIC, "Turret/WorldBearing", worldBearing);
+            log(DIAGNOSTIC, "Turret/RobotRelative", robotRelative);
+            log(DIAGNOSTIC, "Turret/RobotHeading", robotHeading);
         }))
         .finallyDo(interrupted -> {
             holdAngleDegrees = getTurretAngleDegrees();
@@ -557,15 +560,14 @@ public class TurretSubsystem extends SubsystemBase {
                 lastTrackAction = "SWEEP dir=" + scanDirection;
             }
 
-            if (Constants.LOGGING_ENABLED) {
-                Logger.recordOutput("Turret/TrackMode", trackingMode.name());
-                Logger.recordOutput("Turret/TrackAction", lastTrackAction);
-                Logger.recordOutput("Turret/CurrentAngle", currentAngle);
-                Logger.recordOutput("Turret/PoseTurretAngle", poseTurretAngle);
-                Logger.recordOutput("Turret/TOF", tof);
-                Logger.recordOutput("Turret/LeadX", leadX);
-                Logger.recordOutput("Turret/LeadY", leadY);
-            }
+            // TOF variant includes lead-comp math — DEBUG level, forensics only
+            log(ESSENTIAL, "Turret/TrackMode", trackingMode.name());
+            log(ESSENTIAL, "Turret/CurrentAngle", currentAngle);
+            log(DIAGNOSTIC, "Turret/TrackAction", lastTrackAction);
+            log(DIAGNOSTIC, "Turret/PoseTurretAngle", poseTurretAngle);
+            log(DEBUG, "Turret/TOF", tof);
+            log(DEBUG, "Turret/LeadX", leadX);
+            log(DEBUG, "Turret/LeadY", leadY);
         }))
         .finallyDo(interrupted -> {
             holdAngleDegrees = getTurretAngleDegrees();

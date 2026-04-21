@@ -14,6 +14,41 @@ package com.adambots;
  */
 public final class Constants {
 
+    // ==================== Operating Mode ====================
+
+    /**
+     * Robot operating mode. Drives {@link com.adambots.Robot}'s AdvantageKit receiver
+     * configuration:
+     * <ul>
+     *   <li>{@link Mode#REAL} — running on a real roboRIO. WPILOGWriter + NT4Publisher active.</li>
+     *   <li>{@link Mode#SIM} — desktop simulation. NT4Publisher only (no disk).</li>
+     *   <li>{@link Mode#REPLAY} — re-run a recorded log through the code for debugging.
+     *       Uses WPILOGReader + WPILOGWriter with {@code _sim} suffix.</li>
+     * </ul>
+     */
+    public enum Mode { REAL, SIM, REPLAY }
+
+    /** Set per deploy target. REAL for robot, SIM for desktop, REPLAY for log replay. */
+    public static final Mode MODE = Mode.REAL;
+
+    // ==================== Log Level ====================
+
+    /**
+     * Verbosity floor for {@link com.adambots.logging.LogUtil#log}. Compile-time.
+     * <ul>
+     *   <li>{@link com.adambots.logging.LogUtil.Level#ESSENTIAL} — quals/comp. ~25 signals.</li>
+     *   <li>{@link com.adambots.logging.LogUtil.Level#DIAGNOSTIC} — practice / post-match tuning.
+     *       Adds vision pipeline internals, per-module swerve, command durations.</li>
+     *   <li>{@link com.adambots.logging.LogUtil.Level#DEBUG} — bench only. Adds high-rate
+     *       tuning data (lead-comp math, PID internals).</li>
+     * </ul>
+     * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
+     */
+    public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
+        com.adambots.logging.LogUtil.Level.ESSENTIAL;
+
+    // ==================== Tuning / Shuffleboard (separate from logging) ====================
+
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
     public static final boolean TUNING_ENABLED = false;
 
@@ -28,12 +63,18 @@ public final class Constants {
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
     public static final boolean TURRET_TAB  = TUNING_ENABLED && false;
 
-    /** Log motor stator current to WPILog — lightweight, leave on for competition. */
+    /**
+     * @deprecated Replaced by {@link #LOG_LEVEL} — current logging is now part of ESSENTIAL.
+     *   Remove after all call sites migrate to {@link com.adambots.logging.LogUtil}.
+     */
+    @Deprecated
     public static final boolean CURRENT_LOGGING = true;
 
-    /** Enable detailed subsystem logging (turret tracking, vision diagnostics).
-     *  Set false for competition to reduce CPU/bandwidth overhead.
-     *  AdvantageKit core (timestamp, pose) and current logging still run. */
+    /**
+     * @deprecated Replaced by {@link #LOG_LEVEL} — set to {@code DIAGNOSTIC} or higher for
+     *   the same effect. Remove after all call sites migrate to {@link com.adambots.logging.LogUtil}.
+     */
+    @Deprecated
     public static final boolean LOGGING_ENABLED = false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */

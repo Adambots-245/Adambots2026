@@ -1,5 +1,9 @@
 package com.adambots.subsystems;
 
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.log;
+
 import com.adambots.Constants;
 import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
@@ -22,8 +26,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj.Timer;
-
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Intake subsystem using TalonFX onboard PID with gravity compensation.
@@ -556,10 +558,17 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        if (Constants.CURRENT_LOGGING) {
-            Logger.recordOutput("Intake/RollerCurrent", intakeMotor.getCurrentDraw().in(Amps));
-            Logger.recordOutput("Intake/ArmCurrent", intakeArmMotor.getCurrentDraw().in(Amps));
-        }
+        // ESSENTIAL: currents + arm position + roller velocity + jam state.
+        // Arm position in degrees lets us verify mechanical integrity post-match.
+        // Roller RPS distinguishes "commanded zero" from "stalled" without reading duty.
+        log(ESSENTIAL, "Intake/RollerCurrent", intakeMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Intake/ArmCurrent", intakeArmMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Intake/ArmPositionDeg", intakeArmMotor.getPosition() * 360.0);
+        log(ESSENTIAL, "Intake/RollerRPS", intakeMotor.getVelocity().in(RotationsPerSecond));
+        log(ESSENTIAL, "Intake/RollerReversing", rollerReversing);
+        // DIAGNOSTIC: Motion-Magic setpoint + velocity lets us see profile tracking
+        log(DIAGNOSTIC, "Intake/ArmTargetRotations", targetPosition);
+        log(DIAGNOSTIC, "Intake/ArmVelocityRPS", intakeArmMotor.getVelocity().in(RotationsPerSecond));
 
         // ==================== Roller jam detection ====================
         //

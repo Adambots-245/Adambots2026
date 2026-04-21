@@ -8,11 +8,11 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.070385620220101,
-        "y": 4.035606325104547
+        "x": 2.0703857894407314,
+        "y": 4.035613118761435
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "MStart"
     },
     {
       "anchor": {
@@ -48,7 +48,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": -179.25731468873425
   },
   "useDefaultConstraints": true
 }

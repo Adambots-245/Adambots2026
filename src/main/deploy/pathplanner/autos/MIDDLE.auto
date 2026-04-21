@@ -24,6 +24,12 @@
           }
         },
         {
+          "type": "named",
+          "data": {
+            "name": "legacyShoot"
+          }
+        },
+        {
           "type": "race",
           "data": {
             "commands": [
@@ -52,6 +58,25 @@
           "type": "named",
           "data": {
             "name": "legacyShoot"
+          }
+        },
+        {
+          "type": "parallel",
+          "data": {
+            "commands": [
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "MIDDLE-part4-bump"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "intake"
+                }
+              }
+            ]
           }
         }
       ]

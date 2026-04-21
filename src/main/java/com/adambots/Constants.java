@@ -26,7 +26,7 @@ public final class Constants {
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
-    public static final boolean TURRET_TAB  = TUNING_ENABLED && false;
+    public static final boolean TURRET_TAB  = TUNING_ENABLED && true;
 
     /** Log motor stator current to WPILog — lightweight, leave on for competition. */
     public static final boolean CURRENT_LOGGING = true;
@@ -66,7 +66,7 @@ public final class Constants {
         public static final double kAutoRotationD = 0.0;
 
         /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
-        public static final double kTranslationScale = 1.0;
+        public static final double kTranslationScale = 0.95;
     }
 
     // ==================== ShooterConstants ====================
@@ -95,7 +95,7 @@ public final class Constants {
         public static final double kFlywheelToleranceRPS = 3.5;  // was 2.5 — shot boost adds 3 RPS above base target, causing at_speed chatter at 2.5
 
         /** Fixed RPS for mid-field lob shots (tune on field). */
-        public static final double kLobShotRPS = 62.0;
+        public static final double kLobShotRPS = 101.0;
 
         // ==================== Current Limits ====================
         public static final double kFlywheelStallCurrentLimit = 40.0;
@@ -184,9 +184,9 @@ public final class Constants {
         // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
         // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 107;
+        public static final double kTurretPotAtZeroDeg = 706;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2660.0;
+        public static final double kTurretPotAtMaxDeg = 2780.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -205,7 +205,7 @@ public final class Constants {
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
-        public static final double kTurretForwardDegrees = 88.0;
+        public static final double kTurretForwardDegrees = 85.0;
 
         /** Turret pivot offset from robot center (meters).
          *  X = forward/back (negative = behind center), Y = left/right.
@@ -258,8 +258,8 @@ public final class Constants {
         public static final double kJamGracePeriod = 0.50;        // was 0.25 — longer grace prevents buzz loop re-trigger
 
         // Current limits
-        public static final double kHopperSupplyCurrentLimit = 50.0;
-        public static final double kUptakeSupplyCurrentLimit = 40.0;
+        public static final double kHopperSupplyCurrentLimit = 40.0;
+        public static final double kUptakeSupplyCurrentLimit = 30.0;
     }
 
     // ==================== VisionConstants ====================
@@ -441,7 +441,7 @@ public final class Constants {
         public static final double kCameraOfflineThresholdSeconds = 2.0;
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
-        public static final int kVisionMode = 0;
+        public static final int kVisionMode = 3;
 
         /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
         public static final double kVisionBlendWeight = 0.6;
@@ -533,7 +533,7 @@ public final class Constants {
 
         // Arm motor current limits
         public static final int kArmStatorCurrentLimit = 45;  // stator amps (torque limiting)
-        public static final int kArmSupplyCurrentLimit = 40;  // supply amps (must be ≤ PDH breaker)
+        public static final int kArmSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
 
         /** Timeout for the PathPlanner "intake" named command (seconds). */
         public static final double kAutoIntakeTimeout = 3.0;

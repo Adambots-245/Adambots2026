@@ -35,6 +35,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -152,6 +153,9 @@ public class RobotContainer {
                 // Rumble operator controller when 5 seconds until shift change
                 HubActivation.shiftChangeSoonTrigger(5.0)
                                 .onTrue(Commands.runOnce(() -> Buttons.rumbleOperator(1000, 1.0)));
+
+                HubActivation.nearEndTrigger(15)
+                        .onTrue(Commands.runOnce(()-> Buttons.rumbleOperator(1000, 1.0)));
         }
 
         // ==================== DEFAULT COMMANDS ====================
@@ -288,7 +292,6 @@ public class RobotContainer {
                                 .until(climber::isAtLoweredLimit)
                                 .andThen(climber.lockCommand())
                                 .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));    
-
         }
 
         // ==================== PATHPLANNER ====================

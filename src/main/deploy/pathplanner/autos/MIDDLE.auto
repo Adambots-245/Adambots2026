@@ -24,6 +24,31 @@
           }
         },
         {
+          "type": "race",
+          "data": {
+            "commands": [
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "MIDDLE-part2"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "intake"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "MIDDLE-part3"
+          }
+        },
+        {
           "type": "named",
           "data": {
             "name": "legacyShoot"

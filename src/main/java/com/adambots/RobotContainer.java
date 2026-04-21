@@ -6,6 +6,8 @@ package com.adambots;
 
 import java.io.File;
 
+import org.littletonrobotics.junction.Logger;
+
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
@@ -15,6 +17,7 @@ import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
+import com.adambots.lib.subsystems.CANdleSubsystem.AnimationTypes;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
 
@@ -32,6 +35,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -149,6 +153,9 @@ public class RobotContainer {
                 // Rumble operator controller when 5 seconds until shift change
                 HubActivation.shiftChangeSoonTrigger(5.0)
                                 .onTrue(Commands.runOnce(() -> Buttons.rumbleOperator(1000, 1.0)));
+
+                HubActivation.nearEndTrigger(15)
+                        .onTrue(Commands.runOnce(()-> Buttons.rumbleOperator(1000, 1.0)));
         }
 
         // ==================== DEFAULT COMMANDS ====================
@@ -163,14 +170,25 @@ public class RobotContainer {
                                                                 InputCurve.CUBIC, true),
                                                 Constants.DriveConstants.kTranslationScale));
 
-                // Turret auto-track: visible → track, not visible → search
+                // Turret tracking: pose-lock tracker
                 if (visionSubsystem != null) {
-                        turret.setDefaultCommand(turret.autoTrackCommand(
-                                        visionSubsystem::getHubAngle,
-                                        visionSubsystem::isHubVisible,
-                                        visionSubsystem::isTrackingDataFresh,
-                                        shooter::isInShootingZone,
-                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond)));
+                        var xboxJog = (java.util.function.DoubleSupplier) () -> {
+                                var xbox = Buttons.getXboxController();
+                                return xbox != null ? xbox.getLeftX() : 0.0;
+                        };
+                        turret.setDefaultCommand(turret.poseTrackCommand(
+                                        swerve::getPose,
+                                        visionSubsystem::getHubCenter,
+                                        () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                                        xboxJog));
+                        // OPTION: Pose tracker with TOF lead (shoot while moving)
+                        // turret.setDefaultCommand(turret.poseTrackCommandTOF(
+                        //                 swerve::getPose,
+                        //                 visionSubsystem::getHubCenter,
+                        //                 swerve::getFieldVelocity,
+                        //                 () -> shooter.getEstimatedTOF(visionSubsystem.getHubDistance()),
+                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        //                 xboxJog));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }
@@ -185,10 +203,10 @@ public class RobotContainer {
                 // All the possible buttons are being mapped with unused ones registered as Commands.none() to 
                 // avoid any conflicts in the future.
 
-                // Trigger (1): Hold-to-shoot at vision distance with chassis shake (no timer)
+                // Trigger (1): Hold-to-shoot at vision distance (no timer)
                 Buttons.JoystickButton1.whileTrue(
-                                ShootCommands.holdShootAtDistanceCommand(
-                                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                        ShootCommands.holdShootAtDistanceCommand(
+                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
                 // Button 3: Drop arm and run intake
@@ -216,7 +234,16 @@ public class RobotContainer {
                 // Button 12: Lower intake but do not run
                 Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); 
                 // Button 13: None
-                Buttons.JoystickButton13.onTrue(Commands.none());
+                // Button 13: Force pose reset from vision (only if cameras see 2+ tags)
+                Buttons.JoystickButton13.onTrue(Commands.runOnce(() -> {
+                        if (visionSubsystem != null && visionSubsystem.getHubVisibleTagCount() >= 2) {
+                                swerve.resetOdometry(swerve.getPose());
+                                System.out.println("[POSE RESET] Forced from vision — tags visible: "
+                                        + visionSubsystem.getHubVisibleTagCount());
+                        } else {
+                                System.out.println("[POSE RESET] Skipped — not enough tags visible");
+                        }
+                }));
                 // Button 14: None
                 Buttons.JoystickButton14.onTrue(Commands.none());
                 // Button 15: None
@@ -224,8 +251,9 @@ public class RobotContainer {
 
                 // === Operator (Xbox Controller) ===
 
-                // R-L Triggers: Bop
+                // L Trigger: Bop (hold to bop, release to lower)
                 Buttons.XboxLeftTriggerButton.whileTrue(intake.bopArmCommand());
+                // R Trigger: Bop toggle (press to start, press again to stop and lower)
                 Buttons.XboxRightTriggerButton.toggleOnTrue(intake.bopArmCommand());
                 // Right Bumper: Intake up
                 Buttons.XboxRightBumper.onTrue(intake.runRaiseIntakeArmCommand());
@@ -248,28 +276,22 @@ public class RobotContainer {
 
                 // === D-pad: Turret manual control ===
                 // Up = snap to forward (Motion Magic point-to-point)
-                // Left/Right = hold-to-jog (percent output, NOT Motion Magic —
-                //   see TurretSubsystem.scanCommand for why)
+                // Left/Right jog moved to Xbox left stick X (integrated into auto-track)
                 Buttons.XboxDPadN.whileTrue(
                                 turret.aimTurretCommand(() -> Constants.TurretConstants.kTurretForwardDegrees));
-                Buttons.XboxDPadE.whileTrue(turret.scanCommand(+1.0));
-                Buttons.XboxDPadW.whileTrue(turret.scanCommand(-1.0));
-                // NE/NW disabled for now — POV hat wobble between N and NE/NW
-                // was triggering jog instead of forward, causing "stops at odd
-                // angle" behavior. Re-enable once we decide whether diagonals
-                // should map to forward or jog.
-                // Buttons.XboxDPadNE.whileTrue(turret.scanCommand(+1.0));
-                // Buttons.XboxDPadNW.whileTrue(turret.scanCommand(-1.0));
 
-                // Start: Raise Climb
-                Buttons.XboxStartButton.onTrue(climber.extendCommand()
-                                                .until(climber::isAtRaisedLimit)
-                                                .andThen(climber.lockCommand()));
-                // Back: Lower Climb
-                Buttons.XboxBackButton.onTrue(climber.retractCommand()
-                                                .until(climber::isAtLoweredLimit)
-                                                .andThen(climber.lockCommand()));
-
+                // Start: Extend climber → lock when at top
+                Buttons.XboxStartButton.onTrue(
+                                climber.extendCommand()
+                                .until(climber::isAtRaisedLimit)
+                                .andThen(climber.lockCommand())
+                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));
+                // Back: Retract climber → lock when at bottom
+                Buttons.XboxBackButton.onTrue(
+                                climber.retractCommand()
+                                .until(climber::isAtLoweredLimit)
+                                .andThen(climber.lockCommand())
+                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));    
         }
 
         // ==================== PATHPLANNER ====================
@@ -344,6 +366,18 @@ public class RobotContainer {
         }
 
         public void onTeleopInit(boolean noAutoRan) {
+                // If no auto ran (teleop-only practice), the pose starts at the
+                // blue-side default (~1, 4). Mirror to red side if on red alliance
+                // so the pose estimator converges quickly from nearby vision data.
+                if (noAutoRan && com.adambots.lib.utils.Utils.isOnRedAlliance()
+                        && swerve.getPose().getX() < 8.0) {
+                    var current = swerve.getPose();
+                    swerve.resetOdometry(new edu.wpi.first.math.geometry.Pose2d(
+                        16.541 - current.getX(),
+                        current.getY(),
+                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(
+                            180 - current.getRotation().getDegrees())));
+                }
         }
 
         /**
@@ -365,5 +399,27 @@ public class RobotContainer {
 
         public Command getAutonomousCommand() {
                 return autoChooser.getSelected();
+        }
+
+        /**
+         * Logs swerve drive and steer motor currents for all 4 modules.
+         * Called from {@link Robot#robotPeriodic()} when CURRENT_LOGGING is enabled.
+         * Swerve motors are managed by YAGSL in the lib, so we log from outside.
+         *
+         * <p>Uses getAppliedOutput() (duty cycle 0-1) since YAGSL's SwerveMotor
+         * doesn't expose current directly. Multiply by ~60A (stall current at
+         * that duty cycle) for a rough current estimate, or check PDH channel
+         * currents for true values.
+         */
+        public void logSwerveCurrent() {
+                if (!Constants.CURRENT_LOGGING) return;
+                var modules = swerve.getSwerveDrive().getModules();
+                for (int i = 0; i < modules.length && i < 4; i++) {
+                        String name = modules[i].configuration.name;
+                        Logger.recordOutput("Swerve/" + name + "/DriveOutput",
+                                modules[i].getDriveMotor().getAppliedOutput());
+                        Logger.recordOutput("Swerve/" + name + "/SteerOutput",
+                                modules[i].getAngleMotor().getAppliedOutput());
+                }
         }
 }

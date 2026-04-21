@@ -403,22 +403,16 @@ public class IntakeSubsystem extends SubsystemBase {
      *                 motor), or null
      */
     private Command bopCommandBase(Runnable runExtra, String name) {
-        // the reason for using an array here is due to an issue with passing primitive
-        // types into the lambda expression for runEnd. Since Java requires variables
-        // used in lambda expressions to be effectively final, we cannot directly modify
-        // a primitive variable like a double. By using an array, we can modify the
-        // contents of the array (i.e., switchTime[0]) while still adhering to the
-        // effectively final requirement for the variable reference (switchTime).
-        boolean[] bopUp = { false };
-        double[] switchTime = { 0 };
+        // Position-based bop: switches direction when the arm arrives at the
+        // target, not after a fixed timer. This lets Motion Magic complete the
+        // full profile (accel → cruise → decel) instead of being interrupted
+        // mid-swing. An optional dwell at the bottom slows down the bop cycle.
+        boolean[] bopUp = { true };
+        double[] dwellStart = { 0 };
+        boolean[] dwelling = { false };
         return runEnd(
                 () -> {
-                    double now = Timer.getFPGATimestamp();
-                    if (switchTime[0] == 0)
-                        switchTime[0] = now;
-
-                    // Safety clamp: even with absolute bop positions, guard
-                    // against a typo in constants that would push past a stop.
+                    // Safety clamp: guard against constants pushing past stops.
                     double loDeg = Math.min(armLoweredPosition, armRaisedPosition);
                     double hiDeg = Math.max(armLoweredPosition, armRaisedPosition);
                     double bopBottom = degreesToMechanismRotations(
@@ -426,11 +420,34 @@ public class IntakeSubsystem extends SubsystemBase {
                     double bopTop = degreesToMechanismRotations(
                         clamp(IntakeConstants.kBopTopPosition, loDeg, hiDeg));
 
-                    if (now - switchTime[0] > IntakeConstants.kBopSwitchTimeSeconds) {
-                        bopUp[0] = !bopUp[0];
-                        switchTime[0] = now;
-                    }
                     targetPosition = bopUp[0] ? bopTop : bopBottom;
+
+                    // Check if arm has arrived at current target
+                    double currentDeg = intakeArmMotor.getPosition() * 360.0;
+                    double targetDeg = targetPosition * 360.0;
+                    boolean atTarget = Math.abs(currentDeg - targetDeg)
+                        < IntakeConstants.kBopPositionToleranceDeg;
+
+                    if (atTarget) {
+                        if (!bopUp[0] && IntakeConstants.kBopDwellSeconds > 0) {
+                            // At bottom — dwell before going back up
+                            double now = Timer.getFPGATimestamp();
+                            if (!dwelling[0]) {
+                                dwelling[0] = true;
+                                dwellStart[0] = now;
+                            } else if (now - dwellStart[0] >= IntakeConstants.kBopDwellSeconds) {
+                                bopUp[0] = true;
+                                dwelling[0] = false;
+                                targetPosition = bopTop;
+                            }
+                        } else {
+                            // At top, or at bottom with no dwell — flip direction
+                            bopUp[0] = !bopUp[0];
+                            dwelling[0] = false;
+                            targetPosition = bopUp[0] ? bopTop : bopBottom;
+                        }
+                    }
+
                     intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
                     if (runExtra != null)
                         runExtra.run();

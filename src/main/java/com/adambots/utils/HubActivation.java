@@ -136,6 +136,18 @@ public final class HubActivation {
         });
     }
 
+    /**
+     * Trigger that is true when we are warningSeconds seconds away from the end
+     * @param warningSeconds seconds until end of match
+     * @return
+     */
+    public static Trigger nearEndTrigger(double warningSeconds) {
+        return new Trigger(() -> {
+            double remaining = DriverStation.getMatchTime() - warningSeconds;
+            return remaining <= 0;
+        });
+    }
+
     // --- Internal logic (package-private for testing) ---
 
     static Shift shiftForTime(double matchTime) {

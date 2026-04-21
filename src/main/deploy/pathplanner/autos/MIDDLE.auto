@@ -11,7 +11,7 @@
               {
                 "type": "path",
                 "data": {
-                  "pathName": "LEFT-simple-part1"
+                  "pathName": "MIDDLE-part1"
                 }
               },
               {
@@ -28,28 +28,9 @@
           "data": {
             "commands": [
               {
-                "type": "named",
-                "data": {
-                  "name": "legacyShoot"
-                }
-              },
-              {
-                "type": "wait",
-                "data": {
-                  "waitTime": 6.0
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "parallel",
-          "data": {
-            "commands": [
-              {
                 "type": "path",
                 "data": {
-                  "pathName": "LEFT-simple-part2"
+                  "pathName": "MIDDLE-part2"
                 }
               },
               {
@@ -59,6 +40,18 @@
                 }
               }
             ]
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "MIDDLE-part3"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "legacyShoot"
           }
         }
       ]

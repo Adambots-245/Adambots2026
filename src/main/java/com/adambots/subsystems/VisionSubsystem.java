@@ -158,6 +158,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
 
             // Back-right ArduCam (on back-right swerve module, facing backward)
@@ -176,6 +177,7 @@ public class VisionSubsystem extends SubsystemBase {
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
                 .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
         }
 
@@ -215,7 +217,8 @@ public class VisionSubsystem extends SubsystemBase {
                 .multiTagStdDevs(Meters.of(VisionConstants.kMultiTagStdDevs[0]),
                                  Meters.of(VisionConstants.kMultiTagStdDevs[1]),
                                  Radians.of(VisionConstants.kMultiTagStdDevs[2]))
-                .maxTagDistance(Meters.of(VisionConstants.kAlignMaxTagDistance))
+                .maxTagDistance(Meters.of(VisionConstants.kOdomMaxTagDistance))
+                .minTagArea(VisionConstants.kOdomMinTagAreaPercent)
                 .done();
         }
 
@@ -259,6 +262,7 @@ public class VisionSubsystem extends SubsystemBase {
         // Row 0: Hub unified outputs (active approach)
         col = 0; row = 0;
         Dash.add("Hub Distance (m)", this::getHubDistance, col++, row);
+        Dash.add("Pose Dist (m)", this::getPoseBasedDistance, col++, row);
         Dash.add("Hub Angle (deg)", this::getHubAngle, col++, row);
         Dash.add("Hub Visible", this::isHubVisible, col++, row);
         Dash.add("Hub Tags", this::getHubVisibleTagCount, col++, row);
@@ -428,55 +432,53 @@ public class VisionSubsystem extends SubsystemBase {
         // ==================== Structured logging (AdvantageScope) ====================
         // Always active — writes to WPILog on USB stick. Open in AdvantageScope
         // to review the full vision pipeline for any mode.
-        //
-        // Camera pipeline (Approach A)
-        Logger.recordOutput("Vision/CamRawAngle", rawCamAngle);
-        Logger.recordOutput("Vision/CamEWMAAngle", hubCamAngleDegrees);
-        Logger.recordOutput("Vision/CamRawDist", rawCamDist);
-        Logger.recordOutput("Vision/CamEWMADist", hubCamDistanceMeters);
-        Logger.recordOutput("Vision/CamHasTarget", hubCamHasTarget);
-        Logger.recordOutput("Vision/CamSticky", hubCamSticky);
-        Logger.recordOutput("Vision/CamOnline", cameraOnline);
-        Logger.recordOutput("Vision/CamTagsSeen", diagTagsSeen);
-        Logger.recordOutput("Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
-        Logger.recordOutput("Vision/CamLastAmbiguity", diagLastAmbiguity);
-        //
-        // Pose pipeline (Approach B)
-        Pose2d currentPose = poseSupplier.get();
-        Logger.recordOutput("Vision/PoseX", currentPose.getX());
-        Logger.recordOutput("Vision/PoseY", currentPose.getY());
-        Logger.recordOutput("Vision/PoseHeading", currentPose.getRotation().getDegrees());
-        Logger.recordOutput("Vision/PoseRawAngle", rawPoseAngle);
-        Logger.recordOutput("Vision/PoseRawDist", rawPoseDist);
-        Logger.recordOutput("Vision/PoseFilteredDist", hubPoseDistanceMeters);
-        Logger.recordOutput("Vision/PoseAngle", hubPoseAngleDegrees);
-        Logger.recordOutput("Vision/PoseHasTarget", hubPoseHasTarget);
-        //
-        // Turret-relative conversion (critical for modes 2/3 — if this is wrong,
-        // pose-based tracking goes to the wrong direction)
-        Logger.recordOutput("Vision/TurretAngle", turretAngleSupplier.getAsDouble());
-        Logger.recordOutput("Vision/PoseAngleTurretRelative", poseAngleTurretRelative);
-        //
-        // Blended output (mode 3)
-        Logger.recordOutput("Vision/BlendedAngle", hubBlendedAngleDegrees);
-        Logger.recordOutput("Vision/BlendedDist", hubBlendedDistanceMeters);
-        //
-        // Final output (what the auto-track loop actually consumes)
-        Logger.recordOutput("Vision/Mode", visionMode);
-        Logger.recordOutput("Vision/OutputAngle", getHubAngle());
-        Logger.recordOutput("Vision/OutputDist", getHubDistance());
-        Logger.recordOutput("Vision/OutputVisible", isHubVisible());
-        Logger.recordOutput("Vision/OutputFresh", isTrackingDataFresh());
-        Logger.recordOutput("Vision/HubTagCount", hubVisibleTagCount);
+        if (Constants.LOGGING_ENABLED) {
+            // Camera pipeline (Approach A)
+            Logger.recordOutput("Vision/CamRawAngle", rawCamAngle);
+            Logger.recordOutput("Vision/CamEWMAAngle", hubCamAngleDegrees);
+            Logger.recordOutput("Vision/CamRawDist", rawCamDist);
+            Logger.recordOutput("Vision/CamEWMADist", hubCamDistanceMeters);
+            Logger.recordOutput("Vision/CamHasTarget", hubCamHasTarget);
+            Logger.recordOutput("Vision/CamSticky", hubCamSticky);
+            Logger.recordOutput("Vision/CamOnline", cameraOnline);
+            Logger.recordOutput("Vision/CamTagsSeen", diagTagsSeen);
+            Logger.recordOutput("Vision/CamTagsRejectedAmbig", diagTagsRejectedAmbiguity);
+            Logger.recordOutput("Vision/CamLastAmbiguity", diagLastAmbiguity);
+            // Pose pipeline (Approach B)
+            Pose2d currentPose = poseSupplier.get();
+            Logger.recordOutput("Vision/PoseX", currentPose.getX());
+            Logger.recordOutput("Vision/PoseY", currentPose.getY());
+            Logger.recordOutput("Vision/PoseHeading", currentPose.getRotation().getDegrees());
+            Logger.recordOutput("Vision/PoseRawAngle", rawPoseAngle);
+            Logger.recordOutput("Vision/PoseRawDist", rawPoseDist);
+            Logger.recordOutput("Vision/PoseFilteredDist", hubPoseDistanceMeters);
+            Logger.recordOutput("Vision/PoseAngle", hubPoseAngleDegrees);
+            Logger.recordOutput("Vision/PoseHasTarget", hubPoseHasTarget);
+            // Turret-relative conversion
+            Logger.recordOutput("Vision/TurretAngle", turretAngleSupplier.getAsDouble());
+            Logger.recordOutput("Vision/PoseAngleTurretRelative", poseAngleTurretRelative);
+            // Blended output (mode 3)
+            Logger.recordOutput("Vision/BlendedAngle", hubBlendedAngleDegrees);
+            Logger.recordOutput("Vision/BlendedDist", hubBlendedDistanceMeters);
+            // Final output
+            Logger.recordOutput("Vision/Mode", visionMode);
+            Logger.recordOutput("Vision/OutputAngle", getHubAngle());
+            Logger.recordOutput("Vision/OutputDist", getHubDistance());
+            Logger.recordOutput("Vision/PoseBasedDist", getPoseBasedDistance());
+            Logger.recordOutput("Vision/OutputVisible", isHubVisible());
+            Logger.recordOutput("Vision/OutputFresh", isTrackingDataFresh());
+            Logger.recordOutput("Vision/HubTagCount", hubVisibleTagCount);
+        }
 
         // ==================== Console log (1 Hz, always active) ====================
         // Human-readable summary for RioLog / driver station quick check.
         {
             double now2 = Timer.getFPGATimestamp();
-            if (now2 - lastLogTimestamp >= 1.0) {
+            if (Constants.LOGGING_ENABLED && now2 - lastLogTimestamp >= 1.0) {
                 lastLogTimestamp = now2;
                 String modeName = (visionMode >= 0 && visionMode <= 3) ? MODE_NAMES[visionMode] : "?";
                 Translation2d hc = isRed ? redHubCenter : blueHubCenter;
+                Pose2d logPose = poseSupplier.get();
                 System.out.printf(
                     "[Vision] mode=%s cam=%s(seen=%d ambig=%d notHub=%d lastA=%.2f) "
                     + "pose=%s dist=%.2f/%.2f ang=%.1f/%.1f "
@@ -493,8 +495,8 @@ public class VisionSubsystem extends SubsystemBase {
                     hubBlendedAngleDegrees, hubBlendedDistanceMeters,
                     getHubAngle(), getHubDistance(),
                     hubVisibleTagCount,
-                    currentPose.getX(), currentPose.getY(),
-                    currentPose.getRotation().getDegrees(),
+                    logPose.getX(), logPose.getY(),
+                    logPose.getRotation().getDegrees(),
                     hc.getX(), hc.getY());
             }
         }
@@ -667,12 +669,29 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== Hub Shared Getters ====================
 
+    /**
+     * Distance to hub center computed purely from robot pose and hardcoded
+     * hub coordinates. Independent of camera viewing angle — does not use PnP.
+     * Accuracy depends on odometry/vision pose quality.
+     */
+    public double getPoseBasedDistance() {
+        var pose = poseSupplier.get();
+        var hub = getHubCenter();
+        double dx = hub.getX() - pose.getX();
+        double dy = hub.getY() - pose.getY();
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
     /** Number of hub tags currently visible. */
     public int getHubVisibleTagCount() { return hubVisibleTagCount; }
 
-    /** Returns the hub center for the current alliance. */
+    /** Returns the hub center for the current alliance.
+     *  Uses hardcoded coordinates from official field layout to eliminate
+     *  field-to-field tag placement variation. */
     public Translation2d getHubCenter() {
-        return Utils.isOnRedAlliance() ? redHubCenter : blueHubCenter;
+        return Utils.isOnRedAlliance()
+            ? new Translation2d(VisionConstants.kRedHubCenterX, VisionConstants.kRedHubCenterY)
+            : new Translation2d(VisionConstants.kBlueHubCenterX, VisionConstants.kBlueHubCenterY);
     }
 
     // ==================== Generic Tag Visibility (any tag group) ====================

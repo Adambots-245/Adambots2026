@@ -40,11 +40,11 @@ public class Robot extends LoggedRobot {
         // Configure AdvantageKit Logger FIRST (required before LoggedRobot parent init)
         Logger.recordMetadata("ProjectName", "Adambots2026");
 
-        if (!isReal()) {
-            // In simulation only — publish to NT for live AdvantageScope viewing.
-            Logger.addDataReceiver(new NT4Publisher());
-        }
-        // Log to USB stick on real robot for post-match analysis in AdvantageScope
+        // Publish to NT so DataLogManager captures AdvantageKit outputs in
+        // its .wpilog file — works even without a USB stick on the robot.
+        Logger.addDataReceiver(new NT4Publisher());
+
+        // Also log to USB stick if present (higher throughput, no bandwidth impact).
         Logger.addDataReceiver(new WPILOGWriter());
 
         Logger.start();
@@ -96,6 +96,7 @@ public class Robot extends LoggedRobot {
         // block in order for anything in the Command-based framework to work.
         CommandScheduler.getInstance().run();
         container.getTuningPeriodic().run();
+        container.logSwerveCurrent();
 
         double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
         Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);

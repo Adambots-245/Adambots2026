@@ -31,6 +31,8 @@ public class HopperSubsystem extends SubsystemBase {
     private boolean reversing = false;
     private boolean wasFeedingLastCycle = false;
     private final Timer reverseTimer = new Timer();
+    private final Timer stallTimer = new Timer();
+    private boolean stallTimerRunning = false;
 
     public HopperSubsystem(BaseMotor hopperMotor, BaseMotor uptakeMotor) {
         this.hopperMotor = hopperMotor;
@@ -102,6 +104,11 @@ public class HopperSubsystem extends SubsystemBase {
         //
         boolean currentlyFeeding = hopperMotor.getOutputPercent() > 0;
 
+        if (!HopperConstants.kJamDetectionEnabled) {
+            wasFeedingLastCycle = currentlyFeeding;
+            return;
+        }
+
         // --- REVERSING state: motors are running backward to clear a jam ---
         if (reversing) {
             if (reverseTimer.hasElapsed(HopperConstants.kJamReverseDuration)) {
@@ -124,15 +131,27 @@ public class HopperSubsystem extends SubsystemBase {
             reverseTimer.restart();
         }
 
-        // --- JAM CHECK: only after grace period has elapsed ---
-        if (currentlyFeeding
-                && reverseTimer.hasElapsed(HopperConstants.kJamGracePeriod)
-                && hopperMotor.getVelocity().in(RotationsPerSecond) < HopperConstants.kJamVelocityThreshold) {
-            // Agitator velocity dropped below threshold — jam detected.
-            // Reverse both motors to clear the blockage.
-            reversing = true;
-            reverseTimer.restart();
-            reverse();
+        // --- JAM CHECK: only after grace period, requires SUSTAINED stall ---
+        if (currentlyFeeding && reverseTimer.hasElapsed(HopperConstants.kJamGracePeriod)) {
+            boolean stalled = hopperMotor.getVelocity().in(RotationsPerSecond)
+                < HopperConstants.kJamVelocityThreshold;
+
+            if (stalled) {
+                // Velocity is low — start or continue stall timer
+                if (!stallTimerRunning) {
+                    stallTimer.restart();
+                    stallTimerRunning = true;
+                } else if (stallTimer.hasElapsed(HopperConstants.kJamStallDuration)) {
+                    // Sustained stall confirmed — this is a real jam, not a ball passing through
+                    reversing = true;
+                    reverseTimer.restart();
+                    stallTimerRunning = false;
+                    reverse();
+                }
+            } else {
+                // Velocity recovered — ball was just passing through, reset stall timer
+                stallTimerRunning = false;
+            }
         }
 
         wasFeedingLastCycle = currentlyFeeding;
@@ -143,6 +162,27 @@ public class HopperSubsystem extends SubsystemBase {
     public Command feedCommand() {
         return runEnd(this::feed, this::stop)
             .withName("Feed");
+    }
+
+    /**
+     * Gated feed: only feeds when the supplied condition is true (e.g. flywheel at speed).
+     * Pauses motors when the condition is false, preventing balls from entering
+     * an under-speed flywheel. Uses direct motor zeroing (not stop()) to preserve
+     * the jam detection state machine — stop() clears the reversing flag.
+     */
+    public Command gatedFeedCommand(java.util.function.BooleanSupplier readyToFeed) {
+        return runEnd(
+            () -> {
+                if (readyToFeed.getAsBoolean()) {
+                    feed();
+                } else {
+                    // Pause motors without clearing jam state (don't call stop())
+                    hopperMotor.set(0);
+                    uptakeMotor.set(0);
+                }
+            },
+            this::stop
+        ).withName("Gated Feed");
     }
 
     public Command reverseCommand() {

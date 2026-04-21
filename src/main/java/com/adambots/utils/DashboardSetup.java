@@ -43,12 +43,13 @@ public final class DashboardSetup {
             tuningManager = new TuningManager(shooter, turret, intake, hopper, visionSubsystem);
         }
 
-        if (Constants.SHOOTER_TAB)  configureShooterTuningTab(shooter, turret, hopper, intake, visionSubsystem, tuningManager);
+        if (Constants.SHOOTER_TAB)  configureShooterTuningTab(swerve, shooter, turret, hopper, intake, visionSubsystem, tuningManager);
         if (Constants.CLIMBER_TAB)  configureClimberTab(climber);
         if (Constants.SWERVE_TAB)   configureSwerveTab(swerve);
         if (Constants.COMMANDS_TAB) configureCommandsTab(swerve, intake, shooter, turret, hopper, climber, visionSubsystem);
         if (Constants.INTAKE_TAB && tuningManager != null)  tuningManager.setupIntakeTunables();
         if (Constants.HOPPER_TAB && tuningManager != null)  tuningManager.setupHopperTunables();
+        if (Constants.TURRET_TAB && tuningManager != null)  tuningManager.setupTrackingTunables();
 
         if (Constants.TUNING_ENABLED) {
             configureSystemCheckTab(swerve, intake, shooter, turret, hopper, climber);
@@ -59,6 +60,7 @@ public final class DashboardSetup {
 
     // ==================== SHOOTER TUNING TAB ====================
     private static void configureShooterTuningTab(
+            SwerveSubsystem swerve,
             ShooterSubsystem shooter,
             TurretSubsystem turret,
             HopperSubsystem hopper,
@@ -228,9 +230,9 @@ public final class DashboardSetup {
                 turret.toggleAutoTrackCommand(), col++, row);
             Dash.addCommand("Manual Align",
                 turret.manualAlignCommand(
-                    visionSubsystem::getHubCamAngle,
-                    visionSubsystem::isHubCamVisible,
-                    visionSubsystem::isHubCamFresh)
+                    swerve::getPose,
+                    visionSubsystem::getHubCenter,
+                    () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond))
                     .withName("Manual Align"), col++, row);
         }
 

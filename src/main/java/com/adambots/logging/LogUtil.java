@@ -41,9 +41,11 @@ import org.littletonrobotics.junction.Logger;
  *
  * <h3>Important notes</h3>
  * <ul>
- *   <li>{@code Constants.LOG_LEVEL} is {@code static final} — a level change requires a
- *       clean deploy ({@code ./gradlew clean deploy}) so the JIT re-elaborates the
- *       inlined branch state. Incremental deploy may not pick up a change.</li>
+ *   <li>{@code Constants.LOG_LEVEL} is an enum (not inlined); regular
+ *       {@code ./gradlew deploy} picks up changes. Gradle's incremental compiler
+ *       tracks ABI changes so constant-only edits recompile dependents correctly.
+ *       Use {@code clean} only when switching vendor deps or annotation-processor
+ *       output goes stale.</li>
  *   <li>{@code Logger.recordOutput} is thread-safe per AdvantageKit docs. Safe to call
  *       from PathPlanner callbacks or custom threads.</li>
  *   <li>Supplier overloads allocate a small lambda; use them only for computations

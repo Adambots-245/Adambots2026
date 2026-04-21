@@ -14,6 +14,21 @@ package com.adambots;
  */
 public final class Constants {
 
+    // ==================== Battery Tracking ====================
+
+    /**
+     * Battery identifier for the pack installed for the current deploy.
+     *
+     * <p><b>CHANGE BEFORE EACH MATCH</b> — label each physical battery with a
+     * number (1, 2, 3…) and set this constant to the installed battery's number
+     * prior to running {@code ./gradlew deploy}. Logged as metadata + ESSENTIAL
+     * signal so post-match analysis can correlate voltage sag / brownouts
+     * (e.g. the MICMP1 Q19/Q58 packs) to a specific physical battery.
+     *
+     * <p>Default {@code 0} means "unset" — treat those logs with caution.
+     */
+    public static final int BATTERY_ID = 0;
+
     // ==================== Operating Mode ====================
 
     /**

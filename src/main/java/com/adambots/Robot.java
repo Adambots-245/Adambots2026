@@ -57,6 +57,7 @@ public class Robot extends LoggedRobot {
         Logger.recordMetadata("ProjectName", "Adambots2026");
         Logger.recordMetadata("LogLevel", Constants.LOG_LEVEL.name());
         Logger.recordMetadata("Mode", Constants.MODE.name());
+        Logger.recordMetadata("BatteryId", String.valueOf(Constants.BATTERY_ID));
 
         switch (Constants.MODE) {
             case REAL:
@@ -87,6 +88,12 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotInit() {
+        // Log the configured battery ID once at boot as an ESSENTIAL signal so
+        // it appears on the AdvantageScope timeline in addition to the metadata
+        // header. Lets match-analysis scripts correlate sag/brownout events to
+        // a specific physical battery (see MICMP1 Q19/Q58 forensics).
+        log(ESSENTIAL, "System/BatteryId", Constants.BATTERY_ID);
+
         // 1. WPILib DataLogManager — logs DS data, joystick inputs to USB for post-match review
         DataLogManager.start();
 

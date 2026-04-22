@@ -696,13 +696,15 @@ public class VisionSubsystem extends SubsystemBase {
     /** Number of hub tags currently visible. */
     public int getHubVisibleTagCount() { return hubVisibleTagCount; }
 
-    /** Returns the hub center for the current alliance.
-     *  Uses hardcoded coordinates from official field layout to eliminate
-     *  field-to-field tag placement variation. */
+    /**
+     * @deprecated Moved to {@link com.adambots.utils.FieldGeometry#getHubCenter()} —
+     *   hub geometry isn't vision-specific. Callers should switch to FieldGeometry
+     *   directly to avoid taking a VisionSubsystem dependency just to read a field
+     *   constant. This delegate remains for one release to avoid churn.
+     */
+    @Deprecated
     public Translation2d getHubCenter() {
-        return Utils.isOnRedAlliance()
-            ? new Translation2d(VisionConstants.kRedHubCenterX, VisionConstants.kRedHubCenterY)
-            : new Translation2d(VisionConstants.kBlueHubCenterX, VisionConstants.kBlueHubCenterY);
+        return com.adambots.utils.FieldGeometry.getHubCenter();
     }
 
     // ==================== Generic Tag Visibility (any tag group) ====================

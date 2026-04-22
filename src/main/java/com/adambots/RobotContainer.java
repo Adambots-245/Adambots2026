@@ -9,6 +9,7 @@ import java.io.File;
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
+// import com.adambots.commands.DriveCommands;  // uncomment when enabling the back-to-hub wiring below
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
@@ -28,6 +29,7 @@ import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 import com.adambots.utils.DashboardSetup;
+import com.adambots.utils.FieldGeometry;
 import com.adambots.utils.HubActivation;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
@@ -178,13 +180,13 @@ public class RobotContainer {
                         };
                         turret.setDefaultCommand(turret.poseTrackCommand(
                                         swerve::getPose,
-                                        visionSubsystem::getHubCenter,
+                                        FieldGeometry::getHubCenter,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
                                         xboxJog));
                         // OPTION: Pose tracker with TOF lead (shoot while moving)
                         // turret.setDefaultCommand(turret.poseTrackCommandTOF(
                         //                 swerve::getPose,
-                        //                 visionSubsystem::getHubCenter,
+                        //                 FieldGeometry::getHubCenter,
                         //                 swerve::getFieldVelocity,
                         //                 () -> shooter.getEstimatedTOF(visionSubsystem.getHubDistance()),
                         //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
@@ -218,6 +220,29 @@ public class RobotContainer {
 
                 // Button 5: Toggle auto-track on/off
                 Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+                // Alternative strategy — fixed turret, rotate chassis so its back faces the hub.
+                // Three wiring options (pick one, comment the auto-track toggle above):
+                //
+                // (1) Hold-to-aim, chassis stops translating while rotating:
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(swerve));
+                //
+                // (2) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
+                // Buttons.JoystickButton5.onTrue(DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
+                //
+                // (3) Hold-to-aim WITH driver translation passthrough — drive + auto-aim at once.
+                //     Uses the same forward/strafe suppliers as the default drive command, scaled
+                //     to m/s via YAGSL's configured max chassis velocity:
+                // final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
+                // final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
+                //         Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                // final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
+                //         Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(
+                //         swerve,
+                //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                //         2.0 /* tolerance deg */));
+                
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
                                 intake.runLowerIntakeArmCommand());
@@ -233,7 +258,6 @@ public class RobotContainer {
                 Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
                 // Button 12: Lower intake but do not run
                 Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); 
-                // Button 13: None
                 // Button 13: Force pose reset from vision (only if cameras see 2+ tags)
                 Buttons.JoystickButton13.onTrue(Commands.runOnce(() -> {
                         if (visionSubsystem != null && visionSubsystem.getHubVisibleTagCount() >= 2) {

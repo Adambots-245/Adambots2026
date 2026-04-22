@@ -122,7 +122,8 @@ public final class Constants {
         public static final double kAutoRotationD = 0.0;
 
         /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
-        public static final double kTranslationScale = 1.0;
+        // Going above 90% may make turning at top speed sluggish
+        public static final double kTranslationScale = 0.9;
     }
 
     // ==================== ShooterConstants ====================
@@ -467,7 +468,7 @@ public final class Constants {
         /** Hardcoded hub center coordinates from official WPILib 2026 field layout.
          *  Derived from geometric center of all hub tag positions in 2026-rebuilt-welded.json.
          *  Using hardcoded values eliminates field-to-field tag placement variation. */
-        public static final double kRedHubCenterX = 12.004 + 0.1;
+        public static final double kRedHubCenterX = 12.004 + 0.1; // add 0.1 to shift the shooting alignment.
         public static final double kRedHubCenterY = 4.035;
         public static final double kBlueHubCenterX = 4.537;
         public static final double kBlueHubCenterY = 4.035;

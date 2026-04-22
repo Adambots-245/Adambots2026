@@ -183,7 +183,20 @@ public class RobotContainer {
                                         FieldGeometry::getHubCenter,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
                                         xboxJog));
-                        // OPTION: Pose tracker with TOF lead (shoot while moving)
+                        // OPTION A: Pose tracker with translational lead compensation.
+                        // Identical behavior to the above when
+                        // Constants.TurretTrackingConstants.kShotLeadTimeSec is 0;
+                        // once it's set non-zero (start around 0.15–0.20 s), the turret
+                        // aims ahead of the hub to compensate for robot drift during
+                        // fuel flight. Zero-safe: just set kShotLeadTimeSec = 0 to revert.
+                        // turret.setDefaultCommand(turret.poseTrackCommand(
+                        //                 swerve::getPose,
+                        //                 FieldGeometry::getHubCenter,
+                        //                 swerve::getFieldVelocity,
+                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        //                 xboxJog));
+                        // OPTION B: Pose tracker with TOF lead from vision distance
+                        //            (distance-dependent lead instead of constant).
                         // turret.setDefaultCommand(turret.poseTrackCommandTOF(
                         //                 swerve::getPose,
                         //                 FieldGeometry::getHubCenter,

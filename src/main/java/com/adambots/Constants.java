@@ -300,6 +300,22 @@ public final class Constants {
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
         public static final double kAngularVelLeadTime = 0.03;
+
+        /**
+         * Projectile time-of-flight (seconds) for <b>translational</b> lead compensation.
+         * Shifts the aim point by {@code -fieldVelocity × kShotLeadTimeSec} so the turret
+         * aims ahead of the hub to account for the robot's drift during the fuel's flight.
+         *
+         * <p><b>Zero disables it</b> — the aim point reduces exactly to the static hub
+         * center, matching pre-lead behavior. Only the 5-arg
+         * {@code poseTrackCommand(..., fieldVelSupplier, ...)} overload consumes this
+         * value; the legacy 4-arg signature is unaffected.
+         *
+         * <p>Tuning: start at 0.15–0.20s for FUEL at typical scoring ranges (3–4 m,
+         * exit speed ~15 m/s → TOF ≈ 0.2s). Increase if shots trail behind when
+         * strafing, decrease if they lead too far. Bench-test with static hub first.
+         */
+        public static final double kShotLeadTimeSec = 0.0;
     }
 
     // ==================== HopperConstants ====================

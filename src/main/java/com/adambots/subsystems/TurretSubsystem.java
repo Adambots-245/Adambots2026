@@ -16,6 +16,7 @@ import com.adambots.lib.sensors.BaseAbsoluteEncoder;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -452,6 +453,138 @@ public class TurretSubsystem extends SubsystemBase {
             setTurretAngle(holdAngleDegrees);
         })
         .withName("Pose Track");
+    }
+
+    // ==================== Pose Tracker with Translational Lead ====================
+
+    /**
+     * Pose-based tracker with optional <b>translational</b> lead compensation for
+     * shoot-while-moving. Identical behavior to the 4-arg
+     * {@link #poseTrackCommand(java.util.function.Supplier, java.util.function.Supplier,
+     *   DoubleSupplier, DoubleSupplier)} when
+     * {@link TurretTrackingConstants#kShotLeadTimeSec} is 0, because the aim shift
+     * {@code (-fieldVelocity × 0)} is identically zero.
+     *
+     * <p>When {@code kShotLeadTimeSec > 0}, the aim point is shifted against the
+     * robot's field-frame velocity by that many seconds of drift — i.e. the turret
+     * aims where the hub <i>will be relative to the robot</i> by the time the fuel
+     * lands. This compensates for the robot's momentum, not the hub's (hub is stationary).
+     *
+     * <p><b>Zero to disable:</b> set {@code kShotLeadTimeSec = 0.0} in Constants and
+     * redeploy. No code change needed. Angular velocity lead (rotation anticipation)
+     * is independent and continues to work either way.
+     *
+     * @param poseSupplier               robot pose (for bearing + pivot offset)
+     * @param hubCenter                  hub center position on the field (hardcoded)
+     * @param fieldVelSupplier           robot field-relative velocity (vx, vy used;
+     *                                   omega ignored — we use {@code robotAngularVelDegPerSec})
+     * @param robotAngularVelDegPerSec   robot yaw rate for rotation lead compensation
+     * @param manualJogInput             raw joystick axis [-1, 1] for manual override
+     */
+    public Command poseTrackCommand(
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier,
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Translation2d> hubCenter,
+            java.util.function.Supplier<ChassisSpeeds> fieldVelSupplier,
+            DoubleSupplier robotAngularVelDegPerSec,
+            DoubleSupplier manualJogInput) {
+
+        boolean[] locked = { false };
+        double[] smoothedAngle = { TurretConstants.kTurretForwardDegrees };
+
+        return Commands.runOnce(() -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+            scanDirection = 1;
+            locked[0] = false;
+            smoothedAngle[0] = getTurretAngleDegrees();
+        }, this)
+        .andThen(run(() -> {
+            if (handleManualJog(manualJogInput)) return;
+
+            if (!autoTrackEnabled) {
+                if (wasAutoTracking) {
+                    holdAngleDegrees = getTurretAngleDegrees();
+                    wasAutoTracking = false;
+                }
+                trackingMode = TrackingMode.HOLD;
+                setTurretAngle(holdAngleDegrees);
+                return;
+            }
+            wasAutoTracking = true;
+
+            double currentAngle = getTurretAngleDegrees();
+            var pose = poseSupplier.get();
+            var hub = hubCenter.get();
+            ChassisSpeeds fieldVel = fieldVelSupplier.get();
+
+            double headingRad = pose.getRotation().getRadians();
+            double pivotX = pose.getX()
+                + TurretConstants.kTurretPivotX * Math.cos(headingRad)
+                - TurretConstants.kTurretPivotY * Math.sin(headingRad);
+            double pivotY = pose.getY()
+                + TurretConstants.kTurretPivotX * Math.sin(headingRad)
+                + TurretConstants.kTurretPivotY * Math.cos(headingRad);
+
+            // Translational lead: aim where the hub will be relative to the robot
+            // after `kShotLeadTimeSec` seconds of robot drift.
+            // kShotLeadTimeSec = 0 → leadX = hub.X, leadY = hub.Y → reduces to static aim.
+            double leadX = hub.getX() - fieldVel.vxMetersPerSecond * TurretTrackingConstants.kShotLeadTimeSec;
+            double leadY = hub.getY() - fieldVel.vyMetersPerSecond * TurretTrackingConstants.kShotLeadTimeSec;
+
+            double dx = leadX - pivotX;
+            double dy = leadY - pivotY;
+            double worldBearing = Math.toDegrees(Math.atan2(dy, dx));
+            double robotHeading = pose.getRotation().getDegrees();
+            double robotRelative = worldBearing - robotHeading;
+            double poseTurretAngle = poseAngleToTurretAngle(robotRelative);
+
+            if (pose.getTranslation().getNorm() > 1.0) {
+                if (poseTurretAngle < -10 || poseTurretAngle > TurretConstants.kTurretMaxDegrees + 10) {
+                    trackingMode = TrackingMode.HOLD;
+                    setTurretAngle(TurretConstants.kTurretForwardDegrees);
+                    lastTrackAction = "OUT OF RANGE";
+                } else {
+                    trackingMode = TrackingMode.TRACKING;
+                    locked[0] = true;
+                    double angVelLead = -robotAngularVelDegPerSec.getAsDouble()
+                        * TurretTrackingConstants.kAngularVelLeadTime;
+                    double targetWithLead = MathUtil.clamp(
+                        poseTurretAngle + angVelLead, 0, TurretConstants.kTurretMaxDegrees);
+                    smoothedAngle[0] += (targetWithLead - smoothedAngle[0]) * 0.5;
+                    setTurretAngle(smoothedAngle[0]);
+                    lastTrackAction = String.format(
+                        "TRACK %.1f° angLead=%.1f leadXY=(%.2f,%.2f)",
+                        smoothedAngle[0], angVelLead,
+                        fieldVel.vxMetersPerSecond * TurretTrackingConstants.kShotLeadTimeSec,
+                        fieldVel.vyMetersPerSecond * TurretTrackingConstants.kShotLeadTimeSec);
+                }
+            } else {
+                locked[0] = false;
+                trackingMode = TrackingMode.SWEEP;
+                if (currentAngle >= TurretConstants.kTurretMaxDegrees
+                        - TurretTrackingConstants.kScanMarginDeg) scanDirection = -1;
+                else if (currentAngle <= TurretTrackingConstants.kScanMarginDeg) scanDirection = 1;
+                turretMotor.set(scanDirection * TurretConstants.kTurretJogPercent * 0.4);
+                lastTrackAction = "SWEEP dir=" + scanDirection;
+            }
+
+            log(ESSENTIAL, "Turret/TrackMode", trackingMode.name());
+            log(ESSENTIAL, "Turret/CurrentAngle", currentAngle);
+            log(ESSENTIAL, "Turret/Locked", locked[0]);
+            log(DIAGNOSTIC, "Turret/TrackAction", lastTrackAction);
+            log(DIAGNOSTIC, "Turret/PoseTurretAngle", poseTurretAngle);
+            log(DIAGNOSTIC, "Turret/WorldBearing", worldBearing);
+            log(DIAGNOSTIC, "Turret/RobotRelative", robotRelative);
+            log(DIAGNOSTIC, "Turret/RobotHeading", robotHeading);
+            log(DIAGNOSTIC, "Turret/LeadXMeters",
+                fieldVel.vxMetersPerSecond * TurretTrackingConstants.kShotLeadTimeSec);
+            log(DIAGNOSTIC, "Turret/LeadYMeters",
+                fieldVel.vyMetersPerSecond * TurretTrackingConstants.kShotLeadTimeSec);
+        }))
+        .finallyDo(interrupted -> {
+            holdAngleDegrees = getTurretAngleDegrees();
+            setTurretAngle(holdAngleDegrees);
+        })
+        .withName("Pose Track (Lead)");
     }
 
     // ==================== Pose-Lock Tracker with TOF Lead ====================

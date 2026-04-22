@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj.Timer;
@@ -409,10 +410,34 @@ public class IntakeSubsystem extends SubsystemBase {
         // target, not after a fixed timer. This lets Motion Magic complete the
         // full profile (accel → cruise → decel) instead of being interrupted
         // mid-swing. An optional dwell at the bottom slows down the bop cycle.
+        //
+        // Closure state (bopUp / dwelling) is intentionally mutable and
+        // persists across executions; the sequence-wrapper below resets it on
+        // every schedule so the command has consistent behavior whether it's
+        // the first press or the tenth. Without the reset, the end-lambda's
+        // `bopUp[0] = false` leaks into the next press and makes the first
+        // commanded motion a tiny 5° blip (lowered 100° → bopBottom 105°)
+        // that can stall before advancing — user-visible as "bop doesn't work
+        // from lowered."
         boolean[] bopUp = { true };
         double[] dwellStart = { 0 };
         boolean[] dwelling = { false };
-        return runEnd(
+        return Commands.sequence(
+            Commands.runOnce(() -> {
+                // Pick initial direction based on current arm position so the
+                // first MM profile is always the *longer* of the two options —
+                // avoids the stall-prone tiny-move pathology.
+                double currentDeg = intakeArmMotor.getPosition() * 360.0;
+                double midpoint = (IntakeConstants.kBopBottomPosition
+                                 + IntakeConstants.kBopTopPosition) / 2.0;
+                bopUp[0] = currentDeg < midpoint;
+                dwelling[0] = false;
+                // Mirror raiseIntakeArm()'s pattern: ensure brake mode in case
+                // a prior runIntake left the arm in coast. Coast doesn't block
+                // MM but it removes the passive brake between ticks.
+                restoreBrakeMode();
+            }, this),
+            runEnd(
                 () -> {
                     // Safety clamp: guard against constants pushing past stops.
                     double loDeg = Math.min(armLoweredPosition, armRaisedPosition);
@@ -457,7 +482,8 @@ public class IntakeSubsystem extends SubsystemBase {
                 () -> {
                     bopUp[0] = false;
                     lowerIntakeArm();
-                }).withName(name);
+                })
+        ).withName(name);
     }
 
     /** Small clamp helper used by bopCommandBase. */

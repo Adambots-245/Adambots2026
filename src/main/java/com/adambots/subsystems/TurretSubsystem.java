@@ -79,8 +79,8 @@ public class TurretSubsystem extends SubsystemBase {
     private void configureMotors() {
         turretMotor.configure()
             .brakeMode(true)
-            .currentLimits(TurretConstants.kTurretStallCurrentLimit,
-                           TurretConstants.kTurretFreeCurrentLimit, 3000)
+            .currentLimits(TurretConstants.kTurretStatorCurrentLimit,
+                           TurretConstants.kTurretSupplyCurrentLimit, 3000)
             .motionMagic(
                 RotationsPerSecond.of(TurretConstants.kTurretCruiseVelocity),
                 RotationsPerSecondPerSecond.of(TurretConstants.kTurretAcceleration),

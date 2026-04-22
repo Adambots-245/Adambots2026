@@ -155,8 +155,8 @@ public final class Constants {
         public static final double kLobShotRPS = 62.0;
 
         // ==================== Current Limits ====================
-        public static final double kFlywheelStallCurrentLimit = 40.0;
-        public static final double kFlywheelFreeCurrentLimit = 40.0;
+        public static final double kFlywheelStatorCurrentLimit = 40.0;
+        public static final double kFlywheelSupplyCurrentLimit = 25.0;  // was 40 — power-budget calc peak 13.7A @ 4000 RPM, back-EMF margin to 25A; battery-friendlier during shooter+drive simultaneity
 
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
@@ -287,8 +287,8 @@ public final class Constants {
         public static final double kTurretSoftLimitMarginDeg = 6.0;
 
         // ==================== Current Limits ====================
-        public static final double kTurretStallCurrentLimit = 40.0;  // was 30 — raised for higher MM accel (500 RPS/s)
-        public static final double kTurretFreeCurrentLimit = 25.0;  // was 20 — headroom for tracking corrections
+        public static final double kTurretStatorCurrentLimit = 40.0;  // was 30 — raised for higher MM accel (500 RPS/s)
+        public static final double kTurretSupplyCurrentLimit = 25.0;  // was 20 — headroom for tracking corrections
     }
 
     // ==================== TurretTrackingConstants ====================
@@ -331,7 +331,9 @@ public final class Constants {
         public static final double kJamGracePeriod = 0.50;        // was 0.25 — longer grace prevents buzz loop re-trigger
 
         // Current limits
+        public static final double kHopperStatorCurrentLimit = 70.0;
         public static final double kHopperSupplyCurrentLimit = 50.0;
+        public static final double kUptakeStatorCurrentLimit = 60.0;
         public static final double kUptakeSupplyCurrentLimit = 40.0;
     }
 

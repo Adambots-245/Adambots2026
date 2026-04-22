@@ -57,8 +57,8 @@ public class ShooterSubsystem extends SubsystemBase {
                  ShooterConstants.kFlywheelD, ShooterConstants.kFlywheelFF)
             .brakeMode(false)  // coast for flywheels
             .inverted(true)
-            .currentLimits(ShooterConstants.kFlywheelStallCurrentLimit,
-                           ShooterConstants.kFlywheelFreeCurrentLimit, 3000)
+            .currentLimits(ShooterConstants.kFlywheelStatorCurrentLimit,
+                           ShooterConstants.kFlywheelSupplyCurrentLimit, 3000)
             .apply();
 
         rightFlywheel.setStrictFollower(RobotMap.kShooterMotor2Port, true);

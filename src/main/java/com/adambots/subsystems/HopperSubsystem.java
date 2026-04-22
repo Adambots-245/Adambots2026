@@ -42,13 +42,13 @@ public class HopperSubsystem extends SubsystemBase {
 
         hopperMotor.configure()
             .brakeMode(true)
-            .currentLimits(70, HopperConstants.kHopperSupplyCurrentLimit, 3000)
+            .currentLimits(HopperConstants.kHopperStatorCurrentLimit, HopperConstants.kHopperSupplyCurrentLimit, 3000)
             .apply();
 
         uptakeMotor.configure()
             .brakeMode(true)
             .inverted(true)
-            .currentLimits(60, HopperConstants.kUptakeSupplyCurrentLimit, 3000)
+            .currentLimits(HopperConstants.kUptakeStatorCurrentLimit, HopperConstants.kUptakeSupplyCurrentLimit, 3000)
             .apply();
 
         if (Constants.HOPPER_TAB) {

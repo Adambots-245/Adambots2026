@@ -60,23 +60,23 @@ public final class Constants {
      * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
      */
     public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
-        com.adambots.logging.LogUtil.Level.ESSENTIAL;
+        com.adambots.logging.LogUtil.Level.DIAGNOSTIC;
 
     // ==================== Tuning / Shuffleboard (separate from logging) ====================
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = false;
+    public static final boolean TUNING_ENABLED = true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
     public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
-    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && true;
+    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
-    public static final boolean TURRET_TAB  = TUNING_ENABLED && false;
+    public static final boolean TURRET_TAB  = TUNING_ENABLED && true;
 
     /**
      * @deprecated Replaced by {@link #LOG_LEVEL} — current logging is now part of ESSENTIAL.
@@ -320,8 +320,8 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.50;  // was 0.30 — more torque to prevent jam stalls
-        public static final double kUptakeSpeed = 0.70;
+        public static final double kHopperSpeed = 0.40;  // was 0.30 — more torque to prevent jam stalls
+        public static final double kUptakeSpeed = 0.60;
 
         // Jam detection (set kJamDetectionEnabled = false to disable entirely)
         public static final boolean kJamDetectionEnabled = true;

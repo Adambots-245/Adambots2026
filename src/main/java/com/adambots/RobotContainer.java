@@ -255,6 +255,23 @@ public class RobotContainer {
                 //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
                 //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
                 //         2.0 /* tolerance deg */));
+                //
+                // --- FRONT-facing-hub variants (mirror of the three above) ---
+                // Use these for the forward-mounted shooter strategy: robot's FRONT faces the
+                // hub. Same pose-trust guard and driver passthrough as the back variants.
+                //
+                // (1F) Hold-to-aim, chassis stops translating while rotating:
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.frontToHubCommand(swerve));
+                //
+                // (2F) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
+                // Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
+                //
+                // (3F) Hold-to-aim WITH driver translation passthrough:
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.frontToHubCommand(
+                //         swerve,
+                //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                //         2.0 /* tolerance deg */));
                 
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(

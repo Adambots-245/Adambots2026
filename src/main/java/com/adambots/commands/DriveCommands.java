@@ -61,8 +61,8 @@ public final class DriveCommands {
         ).withName("TurnToAngle(" + angleDegrees + ")");
     }
 
-    /** Default heading tolerance (degrees) for {@link #backToHubCommand} termination. */
-    private static final double kBackToHubToleranceDeg = 2.0;
+    /** Default heading tolerance (degrees) for hub-aim command termination. */
+    private static final double kHubAimToleranceDeg = 2.0;
 
     /**
      * Pose-trust threshold — below this translation norm (meters from field origin)
@@ -77,34 +77,78 @@ public final class DriveCommands {
      * Terminates once heading is within 2°.
      */
     public static Command backToHubCommand(SwerveSubsystem swerve) {
-        return backToHubCommand(swerve, () -> 0.0, () -> 0.0, kBackToHubToleranceDeg);
+        return backToHubCommand(swerve, () -> 0.0, () -> 0.0, kHubAimToleranceDeg);
     }
 
     /**
-     * Rotates the chassis so the robot's back faces the alliance hub, leaving the driver's
-     * XY translation under their own control. Intended for the "fixed turret" shot strategy
-     * where the shooter is mounted rearward and aiming is done by chassis yaw.
+     * Rotates the chassis so the robot's <b>back</b> faces the alliance hub, leaving the
+     * driver's XY translation under their own control. Intended for the "fixed turret" shot
+     * strategy where the shooter is mounted rearward and aiming is done by chassis yaw.
      *
-     * <p>Shares geometry with the turret's pose-based tracker
-     * ({@link com.adambots.subsystems.TurretSubsystem#poseTrackCommand}): world bearing
-     * from robot pose to {@link FieldGeometry#getHubCenter()} via {@code atan2}, flipped by π so
-     * the robot's rear — not its front — points at the hub. Omega is computed with YAGSL's
-     * {@code swerveController.headingCalculate} (same PID used by heading-lock teleop).
-     *
-     * <p>If the swerve pose estimator hasn't localized (pose within {@value #kPoseTrustRadiusMeters} m
-     * of field origin), the command passes driver translation through with zero rotation and does
-     * not terminate — it waits for odometry to become trustworthy before aiming.
-     *
-     * @param swerve         swerve subsystem
-     * @param vxSupplier     driver field-relative X velocity passthrough (m/s)
-     * @param vySupplier     driver field-relative Y velocity passthrough (m/s)
-     * @param toleranceDeg   terminate when |heading error| is below this (degrees)
+     * <p>See {@link #aimChassisAtHubCommand} for the shared implementation + pose-trust guard.
+     * Flipped 180° ({@code Math.PI} offset) from {@link #frontToHubCommand}.
      */
     public static Command backToHubCommand(
             SwerveSubsystem swerve,
             DoubleSupplier vxSupplier,
             DoubleSupplier vySupplier,
             double toleranceDeg) {
+        return aimChassisAtHubCommand(swerve, vxSupplier, vySupplier, toleranceDeg,
+                                      Math.PI, "BackToHub");
+    }
+
+    /**
+     * Pure rotation variant of {@link #frontToHubCommand(SwerveSubsystem,
+     * DoubleSupplier, DoubleSupplier, double)} — driver translation suppliers default to zero.
+     * Terminates once heading is within 2°.
+     */
+    public static Command frontToHubCommand(SwerveSubsystem swerve) {
+        return frontToHubCommand(swerve, () -> 0.0, () -> 0.0, kHubAimToleranceDeg);
+    }
+
+    /**
+     * Rotates the chassis so the robot's <b>front</b> faces the alliance hub. Mirror of
+     * {@link #backToHubCommand} for the forward-mounted shooter strategy (fixed turret,
+     * shooter facing the robot's front).
+     *
+     * <p>See {@link #aimChassisAtHubCommand} for the shared implementation + pose-trust guard.
+     * Uses an angular offset of 0 rad (no flip — atan2 result is the target heading directly).
+     */
+    public static Command frontToHubCommand(
+            SwerveSubsystem swerve,
+            DoubleSupplier vxSupplier,
+            DoubleSupplier vySupplier,
+            double toleranceDeg) {
+        return aimChassisAtHubCommand(swerve, vxSupplier, vySupplier, toleranceDeg,
+                                      0.0, "FrontToHub");
+    }
+
+    /**
+     * Shared command factory for chassis-aims-at-hub commands. Computes the heading
+     * from robot pose to {@link FieldGeometry#getHubCenter()} via {@code atan2}, adds
+     * the caller's {@code headingOffsetRad} (0 for front-at-hub, π for back-at-hub),
+     * and drives omega through YAGSL's {@code swerveController.headingCalculate} (same
+     * PID used by heading-lock teleop).
+     *
+     * <p>If the swerve pose estimator hasn't localized (pose within
+     * {@value #kPoseTrustRadiusMeters} m of field origin), the command passes driver
+     * translation through with zero rotation and does not terminate — it waits for
+     * odometry to become trustworthy before aiming.
+     *
+     * @param swerve             swerve subsystem
+     * @param vxSupplier         driver field-relative X velocity passthrough (m/s)
+     * @param vySupplier         driver field-relative Y velocity passthrough (m/s)
+     * @param toleranceDeg       terminate when |heading error| is below this (degrees)
+     * @param headingOffsetRad   added to the atan2 result to select front- vs rear-facing
+     * @param name               command name (for logs / AdvantageScope)
+     */
+    private static Command aimChassisAtHubCommand(
+            SwerveSubsystem swerve,
+            DoubleSupplier vxSupplier,
+            DoubleSupplier vySupplier,
+            double toleranceDeg,
+            double headingOffsetRad,
+            String name) {
         return Commands.run(() -> {
             Pose2d pose = swerve.getPose();
             if (!poseTrusted(pose)) {
@@ -113,7 +157,7 @@ public final class DriveCommands {
                     vxSupplier.getAsDouble(), vySupplier.getAsDouble(), 0));
                 return;
             }
-            double targetHeadingRad = backToHubTargetHeadingRad(pose);
+            double targetHeadingRad = hubAimHeadingRad(pose, headingOffsetRad);
             double omega = swerve.getSwerveDrive().swerveController.headingCalculate(
                 swerve.getHeading().getRadians(), targetHeadingRad);
             swerve.driveFieldOriented(new ChassisSpeeds(
@@ -122,19 +166,18 @@ public final class DriveCommands {
             Pose2d pose = swerve.getPose();
             if (!poseTrusted(pose)) return false;    // stay live until odometry localizes
             double errRad = MathUtil.angleModulus(
-                backToHubTargetHeadingRad(pose) - swerve.getHeading().getRadians());
+                hubAimHeadingRad(pose, headingOffsetRad) - swerve.getHeading().getRadians());
             return Math.abs(Math.toDegrees(errRad)) < toleranceDeg;
-        }).withName("BackToHub");
+        }).withName(name);
     }
 
     /**
-     * Heading (rad, CCW+) that makes the robot's back face the current alliance hub.
-     * atan2 gives the heading that points the robot's FRONT at the hub; the {@code + π}
-     * flips it 180° so the rear faces the hub instead.
+     * Target heading (rad, CCW+) that aims the chassis at the current alliance hub.
+     * {@code offsetRad = 0} → front faces hub; {@code offsetRad = π} → back faces hub.
      */
-    private static double backToHubTargetHeadingRad(Pose2d pose) {
+    private static double hubAimHeadingRad(Pose2d pose, double offsetRad) {
         Translation2d hub = FieldGeometry.getHubCenter();
-        return Math.atan2(hub.getY() - pose.getY(), hub.getX() - pose.getX()) + Math.PI;
+        return Math.atan2(hub.getY() - pose.getY(), hub.getX() - pose.getX()) + offsetRad;
     }
 
     private static boolean poseTrusted(Pose2d pose) {

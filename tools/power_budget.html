@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Adambots 2026 — Power Budget Tool</title>
+<style>
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --panel2: #334155;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --good: #22c55e;
+  --warn: #eab308;
+  --danger: #ef4444;
+  --critical: #b91c1c;
+  --border: #475569;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+h1 { margin: 0 0 0.25rem 0; font-size: 1.5rem; }
+h2 { margin: 1.5rem 0 0.75rem 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+.subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+.grid { display: grid; gap: 0.75rem; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
+input, select { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.5rem; font-size: 0.9rem; width: 100%; }
+input[type=number] { font-variant-numeric: tabular-nums; }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+input[type=range] { padding: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; padding: 0.5rem; background: var(--panel2); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+td { padding: 0.4rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+td input, td select { padding: 0.25rem; font-size: 0.85rem; }
+button { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.75rem; font-size: 0.85rem; cursor: pointer; }
+button:hover { background: var(--border); }
+button.primary { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 600; }
+button.primary:hover { background: #0ea5e9; }
+button.danger { background: transparent; border-color: var(--danger); color: var(--danger); padding: 0.2rem 0.5rem; }
+button.danger:hover { background: var(--danger); color: #fff; }
+.scenario-btn { margin-right: 0.5rem; margin-bottom: 0.5rem; }
+.scenario-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
+.metric { background: var(--panel2); border-radius: 4px; padding: 0.75rem; text-align: center; }
+.metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+.metric-value { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.metric-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+.good { color: var(--good); }
+.warn { color: var(--warn); }
+.danger { color: var(--danger); }
+.critical { color: var(--critical); }
+.bar-container { background: var(--panel2); border-radius: 4px; height: 8px; overflow: hidden; margin-top: 0.25rem; }
+.bar { height: 100%; transition: width 0.2s, background 0.2s; }
+.small { font-size: 0.75rem; color: var(--muted); }
+.tiny { font-size: 0.7rem; color: var(--muted); }
+.row-active td { background: rgba(56, 189, 248, 0.05); }
+.row-inactive td { opacity: 0.45; }
+.checkbox-cell { text-align: center; }
+.checkbox-cell input[type=checkbox] { width: auto; cursor: pointer; transform: scale(1.2); }
+.chart { margin-top: 0.5rem; }
+.alert { padding: 0.5rem 0.75rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.85rem; }
+.alert-danger { background: rgba(239, 68, 68, 0.15); border-left: 3px solid var(--danger); }
+.alert-warn { background: rgba(234, 179, 8, 0.15); border-left: 3px solid var(--warn); }
+.alert-ok { background: rgba(34, 197, 94, 0.15); border-left: 3px solid var(--good); }
+.actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.slider-row { display: flex; align-items: center; gap: 0.5rem; }
+.slider-row input[type=range] { flex: 1; }
+.slider-row .value { width: 70px; text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
+.help { color: var(--muted); font-size: 0.75rem; line-height: 1.5; margin-top: 0.25rem; }
+.footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.75rem; text-align: center; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.tab { padding: 0.75rem 1.25rem; cursor: pointer; background: transparent; border: none; color: var(--muted); font-size: 0.95rem; font-weight: 500; border-bottom: 2px solid transparent; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Step cards */
+.step { background: var(--panel); border-left: 3px solid var(--accent); border-radius: 4px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.step-num { display: inline-block; background: var(--accent); color: #0f172a; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 50%; font-weight: 700; margin-right: 0.5rem; }
+.step h3 { margin: 0 0 0.5rem 0; font-size: 1.05rem; display: flex; align-items: center; }
+.step p { margin: 0.5rem 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+
+/* Calculator */
+.calc { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin: 0.75rem 0; }
+.calc h4 { margin: 0 0 0.75rem 0; color: var(--text); font-size: 0.95rem; }
+.calc .formula { background: #0f172a; border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem 0.75rem; font-family: 'SF Mono', Monaco, monospace; font-size: 0.8rem; color: #a5f3fc; margin: 0.5rem 0; overflow-x: auto; }
+.calc-result { background: #0f172a; border-radius: 4px; padding: 0.75rem; margin-top: 0.75rem; border: 1px solid var(--accent); }
+.calc-result-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+.calc-result-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+.calc-grid.two { grid-template-columns: repeat(2, 1fr); }
+.calc-grid.four { grid-template-columns: repeat(4, 1fr); }
+
+/* Simultaneity matrix */
+.matrix { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+.matrix th, .matrix td { padding: 0.4rem 0.5rem; border: 1px solid var(--border); text-align: center; }
+.matrix th { background: var(--panel2); font-size: 0.75rem; text-transform: uppercase; color: var(--muted); }
+.matrix td:first-child { text-align: left; background: var(--panel2); font-weight: 500; }
+.matrix input[type=number] { width: 60px; padding: 0.2rem; text-align: center; }
+.matrix td.total { background: var(--panel2); font-weight: 700; font-variant-numeric: tabular-nums; }
+.matrix td.total.danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+.matrix td.total.warn { background: rgba(234, 179, 8, 0.2); color: var(--warn); }
+.matrix td.total.good { background: rgba(34, 197, 94, 0.2); color: var(--good); }
+
+.links-panel { background: var(--panel2); border-radius: 4px; padding: 0.75rem; }
+.links-panel a { color: var(--accent); text-decoration: none; }
+.links-panel a:hover { text-decoration: underline; }
+.links-panel .link-item { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.links-panel .link-item:last-child { border: none; }
+
+/* Unit converter */
+.unit-icon { display: inline-block; cursor: pointer; color: var(--accent); margin-left: 0.25rem; font-size: 0.9em; user-select: none; opacity: 0.75; }
+.unit-icon:hover { opacity: 1; }
+.unit-modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+.unit-modal-backdrop.open { display: flex; }
+.unit-modal { background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 1.25rem 1.5rem; min-width: 340px; max-width: 440px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.unit-modal h4 { margin: 0 0 0.75rem 0; color: var(--accent); font-size: 1rem; display: flex; align-items: center; justify-content: space-between; }
+.unit-modal label { display: block; font-size: 0.8rem; color: var(--muted); margin: 0.6rem 0 0.2rem; }
+.unit-modal input { background: var(--panel2); width: 100%; }
+.unit-modal .uc-hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.75rem; line-height: 1.5; padding: 0.5rem 0.75rem; background: var(--panel2); border-radius: 4px; border-left: 3px solid var(--accent); }
+.unit-modal .uc-factors { font-size: 0.75rem; color: var(--muted); margin-top: 0.75rem; line-height: 1.7; font-family: 'SF Mono', Monaco, monospace; }
+.unit-modal .uc-close { background: transparent; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; }
+.unit-modal .uc-close:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>⚡ Adambots 2026 — Power Budget Tool</h1>
+<div class="subtitle">Model sustained & simultaneous current draw → predict battery sag → validate robot power budget</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('budget')">📊 Budget</button>
+  <button class="tab" onclick="switchTab('methodology')">📐 Methodology &amp; Calculators</button>
+</div>
+
+<!-- ================================================== -->
+<!-- ========== BUDGET TAB ============================= -->
+<!-- ================================================== -->
+<div id="tab-budget" class="tab-content active">
+
+<!-- ========== Battery Panel ========== -->
+<div class="panel">
+  <h2 style="margin-top:0">🔋 Battery</h2>
+  <div class="grid grid-3">
+    <div>
+      <label>Resting voltage (V)</label>
+      <div class="slider-row">
+        <input type="range" id="vRest" min="11.5" max="13.0" step="0.1" value="12.6">
+        <span class="value" id="vRestVal">12.6 V</span>
+      </div>
+      <div class="help">12.6 V = full charge, 12.0 V = 50%, 11.5 V = critical</div>
+    </div>
+    <div>
+      <label>Internal resistance (mΩ)</label>
+      <div class="slider-row">
+        <input type="range" id="rBatt" min="10" max="100" step="1" value="20">
+        <span class="value" id="rBattVal">20 mΩ</span>
+      </div>
+      <div class="help">15–20 fresh, 30–40 used, 50+ retire</div>
+    </div>
+    <div>
+      <label>Brownout threshold (V)</label>
+      <div class="slider-row">
+        <input type="range" id="vBrownout" min="6.0" max="8.0" step="0.1" value="6.8">
+        <span class="value" id="vBrownoutVal">6.8 V</span>
+      </div>
+      <div class="help">RIO brownout = 6.8 V default, disables 6V rail</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Motor Inventory ========== -->
+<div class="panel">
+  <h2 style="margin-top:0">⚙️ Motor Inventory</h2>
+  <div class="subtitle">Supply current = what the battery delivers. Duty = % of active time the motor pulls near its limit. Check which subsystems are active in your current scenario.</div>
+  <div style="overflow-x:auto">
+  <table id="motorTable">
+    <thead>
+      <tr>
+        <th style="width:30px"></th>
+        <th>Subsystem</th>
+        <th>Motor</th>
+        <th>Qty</th>
+        <th>Stator limit (A)</th>
+        <th>Supply limit (A)</th>
+        <th>Typical draw (A)</th>
+        <th>Duty %</th>
+        <th>Group</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="motorBody"></tbody>
+  </table>
+  </div>
+  <div class="actions">
+    <button onclick="addRow()">+ Add Motor</button>
+    <button onclick="resetToDefaults()">↺ Reset to Adambots Defaults</button>
+    <button onclick="saveConfig()">💾 Save</button>
+    <button onclick="loadConfig()">📂 Load</button>
+    <button onclick="exportJson()">⬇ Export JSON</button>
+  </div>
+</div>
+
+<!-- ========== Scenarios ========== -->
+<div class="panel">
+  <h2 style="margin-top:0">🎯 Scenarios</h2>
+  <div class="subtitle">Click a scenario to activate the relevant motor groups. The live analysis below updates instantly.</div>
+  <div id="scenarios">
+    <button class="scenario-btn" onclick="applyScenario('idle')">🟢 Idle</button>
+    <button class="scenario-btn" onclick="applyScenario('drive')">🏎️ Drive Only</button>
+    <button class="scenario-btn" onclick="applyScenario('intake')">🪣 Drive + Intake</button>
+    <button class="scenario-btn" onclick="applyScenario('shoot')">🎯 Drive + Shoot</button>
+    <button class="scenario-btn" onclick="applyScenario('full')">🔥 Everything (Worst Case)</button>
+    <button class="scenario-btn" onclick="applyScenario('climb')">🧗 Climb</button>
+    <button class="scenario-btn" onclick="applyScenario('all')">☑ All On</button>
+    <button class="scenario-btn" onclick="applyScenario('none')">☐ All Off</button>
+  </div>
+</div>
+
+<!-- ========== Analysis ========== -->
+<div class="panel">
+  <h2 style="margin-top:0">📊 Live Analysis</h2>
+  <div class="grid grid-4" id="metrics"></div>
+
+  <h2>Voltage Sag vs Total Draw</h2>
+  <canvas id="sagChart" width="1300" height="220" style="max-width:100%; background: var(--panel2); border-radius: 4px;"></canvas>
+
+  <h2>Per-Subsystem Contribution</h2>
+  <canvas id="barChart" width="1300" height="260" style="max-width:100%; background: var(--panel2); border-radius: 4px;"></canvas>
+
+  <div id="alerts"></div>
+</div>
+
+</div> <!-- /tab-budget -->
+
+<!-- ================================================== -->
+<!-- ========== METHODOLOGY TAB ======================== -->
+<!-- ================================================== -->
+<div id="tab-methodology" class="tab-content">
+
+<div class="subtitle">The structured 5-step approach top FRC teams use. Calculate load → derive current → verify budget. Built-in calculators for the common cases; links to ReCalc/JVN for advanced ones.</div>
+
+<!-- STEP 1 -->
+<div class="step">
+  <h3><span class="step-num">1</span>Inventory by function, not by motor</h3>
+  <p>Don't list "8 Krakens." List <b>functions</b>: drivetrain, shooter, intake, hopper/uptake, turret, climber, fixed loads. Each function aggregates its motors and becomes one budget row. This is what the Budget tab is organized around.</p>
+</div>
+
+<!-- STEP 2 -->
+<div class="step">
+  <h3><span class="step-num">2</span>Derive current from the load (don't guess)</h3>
+  <p>For each function, calculate the <b>physical load</b> (torque, force, or energy), then translate through gear ratio + motor curve to get current. Never pick current limits by "feels right" — they should be <b>1.5× calculated peak</b>.</p>
+  <p>Motor curves loaded: Kraken X60/X44, Minion, Falcon 500, NEO, NEO Vortex, NEO 550. Calculators below cover the 6 most common mechanism types.</p>
+
+  <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--accent); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.75rem 0; font-size: 0.9rem; line-height: 1.5;">
+    <b style="color: var(--accent)">⚡ Stator current vs Supply current — which do you use?</b><br>
+    <b>Stator</b> = through the motor windings, produces torque (<code style="color: #a5f3fc">τ = K_t · I</code>). Used for <i>motor protection</i> and <i>stator current limits</i>.<br>
+    <b>Supply</b> = what the battery delivers (<code style="color: #a5f3fc">I_supply ≈ I_stator · duty</code>, where <code style="color: #a5f3fc">duty = (I·R + K_t·ω) / 12 V</code>). Used for <i>budget, sag math, PDH totals, and the 180 A ceiling</i>.<br>
+    <b>Rule of thumb:</b> at high torque + low RPM (stalled motor), supply is much smaller than stator. At high RPM near no-load, supply ≈ stator. Each calculator below shows both.<br>
+    <b>For Step 3's simultaneity matrix: use SUPPLY values.</b>
+  </div>
+
+  <div style="background: rgba(34, 197, 94, 0.08); border-left: 3px solid var(--good); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.75rem 0; font-size: 0.9rem; line-height: 1.5;">
+    <b style="color: var(--good)">📐 Units convention</b><br>
+    All inputs use imperial / CAD-native units so the mechanical team can type numbers straight from SolidWorks or Onshape mass-property reports. Click the <span class="unit-icon" style="opacity:1">📐</span> icon next to any field for an inline converter.<br>
+    <b>Mass</b> — <code style="color: #a5f3fc">lbs</code> &nbsp;·&nbsp;
+    <b>Length / radius / diameter</b> — <code style="color: #a5f3fc">in</code> &nbsp;·&nbsp;
+    <b>Moment of inertia</b> — <code style="color: #a5f3fc">in²·lb</code> (CAD export) &nbsp;·&nbsp;
+    <b>Force</b> — <code style="color: #a5f3fc">lbf</code><br>
+    <b>Angle</b> — <code style="color: #a5f3fc">°</code> (degrees) &nbsp;·&nbsp;
+    <b>Rotation rate</b> — <code style="color: #a5f3fc">RPM</code> &nbsp;·&nbsp;
+    <b>Linear speed / accel</b> — <code style="color: #a5f3fc">m/s, m/s²</code> (WPILib / ReCalc native — use 📐 to convert from ft/s² or g) &nbsp;·&nbsp;
+    <b>Time</b> — <code style="color: #a5f3fc">s</code> &nbsp;·&nbsp;
+    <b>Current</b> — <code style="color: #a5f3fc">A</code>
+  </div>
+
+  <!-- FLYWHEEL CALC -->
+  <div class="calc">
+    <h4>🎯 Flywheel / Shooter (dual-wheel capable)</h4>
+    <div class="formula">J_total = J_flywheel + J_shooter  →  τ_needed = J_total · α  →  α = ω_target / t_spinup  →  i = τ_motor / K_t</div>
+    <div class="calc-grid four">
+      <div><label>Motor</label><select id="fw-motor"></select></div>
+      <div><label>Qty</label><input type="number" id="fw-qty" value="2" min="1" max="4"></div>
+      <div><label>Gear ratio (reduction)</label><input type="number" id="fw-ratio" value="1" step="0.1" min="0.1"></div>
+      <div><label>Flywheel MOI (in²·lb) <span class="unit-icon" onclick="openConverter('moi')" title="Convert MOI units">📐</span></label><input type="number" id="fw-moi" value="6.0" step="0.1"></div>
+      <div><label>Shooter wheel MOI (in²·lb) <span class="unit-icon" onclick="openConverter('moi')" title="Convert MOI units">📐</span></label><input type="number" id="fw-moi2" value="3.2" step="0.1"></div>
+      <div><label>Target RPM <span style="color: var(--muted); font-weight: normal">(max operational, not motor free speed)</span></label><input type="number" id="fw-rpm" value="4000" step="100"></div>
+      <div><label>Spinup time (s)</label><input type="number" id="fw-time" value="2.0" step="0.1"></div>
+      <div><label>Efficiency</label><input type="number" id="fw-eff" value="0.85" step="0.05" min="0.1" max="1"></div>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-result"><div class="calc-result-label">Peak stator (windings)</div><div class="calc-result-value" id="fw-peak">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Peak supply (battery)</div><div class="calc-result-value" id="fw-peak-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Steady supply (hold at target RPM)</div><div class="calc-result-value" id="fw-steady" style="color: var(--good)">—</div></div>
+    </div>
+    <div class="calc-grid" style="margin-top: 0.5rem">
+      <div class="calc-result"><div class="calc-result-label">Combined MOI (in²·lb)</div><div class="calc-result-value" id="fw-moitotal">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Duty @ peak</div><div class="calc-result-value" id="fw-duty">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Recommended stator limit</div><div class="calc-result-value" id="fw-limit">—</div></div>
+    </div>
+    <p class="help">
+      Adambots 2026 shooter has <b>two wheels on a shared belt/shaft</b>: flywheel (3.0 lb, <b>6.0 in²·lb</b>) + shooter wheel (1.6 lb, <b>3.2 in²·lb</b>). The motor sees the <b>sum</b>. Set the second MOI to 0 for single-wheel setups. Click <span class="unit-icon" style="opacity:1">📐</span> to convert from kg·m² if pulling from a physics sim.<br><br>
+      <b>Pick Target RPM from your interpolation table, not motor free speed.</b> Adambots 2026 tops out around <b>62 RPS (3720 RPM)</b> for the 5 m / lob shot (<code>kLobShotRPS = 62</code>, <code>kMaxRPS ≈ 62</code> + <code>kShotBoostRPS = 3</code>). Default 4000 RPM bakes in ~7 % headroom. Peak current scales <b>linearly</b> with ω_target — sizing at 5000 RPM when you never run there inflates the current limit.<br><br>
+      <b>Why my "peak current" is lower than ReCalc's "60 A limit":</b> this tool uses the <b>linearized</b> torque-current curve (τ = K_t · i). ReCalc models <b>back-EMF</b>, which dramatically reduces available torque near no-load speed — so its current draw at high RPM is higher than the pure-inertia calc predicts. For spin-up time or projectile-impact sizing, use <a href="https://www.reca.lc/flywheel" target="_blank" style="color: var(--accent);">reca.lc/flywheel</a>. Use this tool for the <b>simultaneity matrix</b> and budget sanity.
+    </p>
+  </div>
+
+  <!-- ARM CALC -->
+  <div class="calc">
+    <h4>🦾 Arm / Pivot (gravity-loaded)</h4>
+    <div class="formula">τ_gravity = m · g · L · sin(θ)  +  τ_accel = I · α  →  i = τ_motor / K_t</div>
+    <div class="calc-grid four">
+      <div><label>Motor</label><select id="arm-motor"></select></div>
+      <div><label>Qty</label><input type="number" id="arm-qty" value="1" min="1" max="4"></div>
+      <div><label>Gear ratio <span style="color: var(--muted); font-weight: normal">(20 planetary × 2 belt)</span></label><input type="number" id="arm-ratio" value="40" step="1" min="1"></div>
+      <div><label>Arm mass (lbs) <span style="color: var(--muted); font-weight: normal">(placeholder — weigh mechanism)</span></label><input type="number" id="arm-mass" value="4.4" step="0.1"></div>
+      <div><label>CG distance (in)</label><input type="number" id="arm-len" value="11.8" step="0.5"></div>
+      <div><label>Worst angle (°, 90=horizontal)</label><input type="number" id="arm-angle" value="90" step="5" min="0" max="180"></div>
+      <div><label>Move time (s) <span style="color: var(--muted); font-weight: normal">(90° at 54°/s ≈ 1.5s)</span></label><input type="number" id="arm-time" value="1.5" step="0.1"></div>
+      <div><label>Sweep angle (°)</label><input type="number" id="arm-sweep" value="90" step="5"></div>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-result"><div class="calc-result-label">Peak stator (accel + gravity)</div><div class="calc-result-value" id="arm-peak">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Peak supply (battery)</div><div class="calc-result-value" id="arm-peak-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Holding supply (static gravity)</div><div class="calc-result-value" id="arm-hold-sup" style="color: var(--good)">—</div></div>
+    </div>
+    <div class="calc-grid" style="margin-top: 0.5rem">
+      <div class="calc-result"><div class="calc-result-label">Holding stator</div><div class="calc-result-value" id="arm-hold">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Duty @ peak</div><div class="calc-result-value" id="arm-duty">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Recommended stator limit</div><div class="calc-result-value" id="arm-limit">—</div></div>
+    </div>
+    <p class="help">
+      Adambots 2026 intake arm: Minion + 20:1 planetary + 2:1 belt = <b>40:1 total</b> (<code>IntakeConstants.kArmTotalGearRatio</code>). Arm travels 90° between raised (193°) and lowered (100°). At motor cruise <b>6 RPS</b> through 40:1, arm speed is <b>0.15 RPS ≈ 54°/s</b>, so a full deploy takes ~1.5 s — not 0.5 s.<br><br>
+      <b>Current-limit sizing rule for arms (vs. flywheels):</b> the "abnormal peak" isn't back-EMF, it's <b>mechanical catch</b> (bumper hit, roller jam kickback, FUEL jammed between intake and chassis). Add 30–50 % headroom above calc peak — not 2× like the flywheel — because gravity is the dominant steady torque and we don't want the limit fighting gravity during a hold.
+    </p>
+  </div>
+
+  <!-- DRIVETRAIN CALC -->
+  <div class="calc">
+    <h4>🏎️ Drivetrain (per-motor + total)</h4>
+    <div class="formula">F_accel = m · a  →  τ_wheel = F · r  →  τ_motor = τ_wheel / (ratio · η · qty)</div>
+    <div class="calc-grid four">
+      <div><label>Motor</label><select id="dt-motor"></select></div>
+      <div><label>Qty (driven wheels)</label><input type="number" id="dt-qty" value="4" min="1" max="8"></div>
+      <div><label>Gear ratio</label><input type="number" id="dt-ratio" value="5.27" step="0.01"></div>
+      <div><label>Wheel diameter (in)</label><input type="number" id="dt-wheel" value="4" step="0.1"></div>
+      <div><label>Robot mass (lbs)</label><input type="number" id="dt-mass" value="138" step="5"></div>
+      <div><label>Target accel (m/s²) <span class="unit-icon" onclick="openConverter('accel')" title="Convert acceleration units">📐</span></label><input type="number" id="dt-accel" value="4.0" step="0.5"></div>
+      <div><label>Wheel CoF (μ) <span style="color: var(--muted); font-weight: normal">(physicalproperties.json)</span></label><input type="number" id="dt-mu" value="1.19" step="0.05"></div>
+      <div><label>Efficiency</label><input type="number" id="dt-eff" value="0.85" step="0.05"></div>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-result"><div class="calc-result-label">Per-motor stator @ accel</div><div class="calc-result-value" id="dt-per">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Total stator @ accel</div><div class="calc-result-value" id="dt-total">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Slip current (stator limit)</div><div class="calc-result-value" id="dt-slip">—</div></div>
+    </div>
+    <div class="calc-grid" style="margin-top: 0.5rem">
+      <div class="calc-result"><div class="calc-result-label">Per-motor supply @ accel</div><div class="calc-result-value" id="dt-per-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Total supply @ accel (battery)</div><div class="calc-result-value" id="dt-total-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Duty @ accel</div><div class="calc-result-value" id="dt-duty">—</div></div>
+    </div>
+    <p class="help">
+      <b>Two ceilings on accel:</b> <b>traction</b> (slip current ~100 A/motor — above this, wheels spin in place) and <b>stator limit</b> (electrical cap we choose). Whichever is lower binds.<br><br>
+      <b>Adambots 2026 runs stator = 40 A/motor</b> (<code>physicalproperties.json: currentLimit.drive: 40</code>) — well below slip. That means we're <b>stator-limited, not traction-limited</b>: accel caps around 4 m/s² because the controller refuses to push more current, not because the wheels slip. Trade-off is deliberate — at 4 motors × 40 A = 160 A drive-only, we stay under the 180 A sustained ceiling when shooter + intake fire simultaneously. Raising stator to ~60–70 A would unlock ~6 m/s² accel at the cost of more battery sag.<br><br>
+      <b>Set stator limit ≈ slip</b> to unlock full traction; keep <b>supply limit</b> lower (~40A) to cap battery draw.
+    </p>
+  </div>
+
+  <!-- ELEVATOR CALC -->
+  <div class="calc">
+    <h4>⬆️ Elevator / Linear Lift</h4>
+    <div class="formula">F_lift = m · (g + a)  →  τ_drum = F · r_drum  →  i = τ_motor / K_t</div>
+    <div class="calc-grid four">
+      <div><label>Motor</label><select id="el-motor"></select></div>
+      <div><label>Qty</label><input type="number" id="el-qty" value="1" min="1" max="4"></div>
+      <div><label>Gear ratio</label><input type="number" id="el-ratio" value="15" step="1"></div>
+      <div><label>Drum radius (in)</label><input type="number" id="el-drum" value="1.0" step="0.1"></div>
+      <div><label>Carriage mass (lbs)</label><input type="number" id="el-mass" value="15" step="1"></div>
+      <div><label>Target accel (m/s²) <span class="unit-icon" onclick="openConverter('accel')" title="Convert acceleration units">📐</span></label><input type="number" id="el-accel" value="3.0" step="0.5"></div>
+      <div><label>Efficiency</label><input type="number" id="el-eff" value="0.80" step="0.05"></div>
+      <div><label>Stages (cascaded)</label><input type="number" id="el-stages" value="1" min="1" max="4"></div>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-result"><div class="calc-result-label">Peak stator (lift + accel)</div><div class="calc-result-value" id="el-peak">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Peak supply (battery)</div><div class="calc-result-value" id="el-peak-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Holding supply</div><div class="calc-result-value" id="el-hold-sup" style="color: var(--good)">—</div></div>
+    </div>
+    <div class="calc-grid" style="margin-top: 0.5rem">
+      <div class="calc-result"><div class="calc-result-label">Holding stator</div><div class="calc-result-value" id="el-hold">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Duty @ peak</div><div class="calc-result-value" id="el-duty">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Recommended stator limit</div><div class="calc-result-value" id="el-limit">—</div></div>
+    </div>
+  </div>
+
+  <!-- AGITATOR / SPINDEXER CALC -->
+  <div class="calc">
+    <h4>🌀 Agitator / Spindexer (rotating body — plate, cone, or drum)</h4>
+    <div class="formula">τ_friction = n · m · g · μ · r_avg  +  τ_accel = (I_body + n·m·r_avg²) · α  →  i = τ_motor / K_t</div>
+    <div class="calc-grid four">
+      <div><label>Motor</label><select id="ag-motor"></select></div>
+      <div><label>Qty</label><input type="number" id="ag-qty" value="1" min="1" max="4"></div>
+      <div><label>Gear ratio (reduction) <span style="color: var(--muted); font-weight: normal">(Adambots: 3:1 belt)</span></label><input type="number" id="ag-ratio" value="3" step="0.1" min="1"></div>
+      <div><label>Body mass (lbs) <span style="color: var(--muted); font-weight: normal">(cone/plate total from CAD)</span></label><input type="number" id="ag-plate-mass" value="3.3" step="0.1"></div>
+      <div><label>Body base radius (in) <span style="color: var(--muted); font-weight: normal">(widest part where pieces interact)</span></label><input type="number" id="ag-plate-r" value="2.5" step="0.1"></div>
+      <div><label># of game pieces</label><input type="number" id="ag-n" value="5" min="0" max="20" step="1"></div>
+      <div><label>Mass per piece (lbs)</label><input type="number" id="ag-m-piece" value="0.5" step="0.05"></div>
+      <div><label>Piece radius from center (in) <span style="color: var(--muted); font-weight: normal">(≤ base radius if on-slope)</span></label><input type="number" id="ag-r-piece" value="2.95" step="0.05"></div>
+      <div><label>Friction μ (piece on plate)</label><input type="number" id="ag-mu" value="0.4" step="0.05" min="0.1" max="1.0"></div>
+      <div><label>Target RPM</label><input type="number" id="ag-rpm" value="90" step="5"></div>
+      <div><label>Spin-up time (s)</label><input type="number" id="ag-time" value="0.5" step="0.1"></div>
+      <div><label>Efficiency</label><input type="number" id="ag-eff" value="0.75" step="0.05"></div>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-result"><div class="calc-result-label">Peak stator (accel + friction)</div><div class="calc-result-value" id="ag-peak">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Peak supply (battery)</div><div class="calc-result-value" id="ag-peak-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Holding supply (friction only)</div><div class="calc-result-value" id="ag-hold-sup" style="color: var(--good)">—</div></div>
+    </div>
+    <div class="calc-grid" style="margin-top: 0.5rem">
+      <div class="calc-result"><div class="calc-result-label">Holding stator</div><div class="calc-result-value" id="ag-hold">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Duty @ peak</div><div class="calc-result-value" id="ag-duty">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Recommended stator limit</div><div class="calc-result-value" id="ag-limit">—</div></div>
+    </div>
+    <p class="help">
+      <b>Adambots 2026 uses a modified cone on a 3:1 belt drive</b> (the <code>hopperMotor</code> in code, even though mechanically it's the spindexer). The calc below models rotational body as a solid disk (<code>I = ½·m·r²</code>); this <b>overestimates</b> MOI vs. a cone (<code>I = 3/10·m·r²</code>) and a slope's friction, so the numbers are a <b>conservative upper bound</b>.<br><br>
+      Pieces are point masses at <code>r_piece</code>. Friction μ 0.3–0.5 typical for rubber-on-plastic. FUEL mass 0.5 lb. For a cone mechanism, put the <b>cone's total mass</b> and <b>base radius</b> in the two body fields. <b>Piece radius ≤ base radius</b> unless pieces ride in a retaining ring outboard of the cone.<br><br>
+      Stall current matters here — spindexers work against jams. Pick stator limit with headroom for a brief stall.
+    </p>
+  </div>
+
+  <!-- UPTAKE CALC -->
+  <div class="calc">
+    <h4>📤 Uptake (belt/chain conveyor for game pieces)</h4>
+    <div class="formula">F_move = n · m · g · (sin θ + μ · cos θ)  +  F_accel = n·m·a  →  τ_roller = F · r_roller  →  i = τ_motor / K_t</div>
+    <div class="calc-grid four">
+      <div><label>Motor</label><select id="up-motor"></select></div>
+      <div><label>Qty</label><input type="number" id="up-qty" value="1" min="1" max="4"></div>
+      <div><label>Gear ratio (reduction)</label><input type="number" id="up-ratio" value="2" step="0.1" min="1"></div>
+      <div><label>Roller diameter (in)</label><input type="number" id="up-roller" value="2.0" step="0.1"></div>
+      <div><label># of pieces in transit</label><input type="number" id="up-n" value="2" min="1" max="6" step="1"></div>
+      <div><label>Mass per piece (lbs)</label><input type="number" id="up-m-piece" value="0.5" step="0.05"></div>
+      <div><label>Incline angle (° from horizontal)</label><input type="number" id="up-angle" value="60" step="5" min="0" max="90"></div>
+      <div><label>Friction μ (belt/piece + guides)</label><input type="number" id="up-mu" value="0.5" step="0.05" min="0.1" max="1.5"></div>
+      <div><label>Target belt speed (m/s) <span class="unit-icon" onclick="openConverter('speed')" title="Convert speed units">📐</span></label><input type="number" id="up-speed" value="1.0" step="0.1"></div>
+      <div><label>Accel time (s)</label><input type="number" id="up-time" value="0.3" step="0.05"></div>
+      <div><label>Pre-load tension (lbf) <span class="unit-icon" onclick="openConverter('force')" title="Convert force units">📐</span></label><input type="number" id="up-tension" value="1.1" step="0.1" min="0"></div>
+      <div><label>Efficiency</label><input type="number" id="up-eff" value="0.80" step="0.05"></div>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-result"><div class="calc-result-label">Peak stator (start-up)</div><div class="calc-result-value" id="up-peak">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Peak supply (battery)</div><div class="calc-result-value" id="up-peak-sup" style="color: var(--good)">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Steady supply (piece moving)</div><div class="calc-result-value" id="up-steady-sup" style="color: var(--good)">—</div></div>
+    </div>
+    <div class="calc-grid" style="margin-top: 0.5rem">
+      <div class="calc-result"><div class="calc-result-label">Steady stator</div><div class="calc-result-value" id="up-steady">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Duty @ peak</div><div class="calc-result-value" id="up-duty">—</div></div>
+      <div class="calc-result"><div class="calc-result-label">Recommended stator limit</div><div class="calc-result-value" id="up-limit">—</div></div>
+    </div>
+    <p class="help">Incline 90° = vertical lift, 0° = horizontal. Friction μ covers belt-on-piece drag + roller bearing losses + guide rail contact. Pre-load tension accounts for belt tensioning system (springs or dead weight). For Adambots hopper→shooter uptake: 60° incline, 2" rollers, 2:1 reduction, up to 2 FUEL in transit.</p>
+  </div>
+</div>
+
+<!-- STEP 3 -->
+<div class="step">
+  <h3><span class="step-num">3</span>Build a simultaneity matrix</h3>
+  <p>Grid of <b>game states × functions</b>. Enter the current each function draws in each state. The worst-case row is what your battery must survive.</p>
+  <div id="matrix-host"></div>
+  <p class="help">
+    Colors: <span class="good">green ≤ 150 A</span> · <span class="warn">yellow 150–250 A</span> · <span class="danger">red > 250 A</span>. Edit any cell; totals update live.<br><br>
+    <b>Seeded values (2026-04-22):</b> drive from <code>calcDrivetrain</code> @ 4 m/s² FOC; shooter from <code>calcFlywheel</code> @ 4000 RPM; intake/hopper/turret/climber from <code>Constants.java</code> current limits × expected duty; shot cycle assumes back-EMF premium over linearized calc.<br><br>
+    <b>Still placeholder</b>: spindexer (cone on 3:1 belt) and uptake (Kraken X44) need bench measurement of body mass, target RPS, real belt speed — see calculators above. Their contributions are rolled into "Hopper" column using supply-limit caps as upper bounds.<br><br>
+    <b>Voltage column</b>: uses the Battery panel's IR slider (default 20 mΩ). Drop to 30+ mΩ to simulate a tired battery.
+  </p>
+</div>
+
+<!-- STEP 4 -->
+<div class="step">
+  <h3><span class="step-num">4</span>Apply practical ceilings</h3>
+  <p>Compare the worst-case simultaneity row to these ceilings:</p>
+  <table class="matrix" style="margin-top: 0.5rem">
+    <thead><tr><th>Ceiling</th><th>Value</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Sustained total draw</td><td>≤ 180 A</td><td>WPILib brownout doc — healthy battery holds ≥ 7 V</td></tr>
+      <tr><td>Momentary burst (&lt; 0.5 s)</td><td>≤ 250 A</td><td>Battery can deliver peak for drive accel</td></tr>
+      <tr><td>Per-channel PDH (continuous)</td><td>≤ 40 A</td><td>Breaker rating; 60 A brief is OK</td></tr>
+      <tr><td>Per-channel PDH (momentary)</td><td>≤ 60 A, ≤ 20 ms</td><td>REV PDH trip curve</td></tr>
+    </tbody>
+  </table>
+  <p class="help" style="margin-top: 0.75rem">If your worst-case row exceeds 180 A sustained, options in order of least invasiveness: <b>sequence operations</b> (auto-stop intake when shooting), <b>lower supply limits</b> on secondary functions, <b>lower setpoints</b> (slower shooter spool-up), <b>redesign gearing / motor selection</b>.</p>
+</div>
+
+<!-- STEP 5 -->
+<div class="step">
+  <h3><span class="step-num">5</span>Verify against battery with sag math</h3>
+  <p>For each simultaneity row, predict voltage: <code style="color: #a5f3fc">V_loaded = V_rest − I · R_battery</code>. Flag any scenario where V < 7.5 V as high-risk.</p>
+  <p><b>The Budget tab does this automatically</b> once you transfer your scenario numbers. Use the <b>Scenarios buttons</b> to activate groups and watch the voltage metric.</p>
+  <p>Retire any battery whose IR makes <b>any realistic scenario</b> drop below 7.5 V — not the worst case, but any scenario you'll actually hit in a match.</p>
+</div>
+
+<!-- LINKS -->
+<div class="step">
+  <h3>🔗 External tools for advanced cases</h3>
+  <div class="links-panel">
+    <div class="link-item"><a href="https://reca.lc/" target="_blank">ReCalc (reca.lc)</a> — web calculator for drivetrain, flywheel, arm, elevator, linear. Modern and maintained.</div>
+    <div class="link-item"><a href="https://www.chiefdelphi.com/t/jvn-design-calculator/98576" target="_blank">JVN Calculator</a> — classic Excel spreadsheet by John V. Neun (FRC 148). Download from Chief Delphi.</div>
+    <div class="link-item"><a href="https://gm0.org/en/latest/docs/power-and-electronics/motor-guide/motor-power.html" target="_blank">Game Manual 0 — Motor Power</a> — reference for the underlying physics.</div>
+    <div class="link-item"><a href="https://docs.wpilib.org/en/stable/docs/software/roborio-info/roborio-brownouts.html" target="_blank">WPILib — roboRIO Brownout & Current Draw</a> — official methodology doc.</div>
+    <div class="link-item"><a href="https://v6.docs.ctr-electronics.com/en/stable/docs/hardware-reference/talonfx/improving-performance-with-current-limits.html" target="_blank">CTRE — Improving Performance with Current Limits</a> — stator vs supply guide.</div>
+  </div>
+</div>
+
+</div> <!-- /tab-methodology -->
+
+<div class="footer">
+  Single-file HTML tool — no network required. Data persists via localStorage.
+  <br>Based on WPILib brownout doc, CTRE Phoenix 6 current limit guide, and Adambots MICMP1 match analysis.
+</div>
+
+</div>
+
+<script>
+// ============================================================
+// MOTOR PRESETS — sourced from WPILib/CTRE/REV docs
+// Each preset: [label, freeRunA, stallA, typicalLimitStator, typicalLimitSupply]
+// ============================================================
+const MOTOR_PRESETS = {
+  "Kraken X60 (FOC)":       { free: 2, stall: 366, stator: 80, supply: 60 },
+  "Kraken X60":             { free: 2, stall: 366, stator: 80, supply: 40 },
+  "Kraken X44":             { free: 2, stall: 275, stator: 60, supply: 40 },
+  "Minion":                 { free: 2, stall: 211, stator: 60, supply: 30 },
+  "Falcon 500":             { free: 1.5, stall: 257, stator: 80, supply: 40 },
+  "NEO (Spark Max)":        { free: 1.8, stall: 181, stator: 80, supply: 40 },
+  "NEO Vortex":             { free: 3.6, stall: 211, stator: 80, supply: 60 },
+  "NEO 550":                { free: 1.4, stall: 100, stator: 40, supply: 20 },
+  "Custom":                 { free: 0, stall: 100, stator: 40, supply: 40 },
+};
+
+// ============================================================
+// ADAMBOTS 2026 DEFAULT INVENTORY
+// Based on RobotMap.java + Constants.java + swerve JSON
+// ============================================================
+const DEFAULTS = [
+  // Swerve — 4 modules (Phoenix Pro FOC per DriveConstants.kMotorFreeSpeedRPS comment)
+  { active: true, name: "Swerve Drive",  motor: "Kraken X60 (FOC)", qty: 4, stator: 80, supply: 40, typical: 25, duty: 60, group: "drive", notes: "YAGSL physicalproperties: 40A supply, 5.27:1, 4in wheels, CoF 1.19" },
+  { active: true, name: "Swerve Angle",  motor: "Kraken X60 (FOC)", qty: 4, stator: 40, supply: 20, typical: 5,  duty: 30, group: "drive", notes: "YAGSL 20A supply, 26.09:1" },
+  // Shooter — Constants.ShooterConstants
+  { active: false, name: "Shooter Flywheel", motor: "Kraken X60 (FOC)", qty: 2, stator: 40, supply: 25, typical: 8, duty: 25, group: "shoot", notes: "kFlywheelStator=40, kFlywheelSupply=25 (was 40, lowered per power-budget 2026-04)" },
+  // Intake — Constants.IntakeConstants
+  { active: false, name: "Intake Roller",    motor: "Kraken X60 (FOC)", qty: 1, stator: 35, supply: 30, typical: 30, duty: 35, group: "intake", notes: "kRollerStator=35 (was 45, lowered after MICMP1 sag: 54A→9.25V)" },
+  { active: false, name: "Intake Arm",       motor: "Minion",           qty: 1, stator: 45, supply: 40, typical: 15, duty: 15, group: "intake", notes: "kArmStator=45, kArmSupply=40; Motion Magic transitions" },
+  // Hopper — Constants.HopperConstants
+  { active: false, name: "Hopper Motor",     motor: "Kraken X60 (FOC)", qty: 1, stator: 70, supply: 50, typical: 35, duty: 25, group: "shoot", notes: "kHopperStator=70, kHopperSupply=50; modified cone on 3:1 belt" },
+  { active: false, name: "Uptake Motor",     motor: "Kraken X44",       qty: 1, stator: 60, supply: 40, typical: 30, duty: 25, group: "shoot", notes: "kUptakeStator=60, kUptakeSupply=40; runs with hopper" },
+  // Turret — Constants.TurretConstants
+  { active: false, name: "Turret",           motor: "Minion",           qty: 1, stator: 40, supply: 25, typical: 8,  duty: 40, group: "shoot", notes: "kTurretStator=40, kTurretSupply=25; tracking runs most of match" },
+  // Climber — Constants.ClimberConstants
+  { active: false, name: "Climber Elevator", motor: "Kraken X60 (FOC)", qty: 1, stator: 60, supply: 40, typical: 30, duty: 15, group: "climb", notes: "kStator=60, kSupply=40; endgame only" },
+  // Fixed loads
+  { active: true, name: "roboRIO + Radio + PDH", motor: "Custom", qty: 1, stator: 5, supply: 5, typical: 3, duty: 100, group: "always", notes: "Always-on systems" },
+  { active: true, name: "CANdle + LEDs",         motor: "Custom", qty: 1, stator: 3, supply: 3, typical: 1.5, duty: 100, group: "always", notes: "LED strip average" },
+  { active: true, name: "Photon Coprocessor",    motor: "Custom", qty: 1, stator: 3, supply: 3, typical: 2, duty: 100, group: "always", notes: "Orange Pi or similar" },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let motors = JSON.parse(JSON.stringify(DEFAULTS));
+
+// ============================================================
+// MOTOR TABLE RENDERING
+// ============================================================
+function renderMotors() {
+  const tbody = document.getElementById('motorBody');
+  tbody.innerHTML = '';
+  motors.forEach((m, i) => {
+    const tr = document.createElement('tr');
+    tr.className = m.active ? 'row-active' : 'row-inactive';
+    tr.innerHTML = `
+      <td class="checkbox-cell"><input type="checkbox" ${m.active ? 'checked' : ''} onchange="toggleActive(${i})"></td>
+      <td><input type="text" value="${escapeHtml(m.name)}" onchange="updateField(${i}, 'name', this.value)"></td>
+      <td><select onchange="updateMotorType(${i}, this.value)">
+        ${Object.keys(MOTOR_PRESETS).map(p => `<option value="${p}" ${p === m.motor ? 'selected' : ''}>${p}</option>`).join('')}
+      </select></td>
+      <td><input type="number" value="${m.qty}" min="1" max="12" step="1" onchange="updateField(${i}, 'qty', +this.value)"></td>
+      <td><input type="number" value="${m.stator}" min="0" max="300" step="1" onchange="updateField(${i}, 'stator', +this.value)"></td>
+      <td><input type="number" value="${m.supply}" min="0" max="120" step="1" onchange="updateField(${i}, 'supply', +this.value)"></td>
+      <td><input type="number" value="${m.typical}" min="0" max="300" step="0.5" onchange="updateField(${i}, 'typical', +this.value)"></td>
+      <td><input type="number" value="${m.duty}" min="0" max="100" step="5" onchange="updateField(${i}, 'duty', +this.value)"></td>
+      <td><select onchange="updateField(${i}, 'group', this.value)">
+        ${['always','drive','intake','shoot','climb','other'].map(g => `<option value="${g}" ${g === m.group ? 'selected' : ''}>${g}</option>`).join('')}
+      </select></td>
+      <td><input type="text" value="${escapeHtml(m.notes || '')}" placeholder="notes" onchange="updateField(${i}, 'notes', this.value)"></td>
+      <td><button class="danger" onclick="removeRow(${i})">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function toggleActive(i) { motors[i].active = !motors[i].active; recompute(); }
+function updateField(i, field, val) { motors[i][field] = val; recompute(); }
+function updateMotorType(i, motor) {
+  motors[i].motor = motor;
+  const preset = MOTOR_PRESETS[motor];
+  if (preset && motor !== 'Custom') {
+    motors[i].stator = preset.stator;
+    motors[i].supply = preset.supply;
+  }
+  recompute();
+}
+function addRow() {
+  motors.push({ active: false, name: "New Motor", motor: "Kraken X60", qty: 1, stator: 80, supply: 40, typical: 10, duty: 10, group: "other", notes: "" });
+  recompute();
+}
+function removeRow(i) { motors.splice(i, 1); recompute(); }
+
+// ============================================================
+// SCENARIOS
+// ============================================================
+const SCENARIOS = {
+  idle:   m => m.group === 'always',
+  drive:  m => m.group === 'always' || m.group === 'drive',
+  intake: m => m.group === 'always' || m.group === 'drive' || m.group === 'intake',
+  shoot:  m => m.group === 'always' || m.group === 'drive' || m.group === 'shoot',
+  full:   m => m.group !== 'climb',  // everything except climber (climb is endgame-only)
+  climb:  m => m.group === 'always' || m.group === 'climb',
+  all:    () => true,
+  none:   () => false,
+};
+
+function applyScenario(name) {
+  const fn = SCENARIOS[name];
+  motors.forEach(m => { m.active = fn(m); });
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  recompute();
+}
+
+// ============================================================
+// ANALYSIS / METRICS
+// ============================================================
+function computeTotals() {
+  let totalSupplyTypical = 0;
+  let totalSupplyPeak = 0;
+  let totalStatorPeak = 0;
+  let totalSupplyWeighted = 0;  // time-weighted
+  const perGroup = {};
+  const perRow = [];
+
+  motors.forEach(m => {
+    if (!m.active) return;
+    const supplyPeak = m.supply * m.qty;
+    const statorPeak = m.stator * m.qty;
+    const typical = m.typical * m.qty;
+    const weighted = typical * (m.duty / 100);
+    totalSupplyTypical += typical;
+    totalSupplyPeak += supplyPeak;
+    totalStatorPeak += statorPeak;
+    totalSupplyWeighted += weighted;
+    perGroup[m.group] = (perGroup[m.group] || 0) + typical;
+    perRow.push({ name: m.name, typical, peak: supplyPeak, group: m.group });
+  });
+  return { totalSupplyTypical, totalSupplyPeak, totalStatorPeak, totalSupplyWeighted, perGroup, perRow };
+}
+
+function computeSag(current, vRest, rBattOhms) {
+  return Math.max(0, vRest - current * rBattOhms);
+}
+
+function recompute() {
+  renderMotors();
+  const vRest = +document.getElementById('vRest').value;
+  const rBattMilliOhm = +document.getElementById('rBatt').value;
+  const rBattOhm = rBattMilliOhm / 1000;
+  const vBO = +document.getElementById('vBrownout').value;
+
+  const t = computeTotals();
+
+  const vTypical = computeSag(t.totalSupplyTypical, vRest, rBattOhm);
+  const vPeak = computeSag(t.totalSupplyPeak, vRest, rBattOhm);
+
+  function voltageClass(v) {
+    if (v < vBO) return 'critical';
+    if (v < vBO + 1.0) return 'danger';
+    if (v < 10) return 'warn';
+    return 'good';
+  }
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Typical Draw (continuous)</div>
+      <div class="metric-value">${t.totalSupplyTypical.toFixed(0)} A</div>
+      <div class="metric-sub">Σ (typical × qty) for active motors</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Peak Draw (all-at-limit)</div>
+      <div class="metric-value ${t.totalSupplyPeak > 180 ? 'warn' : ''}">${t.totalSupplyPeak.toFixed(0)} A</div>
+      <div class="metric-sub">Σ (supply limit × qty); 180 A = practical ceiling</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">V @ Typical Load</div>
+      <div class="metric-value ${voltageClass(vTypical)}">${vTypical.toFixed(2)} V</div>
+      <div class="metric-sub">Predicted battery V during scenario</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">V @ Peak Load</div>
+      <div class="metric-value ${voltageClass(vPeak)}">${vPeak.toFixed(2)} V</div>
+      <div class="metric-sub">Worst-case voltage if all motors hit limit</div>
+    </div>
+  `;
+
+  renderSagChart(vRest, rBattOhm, t.totalSupplyTypical, t.totalSupplyPeak, vBO);
+  renderBarChart(t.perRow);
+
+  // Alerts
+  const alerts = [];
+  if (vPeak < vBO) {
+    alerts.push({ level: 'danger', msg: `🚨 Peak load (${t.totalSupplyPeak.toFixed(0)} A) will drop battery to ${vPeak.toFixed(2)} V — below brownout threshold (${vBO} V). Robot will cut motor power.` });
+  } else if (vPeak < vBO + 1.0) {
+    alerts.push({ level: 'warn', msg: `⚠️ Peak load brings V within 1 V of brownout (${vPeak.toFixed(2)} V vs ${vBO} V). Dangerous under battery fade.` });
+  }
+  if (vTypical < 10) {
+    alerts.push({ level: 'warn', msg: `⚠️ Typical voltage dips below 10 V (${vTypical.toFixed(2)} V) — motor controllers may derate performance.` });
+  }
+  if (t.totalSupplyPeak > 180) {
+    alerts.push({ level: 'warn', msg: `⚠️ Peak draw (${t.totalSupplyPeak.toFixed(0)} A) exceeds WPILib's 180 A practical sustained ceiling. Consider sequencing operations.` });
+  }
+  if (rBattMilliOhm > 40) {
+    alerts.push({ level: 'warn', msg: `⚠️ Battery IR at ${rBattMilliOhm} mΩ is aged — retire batteries above 50 mΩ.` });
+  }
+  if (alerts.length === 0) {
+    alerts.push({ level: 'ok', msg: `✅ Budget looks healthy for this scenario. Predicted V ≥ ${vTypical.toFixed(2)} V under typical load.` });
+  }
+  document.getElementById('alerts').innerHTML = alerts.map(a =>
+    `<div class="alert alert-${a.level}">${a.msg}</div>`
+  ).join('');
+}
+
+// ============================================================
+// CHARTS (vanilla canvas)
+// ============================================================
+function renderSagChart(vRest, rBattOhm, typical, peak, vBO) {
+  const canvas = document.getElementById('sagChart');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const maxA = 300;  // x-axis max amps
+  const marginL = 50, marginR = 20, marginT = 20, marginB = 35;
+  const plotW = w - marginL - marginR;
+  const plotH = h - marginT - marginB;
+  const xFor = a => marginL + (a / maxA) * plotW;
+  const yFor = v => marginT + (1 - (v - 0) / 14) * plotH;  // 0-14 V range
+
+  // Grid
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.fillStyle = '#94a3b8'; ctx.font = '11px system-ui';
+  for (let v = 0; v <= 14; v += 2) {
+    ctx.beginPath(); ctx.moveTo(marginL, yFor(v)); ctx.lineTo(w - marginR, yFor(v)); ctx.stroke();
+    ctx.fillText(v + ' V', 5, yFor(v) + 4);
+  }
+  for (let a = 0; a <= maxA; a += 50) {
+    ctx.beginPath(); ctx.moveTo(xFor(a), marginT); ctx.lineTo(xFor(a), h - marginB); ctx.stroke();
+    ctx.fillText(a + ' A', xFor(a) - 10, h - 18);
+  }
+
+  // Brownout line
+  ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(marginL, yFor(vBO)); ctx.lineTo(w - marginR, yFor(vBO)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ef4444'; ctx.fillText('BROWNOUT ' + vBO + ' V', w - marginR - 100, yFor(vBO) - 5);
+
+  // Sag curve
+  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let a = 0; a <= maxA; a += 1) {
+    const v = Math.max(0, vRest - a * rBattOhm);
+    const x = xFor(a), y = yFor(v);
+    if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Markers for typical + peak
+  function drawMarker(a, label, color) {
+    const v = Math.max(0, vRest - a * rBattOhm);
+    const x = xFor(a), y = yFor(v);
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = color; ctx.font = 'bold 12px system-ui';
+    ctx.fillText(`${label}: ${a.toFixed(0)}A → ${v.toFixed(2)}V`, Math.min(x + 10, w - 200), y + 4);
+  }
+  drawMarker(typical, 'Typical', '#22c55e');
+  drawMarker(peak, 'Peak', '#eab308');
+
+  // Axis labels
+  ctx.fillStyle = '#e2e8f0'; ctx.font = '12px system-ui';
+  ctx.fillText('Battery Voltage (V)', 5, 15);
+  ctx.fillText('Total Supply Current (A)', w - 180, h - 5);
+}
+
+function renderBarChart(rows) {
+  const canvas = document.getElementById('barChart');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (rows.length === 0) {
+    ctx.fillStyle = '#94a3b8'; ctx.font = '14px system-ui';
+    ctx.fillText('No active motors in current scenario', 20, 40);
+    return;
+  }
+
+  const marginL = 150, marginR = 20, marginT = 20, marginB = 20;
+  const plotW = w - marginL - marginR;
+  const plotH = h - marginT - marginB;
+  const rowH = plotH / rows.length;
+  const maxVal = Math.max(...rows.map(r => r.peak), 10);
+  const xFor = a => marginL + (a / maxVal) * plotW;
+
+  const groupColors = {
+    always: '#64748b', drive: '#3b82f6', intake: '#f59e0b', shoot: '#ef4444', climb: '#8b5cf6', other: '#94a3b8'
+  };
+
+  rows.forEach((r, i) => {
+    const y = marginT + i * rowH;
+    const barH = rowH * 0.7;
+    // Peak bar (lighter)
+    ctx.fillStyle = groupColors[r.group] + '55';
+    ctx.fillRect(marginL, y + rowH * 0.15, xFor(r.peak) - marginL, barH);
+    // Typical bar (darker, overlaid)
+    ctx.fillStyle = groupColors[r.group];
+    ctx.fillRect(marginL, y + rowH * 0.15, xFor(r.typical) - marginL, barH);
+    // Labels
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '12px system-ui'; ctx.textAlign = 'right';
+    ctx.fillText(r.name, marginL - 8, y + rowH * 0.55);
+    ctx.textAlign = 'left';
+    ctx.fillText(`${r.typical.toFixed(1)} A typ · ${r.peak.toFixed(0)} A peak`, xFor(r.peak) + 8, y + rowH * 0.55);
+  });
+}
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+function saveConfig() {
+  const cfg = {
+    motors, vRest: +document.getElementById('vRest').value,
+    rBatt: +document.getElementById('rBatt').value,
+    vBrownout: +document.getElementById('vBrownout').value,
+  };
+  localStorage.setItem('powerBudgetAdambots', JSON.stringify(cfg));
+  alert('Saved to browser localStorage.');
+}
+function loadConfig() {
+  const s = localStorage.getItem('powerBudgetAdambots');
+  if (!s) { alert('No saved config found.'); return; }
+  const cfg = JSON.parse(s);
+  motors = cfg.motors;
+  document.getElementById('vRest').value = cfg.vRest;
+  document.getElementById('rBatt').value = cfg.rBatt;
+  document.getElementById('vBrownout').value = cfg.vBrownout;
+  updateSliderLabels();
+  recompute();
+}
+function resetToDefaults() {
+  if (confirm('Reset to Adambots 2026 defaults? Current changes will be lost.')) {
+    motors = JSON.parse(JSON.stringify(DEFAULTS));
+    recompute();
+  }
+}
+function exportJson() {
+  const blob = new Blob([JSON.stringify({ motors, vRest: +document.getElementById('vRest').value, rBatt: +document.getElementById('rBatt').value }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'power_budget.json'; a.click();
+}
+
+function updateSliderLabels() {
+  document.getElementById('vRestVal').textContent = (+document.getElementById('vRest').value).toFixed(1) + ' V';
+  document.getElementById('rBattVal').textContent = (+document.getElementById('rBatt').value).toFixed(0) + ' mΩ';
+  document.getElementById('vBrownoutVal').textContent = (+document.getElementById('vBrownout').value).toFixed(1) + ' V';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('vRest').addEventListener('input', () => { updateSliderLabels(); recompute(); });
+document.getElementById('rBatt').addEventListener('input', () => { updateSliderLabels(); recompute(); });
+document.getElementById('vBrownout').addEventListener('input', () => { updateSliderLabels(); recompute(); });
+
+updateSliderLabels();
+recompute();
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'methodology') {
+    populateCalcMotors();
+    recalcAll();
+    renderMatrix();
+  }
+}
+
+// ============================================================
+// MOTOR PHYSICS DATA
+// Sources: WPILib motors, CTRE Phoenix 6 docs, REV specs, Adambots memory
+// ============================================================
+const V_NOMINAL = 12.0;
+
+const MOTOR_DATA = {
+  "Kraken X60":       { stallTorque: 7.09, stallAmps: 366, freeRpm: 6000, freeAmps: 2.0 },
+  "Kraken X60 (FOC)": { stallTorque: 9.37, stallAmps: 483, freeRpm: 5800, freeAmps: 2.0 },
+  "Kraken X44":       { stallTorque: 4.05, stallAmps: 275, freeRpm: 7530, freeAmps: 2.0 },
+  "Minion":           { stallTorque: 3.17, stallAmps: 211, freeRpm: 7704, freeAmps: 2.0 },  // from AdambotsLib memory
+  "Falcon 500":       { stallTorque: 4.69, stallAmps: 257, freeRpm: 6380, freeAmps: 1.5 },
+  "NEO (Spark Max)":  { stallTorque: 2.60, stallAmps: 181, freeRpm: 5676, freeAmps: 1.8 },
+  "NEO Vortex":       { stallTorque: 3.60, stallAmps: 211, freeRpm: 6784, freeAmps: 3.6 },
+  "NEO 550":          { stallTorque: 0.97, stallAmps: 100, freeRpm: 11000, freeAmps: 1.4 },
+};
+
+function kT(motor) {
+  // Torque constant: stall torque / (stall amps - free amps). Linearized τ = kT · I.
+  const m = MOTOR_DATA[motor];
+  return m.stallTorque / (m.stallAmps - m.freeAmps);
+}
+
+function motorResistance(motor) {
+  // R = V_nominal / I_stall  (winding resistance seen at stall)
+  const m = MOTOR_DATA[motor];
+  return V_NOMINAL / m.stallAmps;
+}
+
+// Current required to produce a given output torque (stator-side, through motor windings)
+function motorCurrentForTorque(motor, tauMotor) {
+  const m = MOTOR_DATA[motor];
+  if (tauMotor <= 0) return m.freeAmps;
+  return m.freeAmps + tauMotor / kT(motor);
+}
+
+// Estimate SUPPLY current (battery-side) from stator current + motor shaft speed.
+// V_motor = I·R + kT·ω  →  duty = V_motor / V_battery  →  I_supply ≈ I_stator · duty
+// Returns {supply, duty} — both clamped to sane ranges.
+function supplyFromStator(motor, iStator, omegaMotorRadPerSec) {
+  const R = motorResistance(motor);
+  const kt = kT(motor);
+  const vMotor = Math.max(0, iStator * R + kt * omegaMotorRadPerSec);
+  let duty = vMotor / V_NOMINAL;
+  if (duty > 1.0) duty = 1.0;   // clamp: can't exceed 12V
+  if (duty < 0)   duty = 0;
+  const iSupply = iStator * duty;
+  return { supply: iSupply, duty };
+}
+
+function rpmToRadSec(rpm) { return rpm * 2 * Math.PI / 60; }
+
+// ============================================================
+// POPULATE MOTOR DROPDOWNS IN CALCULATORS
+// ============================================================
+function populateCalcMotors() {
+  const opts = Object.keys(MOTOR_DATA).map(m => `<option value="${m}">${m}</option>`).join('');
+  ['fw-motor', 'arm-motor', 'dt-motor', 'el-motor', 'ag-motor', 'up-motor'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.innerHTML) el.innerHTML = opts;
+  });
+  // Sensible defaults per mechanism
+  document.getElementById('fw-motor').value = 'Kraken X60 (FOC)';
+  document.getElementById('arm-motor').value = 'Minion';
+  document.getElementById('dt-motor').value = 'Kraken X60 (FOC)';
+  document.getElementById('el-motor').value = 'Kraken X60';
+  document.getElementById('ag-motor').value = 'Kraken X60 (FOC)';
+  document.getElementById('up-motor').value = 'Kraken X44';
+
+  // Wire listeners
+  ['fw-motor','fw-qty','fw-ratio','fw-moi','fw-moi2','fw-rpm','fw-time','fw-eff'].forEach(id =>
+    document.getElementById(id).addEventListener('input', calcFlywheel));
+  ['arm-motor','arm-qty','arm-ratio','arm-mass','arm-len','arm-angle','arm-time','arm-sweep'].forEach(id =>
+    document.getElementById(id).addEventListener('input', calcArm));
+  ['dt-motor','dt-qty','dt-ratio','dt-wheel','dt-mass','dt-accel','dt-mu','dt-eff'].forEach(id =>
+    document.getElementById(id).addEventListener('input', calcDrivetrain));
+  ['el-motor','el-qty','el-ratio','el-drum','el-mass','el-accel','el-eff','el-stages'].forEach(id =>
+    document.getElementById(id).addEventListener('input', calcElevator));
+  ['ag-motor','ag-qty','ag-ratio','ag-plate-mass','ag-plate-r','ag-n','ag-m-piece','ag-r-piece','ag-mu','ag-rpm','ag-time','ag-eff'].forEach(id =>
+    document.getElementById(id).addEventListener('input', calcAgitator));
+  ['up-motor','up-qty','up-ratio','up-roller','up-n','up-m-piece','up-angle','up-mu','up-speed','up-time','up-tension','up-eff'].forEach(id =>
+    document.getElementById(id).addEventListener('input', calcUptake));
+}
+
+function recalcAll() { calcFlywheel(); calcArm(); calcDrivetrain(); calcElevator(); calcAgitator(); calcUptake(); }
+
+// ============================================================
+// FLYWHEEL CALCULATOR
+// ============================================================
+function calcFlywheel() {
+  const motor = document.getElementById('fw-motor').value;
+  const qty   = +document.getElementById('fw-qty').value;
+  const ratio = +document.getElementById('fw-ratio').value;
+  const J1_in2lb = +document.getElementById('fw-moi').value;    // flywheel MOI, in²·lb (CAD)
+  const J2_in2lb = +document.getElementById('fw-moi2').value;   // shooter wheel MOI, in²·lb (CAD)
+  const IN2LB_TO_KGM2 = 2.926e-4;                                // 1 in²·lb = 2.926e-4 kg·m²
+  const J1 = J1_in2lb * IN2LB_TO_KGM2;
+  const J2 = J2_in2lb * IN2LB_TO_KGM2;
+  const rpm   = +document.getElementById('fw-rpm').value;
+  const tSpin = +document.getElementById('fw-time').value;
+  const eff   = +document.getElementById('fw-eff').value;
+
+  const J = J1 + J2;                                              // combined MOI on shared shaft, kg·m²
+  const omegaWheel = rpm * 2 * Math.PI / 60;                      // rad/s at wheel
+  const omegaMotor = omegaWheel * ratio;                          // motor shaft ω (reduction = motor faster)
+  const alpha = omegaWheel / tSpin;
+  const tauLoad = J * alpha;
+  const tauAtOutput = tauLoad / ratio;
+  const tauPerMotor = tauAtOutput / (qty * eff);
+  const iPeak = motorCurrentForTorque(motor, tauPerMotor);
+
+  // Peak supply: happens near target RPM (high back-EMF)
+  const peakInfo = supplyFromStator(motor, iPeak, omegaMotor);
+
+  // Steady current: only drag torque once at target speed
+  const tauDrag = 0.02 * tauPerMotor;
+  const iSteady = motorCurrentForTorque(motor, tauDrag);
+  const steadyInfo = supplyFromStator(motor, iSteady, omegaMotor);
+
+  const recStator = Math.ceil(iPeak * 1.5 / 5) * 5;
+
+  document.getElementById('fw-peak').textContent = iPeak.toFixed(1) + ' A';
+  document.getElementById('fw-peak-sup').textContent = peakInfo.supply.toFixed(1) + ' A';
+  document.getElementById('fw-steady').textContent = steadyInfo.supply.toFixed(1) + ' A';
+  document.getElementById('fw-moitotal').textContent = (J1_in2lb + J2_in2lb).toFixed(2);
+  document.getElementById('fw-duty').textContent = (peakInfo.duty * 100).toFixed(0) + ' %';
+  document.getElementById('fw-limit').textContent = recStator + ' A';
+}
+
+// ============================================================
+// ARM CALCULATOR
+// ============================================================
+function calcArm() {
+  const motor = document.getElementById('arm-motor').value;
+  const qty   = +document.getElementById('arm-qty').value;
+  const ratio = +document.getElementById('arm-ratio').value;
+  const massLb = +document.getElementById('arm-mass').value;    // lbs
+  const mass   = massLb * 0.4536;                                // kg
+  const L_in   = +document.getElementById('arm-len').value;      // in
+  const L      = L_in * 0.0254;                                  // m (CG)
+  const angle = +document.getElementById('arm-angle').value;    // deg
+  const tMove = +document.getElementById('arm-time').value;     // s
+  const sweep = +document.getElementById('arm-sweep').value;    // deg
+
+  const g = 9.81;
+  const eff = 0.85;  // gearbox + bearings
+
+  // Gravity torque at worst angle
+  const tauGravity = mass * g * L * Math.sin(angle * Math.PI / 180);
+  // Acceleration torque (simplified: point mass at L)
+  const I = mass * L * L;
+  const omega = sweep * Math.PI / 180 / tMove;    // avg angular vel
+  const alpha = omega / (tMove / 2);               // accel in first half
+  const tauAccel = I * alpha;
+  const tauPeak = tauGravity + tauAccel;
+
+  const tauMotorHold = tauGravity / (ratio * qty * eff);
+  const tauMotorPeak = tauPeak     / (ratio * qty * eff);
+  const iHold = motorCurrentForTorque(motor, tauMotorHold);
+  const iPeak = motorCurrentForTorque(motor, tauMotorPeak);
+
+  // Motor shaft ω at peak is ω_arm × ratio; at rest for hold
+  const omegaMotorPeak = omega * ratio;
+  const peakInfo = supplyFromStator(motor, iPeak, omegaMotorPeak);
+  const holdInfo = supplyFromStator(motor, iHold, 0);  // holding = ω=0
+
+  const recStator = Math.ceil(iPeak * 1.5 / 5) * 5;
+
+  document.getElementById('arm-hold').textContent = iHold.toFixed(1) + ' A';
+  document.getElementById('arm-peak').textContent = iPeak.toFixed(1) + ' A';
+  document.getElementById('arm-peak-sup').textContent = peakInfo.supply.toFixed(1) + ' A';
+  document.getElementById('arm-hold-sup').textContent = holdInfo.supply.toFixed(1) + ' A';
+  document.getElementById('arm-duty').textContent = (peakInfo.duty * 100).toFixed(0) + ' %';
+  document.getElementById('arm-limit').textContent = recStator + ' A';
+}
+
+// ============================================================
+// DRIVETRAIN CALCULATOR
+// ============================================================
+function calcDrivetrain() {
+  const motor = document.getElementById('dt-motor').value;
+  const qty   = +document.getElementById('dt-qty').value;
+  const ratio = +document.getElementById('dt-ratio').value;
+  const wheelIn = +document.getElementById('dt-wheel').value;
+  const massLb  = +document.getElementById('dt-mass').value;
+  const accel   = +document.getElementById('dt-accel').value;
+  const mu      = +document.getElementById('dt-mu').value;
+  const eff     = +document.getElementById('dt-eff').value;
+
+  const g = 9.81;
+  const massKg = massLb * 0.4536;
+  const rWheel = wheelIn * 0.0254 / 2;
+
+  // Required force + torque for target accel
+  const F_accel = massKg * accel;
+  const tau_wheel = F_accel * rWheel / qty;            // per wheel
+  const tau_motor = tau_wheel / (ratio * eff);
+  const iPerMotor = motorCurrentForTorque(motor, tau_motor);
+  const iTotal = iPerMotor * qty;
+
+  // Supply estimate: approximate ω_motor mid-acceleration (= half target speed)
+  // Use a reasonable accel-state speed: 2 m/s linear → wheel ω → motor ω
+  const vRef = 2.0;  // m/s — approximate mid-accel linear speed
+  const omegaWheel = vRef / rWheel;
+  const omegaMotor = omegaWheel * ratio;
+  const supplyInfo = supplyFromStator(motor, iPerMotor, omegaMotor);
+  const iPerSupply = supplyInfo.supply;
+  const iTotalSupply = iPerSupply * qty;
+
+  // Slip current: max torque before wheels slip
+  const F_slip = mu * massKg * g;                       // total slip force
+  const tau_wheel_slip = F_slip * rWheel / qty;         // per wheel
+  const tau_motor_slip = tau_wheel_slip / (ratio * eff);
+  const iSlip = motorCurrentForTorque(motor, tau_motor_slip);
+
+  document.getElementById('dt-per').textContent = iPerMotor.toFixed(1) + ' A';
+  document.getElementById('dt-total').textContent = iTotal.toFixed(0) + ' A';
+  document.getElementById('dt-slip').textContent = iSlip.toFixed(0) + ' A';
+  document.getElementById('dt-per-sup').textContent = iPerSupply.toFixed(1) + ' A';
+  document.getElementById('dt-total-sup').textContent = iTotalSupply.toFixed(0) + ' A';
+  document.getElementById('dt-duty').textContent = (supplyInfo.duty * 100).toFixed(0) + ' %';
+}
+
+// ============================================================
+// ELEVATOR CALCULATOR
+// ============================================================
+function calcElevator() {
+  const motor = document.getElementById('el-motor').value;
+  const qty   = +document.getElementById('el-qty').value;
+  const ratio = +document.getElementById('el-ratio').value;
+  const drumIn = +document.getElementById('el-drum').value;
+  const massLb = +document.getElementById('el-mass').value;
+  const accel  = +document.getElementById('el-accel').value;
+  const eff    = +document.getElementById('el-eff').value;
+  const stages = +document.getElementById('el-stages').value;
+
+  const g = 9.81;
+  const massKg = massLb * 0.4536;
+  const rDrum = drumIn * 0.0254;    // drum radius in m
+  // For cascaded elevators, each additional stage multiplies the effective force
+  const stageMultiplier = stages;
+
+  const F_hold = massKg * g * stageMultiplier;
+  const F_peak = massKg * (g + accel) * stageMultiplier;
+
+  const tau_hold = F_hold * rDrum / (qty * eff);
+  const tau_peak = F_peak * rDrum / (qty * eff);
+
+  const tau_motor_hold = tau_hold / ratio;
+  const tau_motor_peak = tau_peak / ratio;
+
+  const iHold = motorCurrentForTorque(motor, tau_motor_hold);
+  const iPeak = motorCurrentForTorque(motor, tau_motor_peak);
+
+  // Supply estimates: ω_motor at peak assumes mid-travel (some linear speed)
+  const vRef = 1.0;  // m/s — approximate mid-travel lift speed
+  const omegaDrum = vRef / rDrum;
+  const omegaMotor = omegaDrum * ratio;
+  const peakInfo = supplyFromStator(motor, iPeak, omegaMotor);
+  const holdInfo = supplyFromStator(motor, iHold, 0);  // holding = ω=0
+
+  const recStator = Math.ceil(iPeak * 1.5 / 5) * 5;
+
+  document.getElementById('el-hold').textContent = iHold.toFixed(1) + ' A';
+  document.getElementById('el-peak').textContent = iPeak.toFixed(1) + ' A';
+  document.getElementById('el-peak-sup').textContent = peakInfo.supply.toFixed(1) + ' A';
+  document.getElementById('el-hold-sup').textContent = holdInfo.supply.toFixed(1) + ' A';
+  document.getElementById('el-duty').textContent = (peakInfo.duty * 100).toFixed(0) + ' %';
+  document.getElementById('el-limit').textContent = recStator + ' A';
+}
+
+// ============================================================
+// AGITATOR / SPINDEXER CALCULATOR
+// Rotating carousel plate with n game pieces sliding on its surface.
+// Motor drives the plate; pieces contribute friction torque + rotational inertia.
+// ============================================================
+function calcAgitator() {
+  const motor = document.getElementById('ag-motor').value;
+  const qty   = +document.getElementById('ag-qty').value;
+  const ratio = +document.getElementById('ag-ratio').value;
+  const mPlateLb = +document.getElementById('ag-plate-mass').value;  // lbs
+  const mPlate   = mPlateLb * 0.4536;                                 // kg
+  const rPlateIn = +document.getElementById('ag-plate-r').value;      // in
+  const rPlate   = rPlateIn * 0.0254;                                 // m
+  const n        = +document.getElementById('ag-n').value;
+  const mPieceLb = +document.getElementById('ag-m-piece').value;      // lbs
+  const mPiece   = mPieceLb * 0.4536;                                 // kg
+  const rPieceIn = +document.getElementById('ag-r-piece').value;      // in
+  const rPiece   = rPieceIn * 0.0254;                                 // m
+  const mu     = +document.getElementById('ag-mu').value;
+  const rpm    = +document.getElementById('ag-rpm').value;
+  const tSpin  = +document.getElementById('ag-time').value;
+  const eff    = +document.getElementById('ag-eff').value;
+
+  const g = 9.81;
+  const omega = rpm * 2 * Math.PI / 60;                              // rad/s
+  const alpha = omega / tSpin;                                       // rad/s²
+
+  // Friction torque: each piece slides with friction force μ·m·g at radius r_piece
+  const tauFriction = n * mPiece * g * mu * rPiece;
+
+  // Inertia: solid disk (½·m·r²) + pieces as point masses at r_piece
+  const I_plate = 0.5 * mPlate * rPlate * rPlate;
+  const I_pieces = n * mPiece * rPiece * rPiece;
+  const I_total = I_plate + I_pieces;
+  const tauAccel = I_total * alpha;
+
+  const tauHold_motor = tauFriction / (qty * ratio * eff);
+  const tauPeak_motor = (tauFriction + tauAccel) / (qty * ratio * eff);
+
+  const iHold = motorCurrentForTorque(motor, tauHold_motor);
+  const iPeak = motorCurrentForTorque(motor, tauPeak_motor);
+  const recStator = Math.ceil(iPeak * 1.5 / 5) * 5;
+
+  // Peak happens at ω (near target RPM); holding is at zero velocity (static friction)
+  const omegaMotor = omega * ratio;
+  const peakInfo = supplyFromStator(motor, iPeak, omegaMotor);
+  const holdInfo = supplyFromStator(motor, iHold, 0);
+
+  document.getElementById('ag-hold').textContent = iHold.toFixed(1) + ' A';
+  document.getElementById('ag-peak').textContent = iPeak.toFixed(1) + ' A';
+  document.getElementById('ag-peak-sup').textContent = peakInfo.supply.toFixed(1) + ' A';
+  document.getElementById('ag-hold-sup').textContent = holdInfo.supply.toFixed(1) + ' A';
+  document.getElementById('ag-duty').textContent = (peakInfo.duty * 100).toFixed(0) + ' %';
+  document.getElementById('ag-limit').textContent = recStator + ' A';
+}
+
+// ============================================================
+// UPTAKE CALCULATOR
+// Belt / chain conveyor moving game pieces up an incline.
+// Force = gravity component along incline + friction component + accel.
+// ============================================================
+function calcUptake() {
+  const motor = document.getElementById('up-motor').value;
+  const qty   = +document.getElementById('up-qty').value;
+  const ratio = +document.getElementById('up-ratio').value;
+  const dIn   = +document.getElementById('up-roller').value;
+  const n     = +document.getElementById('up-n').value;
+  const mPLb  = +document.getElementById('up-m-piece').value;        // lbs
+  const mP    = mPLb * 0.4536;                                        // kg
+  const angDeg= +document.getElementById('up-angle').value;
+  const mu    = +document.getElementById('up-mu').value;
+  const speed = +document.getElementById('up-speed').value;          // m/s target
+  const tAccel= +document.getElementById('up-time').value;
+  const tension_lbf = +document.getElementById('up-tension').value;  // lbf pre-load
+  const tension = tension_lbf * 4.4482;                               // convert to N (1 lbf = 4.4482 N)
+  const eff   = +document.getElementById('up-eff').value;
+
+  const g = 9.81;
+  const ang = angDeg * Math.PI / 180;
+  const rRoller = dIn * 0.0254 / 2;                                   // m
+
+  // Force on belt to move pieces along the incline
+  const totalM = n * mP;
+  const F_grav = totalM * g * Math.sin(ang);
+  const F_fric = totalM * g * Math.cos(ang) * mu;
+  const F_accel = totalM * (speed / tAccel);
+  const F_steady = F_grav + F_fric + tension;
+  const F_peak = F_grav + F_fric + F_accel + tension;
+
+  // Torque at roller
+  const tau_roller_steady = F_steady * rRoller;
+  const tau_roller_peak   = F_peak   * rRoller;
+
+  const tau_motor_steady = tau_roller_steady / (qty * ratio * eff);
+  const tau_motor_peak   = tau_roller_peak   / (qty * ratio * eff);
+
+  const iSteady = motorCurrentForTorque(motor, tau_motor_steady);
+  const iPeak   = motorCurrentForTorque(motor, tau_motor_peak);
+  const recStator = Math.ceil(iPeak * 1.5 / 5) * 5;
+
+  // Motor ω at target speed (belt speed → roller ω → motor ω through reduction)
+  const omegaRoller = speed / rRoller;                // rad/s at roller
+  const omegaMotor  = omegaRoller * ratio;            // rad/s at motor
+  const peakInfo    = supplyFromStator(motor, iPeak,   omegaMotor);
+  const steadyInfo  = supplyFromStator(motor, iSteady, omegaMotor);
+
+  document.getElementById('up-steady').textContent = iSteady.toFixed(1) + ' A';
+  document.getElementById('up-peak').textContent = iPeak.toFixed(1) + ' A';
+  document.getElementById('up-peak-sup').textContent = peakInfo.supply.toFixed(1) + ' A';
+  document.getElementById('up-steady-sup').textContent = steadyInfo.supply.toFixed(1) + ' A';
+  document.getElementById('up-duty').textContent = (peakInfo.duty * 100).toFixed(0) + ' %';
+  document.getElementById('up-limit').textContent = recStator + ' A';
+}
+
+// ============================================================
+// SIMULTANEITY MATRIX
+// Editable grid: rows = game states, cols = functions
+// ============================================================
+// Simultaneity matrix — supply-current totals (A) per scenario, one column per function.
+//
+// Numbers seeded from Step-2 calculators + code + MICMP1 telemetry:
+//   Drive      — calcDrivetrain @ 4 m/s² accel (FOC, CoF 1.19) ≈ 68A supply at 4 motors;
+//                typical teleop cruise ≈ 40A; auto accel bursts to 60A.
+//   Shooter    — 2× Kraken X60 FOC (2 motors). Idle pre-spin (kIdleRPS=20 RPS) ≈ 3A;
+//                active shot cycle with back-EMF + recovery ≈ 20A; auto full cycle ≈ 25A.
+//   Intake     — IntakeConstants: roller typical 30A when active (was 45→35 after MICMP1 sag);
+//                arm transient during deploy adds ~5A. 0 when raised.
+//   Hopper     — HopperSubsystem: hopper (Kraken X60, 50A supply cap) + uptake (Kraken X44, 40A cap).
+//                Combined running ≈ 30-35A during feed; 0 when idle.
+//   Turret     — Minion (25A supply cap). Steady ≈ 2A; active tracking ≈ 5-10A.
+//   Climber    — Kraken X60 (40A supply cap). Active lift ≈ 40A; idle 0.
+let matrixData = {
+  scenarios: [
+    { name: 'Auto: drive path + shoot',    vals: [60, 25,  0, 30,  5,  0] },  // full auto routine
+    { name: 'Teleop: drive (idle spin)',   vals: [40,  3,  0,  0,  2,  0] },  // transit, flywheel idle
+    { name: 'Teleop: drive + intake',      vals: [40,  3, 30,  0,  5,  0] },  // ground pickup
+    { name: 'Teleop: drive + shoot',       vals: [40, 20,  0, 30, 10,  0] },  // shoot-on-the-move
+    { name: 'Teleop: intake + shoot',      vals: [30, 20, 30, 30, 10,  0] },  // fast-cycle, both active
+    { name: 'Worst case: everything on',   vals: [68, 25, 35, 35, 10,  0] },  // rare but physically possible
+    { name: 'Endgame: climb',              vals: [ 5,  0,  0,  0,  0, 40] },  // parked + lift
+  ],
+  functions: ['Drive', 'Shooter', 'Intake', 'Hopper', 'Turret', 'Climber'],
+};
+
+function renderMatrix() {
+  const host = document.getElementById('matrix-host');
+  if (!host) return;
+  let html = '<table class="matrix"><thead><tr><th>Scenario</th>';
+  matrixData.functions.forEach(f => html += `<th>${f}</th>`);
+  html += '<th>Total (A)</th><th>V @ R=20mΩ</th></tr></thead><tbody>';
+  matrixData.scenarios.forEach((s, si) => {
+    html += `<tr><td><input type="text" value="${escapeHtml(s.name)}" onchange="matrixNameChanged(${si}, this.value)" style="width: 180px; border: none; background: transparent; color: var(--text);"></td>`;
+    s.vals.forEach((v, vi) => {
+      html += `<td><input type="number" value="${v}" min="0" step="5" onchange="matrixCellChanged(${si}, ${vi}, +this.value)"></td>`;
+    });
+    const total = s.vals.reduce((a, b) => a + b, 0);
+    const v = Math.max(0, 12.6 - total * 0.02);
+    let cls = 'good';
+    if (total > 250) cls = 'danger';
+    else if (total > 150) cls = 'warn';
+    html += `<td class="total ${cls}">${total}</td><td class="total ${cls}">${v.toFixed(2)} V</td>`;
+    html += '</tr>';
+  });
+  // worst case row
+  const worst = matrixData.functions.map((_, fi) => Math.max(...matrixData.scenarios.map(s => s.vals[fi])));
+  const worstTotal = worst.reduce((a, b) => a + b, 0);
+  html += `<tr style="border-top: 2px solid var(--accent)"><td><b>Worst case (max)</b></td>`;
+  worst.forEach(v => html += `<td class="total">${v}</td>`);
+  let wCls = worstTotal > 250 ? 'danger' : (worstTotal > 150 ? 'warn' : 'good');
+  const wV = Math.max(0, 12.6 - worstTotal * 0.02);
+  html += `<td class="total ${wCls}">${worstTotal}</td><td class="total ${wCls}">${wV.toFixed(2)} V</td></tr>`;
+  html += '</tbody></table>';
+  html += `<div class="actions"><button onclick="addScenarioRow()">+ Scenario</button><button onclick="removeScenarioRow()">− Last Scenario</button></div>`;
+  host.innerHTML = html;
+}
+
+function matrixCellChanged(si, vi, v) { matrixData.scenarios[si].vals[vi] = v; renderMatrix(); }
+function matrixNameChanged(si, name) { matrixData.scenarios[si].name = name; }
+function addScenarioRow() {
+  matrixData.scenarios.push({ name: 'New scenario', vals: matrixData.functions.map(() => 0) });
+  renderMatrix();
+}
+function removeScenarioRow() {
+  if (matrixData.scenarios.length > 1) { matrixData.scenarios.pop(); renderMatrix(); }
+}
+
+// ============================================================
+// UNIT CONVERTER
+// Each unit group has a list of units with a factor to a chosen base.
+// Typing in any field propagates to all others.
+// ============================================================
+const UNIT_DEFS = {
+  moi: {
+    title: 'Moment of Inertia',
+    hint: 'Tool inputs use in²·lb (CAD-native: SolidWorks/OnShape "Moment of inertia" export). Physics runs on kg·m² internally.',
+    base: 'in²·lb',
+    units: [
+      { key: 'in2lb', label: 'in²·lb (CAD)',       toBase: 1.0 },
+      { key: 'kgm2',  label: 'kg·m² (SI)',         toBase: 3417.2 },  // 1 kg·m² = 3417.2 in²·lb
+      { key: 'lbft2', label: 'lb·ft²',             toBase: 144.0 }
+    ]
+  },
+  mass: {
+    title: 'Mass',
+    base: 'lb',
+    units: [
+      { key: 'lb', label: 'lb', toBase: 1.0 },
+      { key: 'kg', label: 'kg', toBase: 2.2046 },
+      { key: 'oz', label: 'oz', toBase: 0.0625 }
+    ]
+  },
+  length: {
+    title: 'Length',
+    base: 'in',
+    units: [
+      { key: 'in', label: 'in', toBase: 1.0 },
+      { key: 'ft', label: 'ft', toBase: 12.0 },
+      { key: 'm',  label: 'm',  toBase: 39.3701 },
+      { key: 'mm', label: 'mm', toBase: 0.03937 }
+    ]
+  },
+  accel: {
+    title: 'Acceleration',
+    hint: 'Tool keeps m/s² (WPILib / ReCalc native). Use this to convert from ft/s² or g.',
+    base: 'm/s²',
+    units: [
+      { key: 'mps2', label: 'm/s² (WPILib)', toBase: 1.0 },
+      { key: 'fps2', label: 'ft/s²',         toBase: 0.3048 },
+      { key: 'g',    label: 'g (9.81 m/s²)', toBase: 9.81 }
+    ]
+  },
+  speed: {
+    title: 'Linear Speed',
+    hint: 'Tool keeps m/s (WPILib / ReCalc native). Use this to convert from ft/s or mph.',
+    base: 'm/s',
+    units: [
+      { key: 'mps', label: 'm/s (WPILib)', toBase: 1.0 },
+      { key: 'fps', label: 'ft/s',         toBase: 0.3048 },
+      { key: 'mph', label: 'mph',          toBase: 0.44704 }
+    ]
+  },
+  force: {
+    title: 'Force',
+    hint: 'Tool inputs use lbf (imperial-consistent). Physics runs on Newtons internally.',
+    base: 'lbf',
+    units: [
+      { key: 'lbf', label: 'lbf',  toBase: 1.0 },
+      { key: 'N',   label: 'N',    toBase: 0.2248 },  // 1 N = 0.2248 lbf
+      { key: 'kgf', label: 'kgf',  toBase: 2.2046 }
+    ]
+  }
+};
+
+function openConverter(typeKey) {
+  const def = UNIT_DEFS[typeKey];
+  if (!def) return;
+  document.getElementById('unitModalTitle').innerHTML = `📐 ${def.title} — Converter <button class="uc-close" onclick="closeConverter()">×</button>`;
+  let html = '';
+  def.units.forEach(u => {
+    html += `<label>${u.label}</label><input type="number" class="uc-input" data-factor="${u.toBase}" step="any" placeholder="—">`;
+  });
+  if (def.hint) html += `<div class="uc-hint">${def.hint}</div>`;
+  html += '<div class="uc-factors"><b style="color:var(--accent)">Factors:</b><br>';
+  def.units.forEach((u, i) => {
+    if (i === 0) return;
+    html += `1 ${u.label.split(' ')[0]} = ${u.toBase.toFixed(4).replace(/\.?0+$/, '')} ${def.base}<br>`;
+  });
+  html += '</div>';
+  document.getElementById('unitModalBody').innerHTML = html;
+  document.getElementById('unitModalBackdrop').classList.add('open');
+  document.querySelectorAll('#unitModalBody .uc-input').forEach(inp => {
+    inp.addEventListener('input', () => ucPropagate(inp));
+  });
+  setTimeout(() => { const first = document.querySelector('#unitModalBody .uc-input'); if (first) first.focus(); }, 50);
+}
+
+function ucPropagate(src) {
+  const val = parseFloat(src.value);
+  if (!isFinite(val)) return;
+  const base = val * parseFloat(src.dataset.factor);
+  document.querySelectorAll('#unitModalBody .uc-input').forEach(other => {
+    if (other !== src) {
+      const converted = base / parseFloat(other.dataset.factor);
+      other.value = Math.abs(converted) >= 1 ? converted.toFixed(4) : converted.toPrecision(4);
+    }
+  });
+}
+
+function closeConverter() {
+  document.getElementById('unitModalBackdrop').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConverter(); });
+</script>
+
+<!-- Unit converter modal -->
+<div class="unit-modal-backdrop" id="unitModalBackdrop" onclick="if(event.target===this)closeConverter()">
+  <div class="unit-modal">
+    <h4 id="unitModalTitle"></h4>
+    <div id="unitModalBody"></div>
+  </div>
+</div>
+</body>
+</html>

@@ -135,20 +135,18 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotPeriodic() {
-        // Time the entire scheduler run (includes command execute + subsystem periodic)
-        double schedulerStart = Timer.getFPGATimestamp();
-
         // Runs the Scheduler. This is responsible for polling buttons, adding newly-scheduled
         // commands, running already-scheduled commands, removing finished or interrupted commands,
         // and running subsystem periodic() methods. This must be called from the robot's periodic
         // block in order for anything in the Command-based framework to work.
+        //
+        // No manual timing: AdvantageKit auto-logs LoggedRobot/UserCodeMS, LoggedRobot/FullCycleMS,
+        // and LoggedRobot/LogPeriodicMS, and WPILib Tracer prints per-subsystem + per-command
+        // breakdowns on overruns (captured in the WPILog `messages` stream). That's enough for
+        // post-match diagnosis.
         CommandScheduler.getInstance().run();
         container.getTuningPeriodic().run();
         container.logSwerveCurrent();
-
-        double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
-        // ESSENTIAL — this is the diagnostic that caught the MICMP1 18 Hz loop-rate issue.
-        log(ESSENTIAL, "Timing/CommandSchedulerTotal", schedulerMs);
     }
 
     /** This function is called once each time the robot enters Disabled mode. */

@@ -254,11 +254,14 @@ public final class Constants {
          * <p>Derivation: the pot has its own 18T pinion (no planetary), so
          * pot travel / pot gear ratio = turret range.
          *
-         * <p>With the current values:
-         * {@code (2245 − 282) / (200/18) = 1963 / 11.11 ≈ 176.7°}
+         * <p>{@code Math.abs(...)} keeps the range positive regardless of which
+         * endpoint has the larger raw pot reading. Needed when the pot is wired
+         * such that raw count <b>decreases</b> as the turret sweeps toward max
+         * (since 2026-04, after pot replacement). {@code TurretSubsystem.getPotAngleDegrees()}
+         * is already polarity-agnostic; only this range magnitude needed fixing.
          */
         public static final double kTurretMaxDegrees =
-            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretPotGearRatio;
+            Math.abs(kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretPotGearRatio;
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */

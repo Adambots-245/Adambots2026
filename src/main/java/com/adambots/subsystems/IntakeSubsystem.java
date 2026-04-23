@@ -23,7 +23,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj.Timer;
@@ -406,89 +405,47 @@ public class IntakeSubsystem extends SubsystemBase {
      *                 motor), or null
      */
     private Command bopCommandBase(Runnable runExtra, String name) {
-        // Position-based bop: switches direction when the arm arrives at the
-        // target, not after a fixed timer. This lets Motion Magic complete the
-        // full profile (accel → cruise → decel) instead of being interrupted
-        // mid-swing. An optional dwell at the bottom slows down the bop cycle.
+        // Timer-based bop: flip between top and bottom every kBopPhaseSeconds,
+        // regardless of whether the arm reached the target. This replaced the
+        // earlier position-based design, which stalled when the motor couldn't
+        // physically reach kBopTopPosition (saw this at MICMP1 practice — arm
+        // maxed out around 140° while target was 150°, atTarget never fired,
+        // state machine stuck).
         //
-        // Closure state (bopUp / dwelling) is intentionally mutable and
-        // persists across executions; the sequence-wrapper below resets it on
-        // every schedule so the command has consistent behavior whether it's
-        // the first press or the tenth. Without the reset, the end-lambda's
-        // `bopUp[0] = false` leaks into the next press and makes the first
-        // commanded motion a tiny 5° blip (lowered 100° → bopBottom 105°)
-        // that can stall before advancing — user-visible as "bop doesn't work
-        // from lowered."
-        boolean[] bopUp = { true };
-        double[] dwellStart = { 0 };
-        boolean[] dwelling = { false };
-        return Commands.sequence(
-            Commands.runOnce(() -> {
-                // Pick initial direction based on current arm position so the
-                // first MM profile is always the *longer* of the two options —
-                // avoids the stall-prone tiny-move pathology.
-                double currentDeg = intakeArmMotor.getPosition() * 360.0;
-                double midpoint = (IntakeConstants.kBopBottomPosition
-                                 + IntakeConstants.kBopTopPosition) / 2.0;
-                bopUp[0] = currentDeg < midpoint;
-                dwelling[0] = false;
-                // Mirror raiseIntakeArm()'s pattern: ensure brake mode in case
-                // a prior runIntake left the arm in coast. Coast doesn't block
-                // MM but it removes the passive brake between ticks.
-                restoreBrakeMode();
-            }, this),
-            runEnd(
-                () -> {
-                    // Safety clamp: guard against constants pushing past stops.
-                    double loDeg = Math.min(armLoweredPosition, armRaisedPosition);
-                    double hiDeg = Math.max(armLoweredPosition, armRaisedPosition);
-                    double bopBottom = degreesToMechanismRotations(
-                        clamp(IntakeConstants.kBopBottomPosition, loDeg, hiDeg));
-                    double bopTop = degreesToMechanismRotations(
-                        clamp(IntakeConstants.kBopTopPosition, loDeg, hiDeg));
-
-                    targetPosition = bopUp[0] ? bopTop : bopBottom;
-
-                    // Check if arm has arrived at current target
-                    double currentDeg = intakeArmMotor.getPosition() * 360.0;
-                    double targetDeg = targetPosition * 360.0;
-                    boolean atTarget = Math.abs(currentDeg - targetDeg)
-                        < IntakeConstants.kBopPositionToleranceDeg;
-
-                    if (atTarget) {
-                        if (!bopUp[0] && IntakeConstants.kBopDwellSeconds > 0) {
-                            // At bottom — dwell before going back up
-                            double now = Timer.getFPGATimestamp();
-                            if (!dwelling[0]) {
-                                dwelling[0] = true;
-                                dwellStart[0] = now;
-                            } else if (now - dwellStart[0] >= IntakeConstants.kBopDwellSeconds) {
-                                bopUp[0] = true;
-                                dwelling[0] = false;
-                                targetPosition = bopTop;
-                            }
-                        } else {
-                            // At top, or at bottom with no dwell — flip direction
-                            bopUp[0] = !bopUp[0];
-                            dwelling[0] = false;
-                            targetPosition = bopUp[0] ? bopTop : bopBottom;
-                        }
-                    }
-
-                    intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-                    if (runExtra != null)
-                        runExtra.run();
-                },
-                () -> {
-                    bopUp[0] = false;
-                    lowerIntakeArm();
-                })
-        ).withName(name);
-    }
-
-    /** Small clamp helper used by bopCommandBase. */
-    private static double clamp(double value, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, value));
+        // Time-based flipping always makes forward progress: if the arm can't
+        // reach a target in one phase, we just move on to the other direction
+        // after the phase timer expires. Worst case is a partial oscillation
+        // instead of a total stall.
+        double[] lastFlip = { 0 };
+        boolean[] goingUp = { true };
+        return run(() -> {
+            if (Timer.getFPGATimestamp() - lastFlip[0] >= IntakeConstants.kBopPhaseSeconds) {
+                goingUp[0] = !goingUp[0];
+                lastFlip[0] = Timer.getFPGATimestamp();
+                targetPosition = degreesToMechanismRotations(
+                    goingUp[0] ? IntakeConstants.kBopTopPosition
+                               : IntakeConstants.kBopBottomPosition);
+                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+            }
+            if (runExtra != null) runExtra.run();
+        })
+        .beforeStarting(() -> {
+            // Pick initial direction: if arm is below midpoint, go up first.
+            double currentDeg = intakeArmMotor.getPosition() * 360.0;
+            double midpoint = (IntakeConstants.kBopBottomPosition
+                             + IntakeConstants.kBopTopPosition) / 2.0;
+            goingUp[0] = currentDeg < midpoint;
+            targetPosition = degreesToMechanismRotations(
+                goingUp[0] ? IntakeConstants.kBopTopPosition
+                           : IntakeConstants.kBopBottomPosition);
+            intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+            lastFlip[0] = Timer.getFPGATimestamp();
+            // Mirror raiseIntakeArm's pattern — ensure brake mode in case a
+            // prior runIntake left the arm in coast.
+            restoreBrakeMode();
+        })
+        .finallyDo(interrupted -> lowerIntakeArm())
+        .withName(name);
     }
 
     /**

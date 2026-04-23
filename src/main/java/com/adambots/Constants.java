@@ -564,7 +564,7 @@ public final class Constants {
         public static final double kArmKV = 0.12;  // Volts per rotation/second of velocity (motor characteristic, unchanged)
         public static final double kArmKS = 0.20;  // Volts to overcome static friction 
         public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration 
-        public static final double kArmKG = 0.20;  // Volts to hold arm horizontal 
+        public static final double kArmKG = 0.30;  // Volts to hold arm horizontal — bumped 0.20→0.30 (2026-04-23) after practice logs showed motor stalling at 140° upward. Needs bench tuning for final value; our back-calc suggests ~1.0 V for actual arm mass.
 
         // Motion Magic profile constraints
         public static final double kArmCruiseVelocity = 6.0;  // rotations per second
@@ -587,12 +587,12 @@ public final class Constants {
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
         public static final double kBopBottomPosition = 105.0;  // bop oscillation low end
-        public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
-        /** Optional dwell time at the bottom position before going back up.
-         *  0.0 = no dwell (bop as fast as the arm can move). Increase to slow down bop. */
-        public static final double kBopDwellSeconds = 0.0;
-        /** Position tolerance (degrees) for detecting arm arrival at bop endpoints. */
-        public static final double kBopPositionToleranceDeg = 3.0;
+        public static final double kBopTopPosition    = 135.0;  // bop oscillation high end — lowered 150→135 (2026-04-23) after practice logs showed motor stalling at 140° on upward swing
+        /** Time per bop phase (seconds). Every N seconds, flip the target between
+         *  kBopBottomPosition and kBopTopPosition regardless of whether the arm
+         *  reached the previous target — avoids total-stall pathology when the
+         *  arm physically can't reach an endpoint. */
+        public static final double kBopPhaseSeconds = 0.5;
 
         /** Soft limit margin beyond lowered/raised, in degrees. The firmware
          *  cuts output if reported position drifts this far past either end

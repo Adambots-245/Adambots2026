@@ -12,7 +12,7 @@
         "y": 5.5
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "LSP1"
     },
     {
       "anchor": {
@@ -44,12 +44,7 @@
       "linkedName": null
     }
   ],
-  "rotationTargets": [
-    {
-      "waypointRelativePos": 1,
-      "rotationDegrees": -179.82565337890887
-    }
-  ],
+  "rotationTargets": [],
   "constraintZones": [],
   "pointTowardsZones": [],
   "eventMarkers": [],
@@ -69,7 +64,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": -28.582271283021928
   },
   "useDefaultConstraints": true
 }

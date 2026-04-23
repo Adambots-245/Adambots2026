@@ -12,7 +12,7 @@
         "y": 5.228909912109375
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "MP1 End"
     },
     {
       "anchor": {
@@ -48,7 +48,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 0.0
   },
   "useDefaultConstraints": true
 }

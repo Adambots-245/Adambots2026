@@ -14,6 +14,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 
@@ -61,8 +62,31 @@ public final class DriveCommands {
         ).withName("TurnToAngle(" + angleDegrees + ")");
     }
 
-    /** Default heading tolerance (degrees) for hub-aim command termination. */
-    private static final double kHubAimToleranceDeg = 2.0;
+    /** Default heading tolerance (degrees) for hub-aim command termination.
+     *  Combined with settle detection (see {@link #kHubAimSettleSeconds}) — 1° is
+     *  achievable because the settle check prevents premature termination during
+     *  the brief oscillation sweeps through zero error. */
+    private static final double kHubAimToleranceDeg = 1.0;
+
+    /**
+     * Time (seconds) the chassis must remain in tolerance AND slow-rotating before
+     * the hub-aim command declares itself done. Prevents premature termination during
+     * the brief moment an oscillation sweep passes through zero error.
+     *
+     * <p>Derived from practice-log analysis (2026-04-23, 01:46:19 session): a 1°
+     * tolerance without settle detection terminated in 130-360 ms while the chassis
+     * was still rotating at 35-135°/s, causing momentum-coast-through past target.
+     */
+    private static final double kHubAimSettleSeconds = 0.15;
+
+    /**
+     * Angular-velocity threshold (degrees/sec) for considering the chassis "settled."
+     * Combined with {@link #kHubAimSettleSeconds}, ensures the command terminates only
+     * when the chassis is within tolerance AND not sweeping through it. Below ~15°/s
+     * the chassis is decelerating out of the PID profile; above that it has momentum
+     * that will carry past target after the command releases control.
+     */
+    private static final double kHubAimSettleOmegaDegPerSec = 15.0;
 
     /**
      * Pose-trust threshold — below this translation norm (meters from field origin)
@@ -74,7 +98,9 @@ public final class DriveCommands {
     /**
      * Pure rotation variant of {@link #backToHubCommand(SwerveSubsystem,
      * DoubleSupplier, DoubleSupplier, double)} — driver translation suppliers default to zero.
-     * Terminates once heading is within 2°.
+     * Terminates once the chassis is within {@value #kHubAimToleranceDeg}° AND
+     * rotating slower than {@value #kHubAimSettleOmegaDegPerSec}°/s, sustained for
+     * {@value #kHubAimSettleSeconds}s.
      */
     public static Command backToHubCommand(SwerveSubsystem swerve) {
         return backToHubCommand(swerve, () -> 0.0, () -> 0.0, kHubAimToleranceDeg);
@@ -100,7 +126,9 @@ public final class DriveCommands {
     /**
      * Pure rotation variant of {@link #frontToHubCommand(SwerveSubsystem,
      * DoubleSupplier, DoubleSupplier, double)} — driver translation suppliers default to zero.
-     * Terminates once heading is within 2°.
+     * Terminates once the chassis is within {@value #kHubAimToleranceDeg}° AND
+     * rotating slower than {@value #kHubAimSettleOmegaDegPerSec}°/s, sustained for
+     * {@value #kHubAimSettleSeconds}s.
      */
     public static Command frontToHubCommand(SwerveSubsystem swerve) {
         return frontToHubCommand(swerve, () -> 0.0, () -> 0.0, kHubAimToleranceDeg);
@@ -149,6 +177,10 @@ public final class DriveCommands {
             double toleranceDeg,
             double headingOffsetRad,
             String name) {
+        // Tracks the FPGA timestamp at which (|err| < tol AND |omega| < threshold) first
+        // became true. NaN = not currently in the settle condition. Reset in beforeStarting
+        // so that re-scheduled commands start with a clean slate.
+        double[] settleStart = { Double.NaN };
         return Commands.run(() -> {
             Pose2d pose = swerve.getPose();
             if (!poseTrusted(pose)) {
@@ -164,11 +196,31 @@ public final class DriveCommands {
                 vxSupplier.getAsDouble(), vySupplier.getAsDouble(), omega));
         }, swerve).until(() -> {
             Pose2d pose = swerve.getPose();
-            if (!poseTrusted(pose)) return false;    // stay live until odometry localizes
+            if (!poseTrusted(pose)) {
+                settleStart[0] = Double.NaN;
+                return false;   // stay live until odometry localizes
+            }
             double errRad = MathUtil.angleModulus(
                 hubAimHeadingRad(pose, headingOffsetRad) - swerve.getHeading().getRadians());
-            return Math.abs(Math.toDegrees(errRad)) < toleranceDeg;
-        }).withName(name);
+            double errDeg = Math.abs(Math.toDegrees(errRad));
+            double omegaDegPerSec = Math.abs(Math.toDegrees(
+                swerve.getSwerveDrive().getRobotVelocity().omegaRadiansPerSecond));
+
+            boolean withinTolerance = errDeg < toleranceDeg;
+            boolean slowEnough      = omegaDegPerSec < kHubAimSettleOmegaDegPerSec;
+
+            if (withinTolerance && slowEnough) {
+                if (Double.isNaN(settleStart[0])) {
+                    settleStart[0] = Timer.getFPGATimestamp();
+                }
+                return Timer.getFPGATimestamp() - settleStart[0] >= kHubAimSettleSeconds;
+            }
+            // Either drifted out of tolerance or is sweeping too fast — reset the timer.
+            settleStart[0] = Double.NaN;
+            return false;
+        })
+        .beforeStarting(() -> settleStart[0] = Double.NaN)
+        .withName(name);
     }
 
     /**

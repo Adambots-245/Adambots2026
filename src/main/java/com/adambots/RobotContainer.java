@@ -256,7 +256,7 @@ public class RobotContainer {
                 //         swerve,
                 //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
                 //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                //         2.0 /* tolerance deg */));
+                //         1.0 /* tolerance deg — settle detection prevents premature termination */));
                 //
                 // --- FRONT-facing-hub variants (mirror of the three above) ---
                 // Use these for the forward-mounted shooter strategy: robot's FRONT faces the
@@ -273,7 +273,7 @@ public class RobotContainer {
                         swerve,
                         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
                         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                        3.0 /* tolerance deg */).withTimeout(1.5));
+                        1.0 /* tolerance deg — settle detection in DriveCommands prevents premature termination */).withTimeout(1.5));
                 
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
@@ -386,6 +386,16 @@ public class RobotContainer {
                                 turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5));
                 NamedCommands.registerCommand("waitForHub",
                                 visionSubsystem.waitForHubCommand().withTimeout(2.0));
+
+                // Chassis-aim variants — pure rotation (no driver translation in auton).
+                // Use at stop events between path segments; mid-path would conflict with the
+                // path-follow command for SwerveSubsystem ownership. Settle detection in
+                // DriveCommands terminates cleanly once the chassis is within ~1° and
+                // not sweeping; 1.5s timeout is a safety backstop.
+                NamedCommands.registerCommand("faceHub",
+                                DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
+                NamedCommands.registerCommand("backToHub",
+                                DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
 
                 // Log PathPlanner trajectory target/current/active-path at ESSENTIAL.
                 // These callbacks fire at PathPlanner's internal rate whenever a path-

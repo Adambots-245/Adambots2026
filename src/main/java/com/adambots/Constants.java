@@ -14,26 +14,82 @@ package com.adambots;
  */
 public final class Constants {
 
+    // ==================== Battery Tracking ====================
+
+    /**
+     * Battery identifier for the pack installed for the current deploy.
+     *
+     * <p><b>CHANGE BEFORE EACH MATCH</b> — label each physical battery with a
+     * number (1, 2, 3…) and set this constant to the installed battery's number
+     * prior to running {@code ./gradlew deploy}. Logged as metadata + ESSENTIAL
+     * signal so post-match analysis can correlate voltage sag / brownouts
+     * (e.g. the MICMP1 Q19/Q58 packs) to a specific physical battery.
+     *
+     * <p>Default {@code 0} means "unset" — treat those logs with caution.
+     */
+    public static final int BATTERY_ID = 0;
+
+    // ==================== Operating Mode ====================
+
+    /**
+     * Robot operating mode. Drives {@link com.adambots.Robot}'s AdvantageKit receiver
+     * configuration:
+     * <ul>
+     *   <li>{@link Mode#REAL} — running on a real roboRIO. WPILOGWriter + NT4Publisher active.</li>
+     *   <li>{@link Mode#SIM} — desktop simulation. NT4Publisher only (no disk).</li>
+     *   <li>{@link Mode#REPLAY} — re-run a recorded log through the code for debugging.
+     *       Uses WPILOGReader + WPILOGWriter with {@code _sim} suffix.</li>
+     * </ul>
+     */
+    public enum Mode { REAL, SIM, REPLAY }
+
+    /** Set per deploy target. REAL for robot, SIM for desktop, REPLAY for log replay. */
+    public static final Mode MODE = Mode.REAL;
+
+    // ==================== Log Level ====================
+
+    /**
+     * Verbosity floor for {@link com.adambots.logging.LogUtil#log}. Compile-time.
+     * <ul>
+     *   <li>{@link com.adambots.logging.LogUtil.Level#ESSENTIAL} — quals/comp. ~25 signals.</li>
+     *   <li>{@link com.adambots.logging.LogUtil.Level#DIAGNOSTIC} — practice / post-match tuning.
+     *       Adds vision pipeline internals, per-module swerve, command durations.</li>
+     *   <li>{@link com.adambots.logging.LogUtil.Level#DEBUG} — bench only. Adds high-rate
+     *       tuning data (lead-comp math, PID internals).</li>
+     * </ul>
+     * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
+     */
+    public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
+        com.adambots.logging.LogUtil.Level.DIAGNOSTIC;
+
+    // ==================== Tuning / Shuffleboard (separate from logging) ====================
+
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = false;
+    public static final boolean TUNING_ENABLED = true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
     public static final boolean SHOOTER_TAB  = TUNING_ENABLED && true;
     public static final boolean SWERVE_TAB   = TUNING_ENABLED && false;
-    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && true;
+    public static final boolean CLIMBER_TAB  = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
     public static final boolean TURRET_TAB  = TUNING_ENABLED && true;
 
-    /** Log motor stator current to WPILog — lightweight, leave on for competition. */
+    /**
+     * @deprecated Replaced by {@link #LOG_LEVEL} — current logging is now part of ESSENTIAL.
+     *   Remove after all call sites migrate to {@link com.adambots.logging.LogUtil}.
+     */
+    @Deprecated
     public static final boolean CURRENT_LOGGING = true;
 
-    /** Enable detailed subsystem logging (turret tracking, vision diagnostics).
-     *  Set false for competition to reduce CPU/bandwidth overhead.
-     *  AdvantageKit core (timestamp, pose) and current logging still run. */
+    /**
+     * @deprecated Replaced by {@link #LOG_LEVEL} — set to {@code DIAGNOSTIC} or higher for
+     *   the same effect. Remove after all call sites migrate to {@link com.adambots.logging.LogUtil}.
+     */
+    @Deprecated
     public static final boolean LOGGING_ENABLED = false;
 
     /** Shuffleboard visible grid size — tweak to match your screen/layout. */
@@ -66,7 +122,8 @@ public final class Constants {
         public static final double kAutoRotationD = 0.0;
 
         /** Max translation speed scale (0-1]. 0.8 = 80% of max chassis velocity */
-        public static final double kTranslationScale = 0.95;
+        // Going above 90% may make turning at top speed sluggish
+        public static final double kTranslationScale = 0.9;
     }
 
     // ==================== ShooterConstants ====================
@@ -98,8 +155,8 @@ public final class Constants {
         public static final double kLobShotRPS = 101.0;
 
         // ==================== Current Limits ====================
-        public static final double kFlywheelStallCurrentLimit = 40.0;
-        public static final double kFlywheelFreeCurrentLimit = 40.0;
+        public static final double kFlywheelStatorCurrentLimit = 40.0;
+        public static final double kFlywheelSupplyCurrentLimit = 25.0;  // was 40 — power-budget calc peak 13.7A @ 4000 RPM, back-EMF margin to 25A; battery-friendlier during shooter+drive simultaneity
 
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
@@ -176,7 +233,7 @@ public final class Constants {
         // WCP GreyT Turret: 200-tooth ring gear.
         // Motor has a 4:1 planetary before a 20T pinion.
         // Pot has its own separate 18T pinion (no planetary).
-        public static final double kTurretPotGearRatio = 200.0 / 18.0;            // pot → turret (18T pinion)
+        public static final double kTurretPotGearRatio = 200.0 / 20.0;            // pot → turret (18T pinion)
         public static final double kTurretMotorGearRatio = (200.0 / 20.0) * 4.0;  // motor → turret (20T pinion + 4:1 planetary)
 
         // ==================== Potentiometer Calibration ====================
@@ -185,9 +242,9 @@ public final class Constants {
         // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
         // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 706;
+        public static final double kTurretPotAtZeroDeg = 3046.0;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2780.0;
+        public static final double kTurretPotAtMaxDeg = 348.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -198,15 +255,18 @@ public final class Constants {
          * <p>Derivation: the pot has its own 18T pinion (no planetary), so
          * pot travel / pot gear ratio = turret range.
          *
-         * <p>With the current values:
-         * {@code (2245 − 282) / (200/18) = 1963 / 11.11 ≈ 176.7°}
+         * <p>{@code Math.abs(...)} keeps the range positive regardless of which
+         * endpoint has the larger raw pot reading. Needed when the pot is wired
+         * such that raw count <b>decreases</b> as the turret sweeps toward max
+         * (since 2026-04, after pot replacement). {@code TurretSubsystem.getPotAngleDegrees()}
+         * is already polarity-agnostic; only this range magnitude needed fixing.
          */
         public static final double kTurretMaxDegrees =
-            (kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretPotGearRatio;
+            Math.abs(kTurretPotAtMaxDeg - kTurretPotAtZeroDeg) / kTurretPotGearRatio;
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
-        public static final double kTurretForwardDegrees = 85.0;
+        public static final double kTurretForwardDegrees = 91.0;
 
         /** Turret pivot offset from robot center (meters).
          *  X = forward/back (negative = behind center), Y = left/right.
@@ -231,8 +291,8 @@ public final class Constants {
         public static final double kTurretSoftLimitMarginDeg = 6.0;
 
         // ==================== Current Limits ====================
-        public static final double kTurretStallCurrentLimit = 40.0;  // was 30 — raised for higher MM accel (500 RPS/s)
-        public static final double kTurretFreeCurrentLimit = 25.0;  // was 20 — headroom for tracking corrections
+        public static final double kTurretStatorCurrentLimit = 40.0;  // was 30 — raised for higher MM accel (500 RPS/s)
+        public static final double kTurretSupplyCurrentLimit = 25.0;  // was 20 — headroom for tracking corrections
     }
 
     // ==================== TurretTrackingConstants ====================
@@ -244,12 +304,28 @@ public final class Constants {
         /** Anticipation time for angular velocity feedforward (seconds).
          *  Turret leads the setpoint by robotAngVel × this value to compensate for rotation. */
         public static final double kAngularVelLeadTime = 0.03;
+
+        /**
+         * Projectile time-of-flight (seconds) for <b>translational</b> lead compensation.
+         * Shifts the aim point by {@code -fieldVelocity × kShotLeadTimeSec} so the turret
+         * aims ahead of the hub to account for the robot's drift during the fuel's flight.
+         *
+         * <p><b>Zero disables it</b> — the aim point reduces exactly to the static hub
+         * center, matching pre-lead behavior. Only the 5-arg
+         * {@code poseTrackCommand(..., fieldVelSupplier, ...)} overload consumes this
+         * value; the legacy 4-arg signature is unaffected.
+         *
+         * <p>Tuning: start at 0.15–0.20s for FUEL at typical scoring ranges (3–4 m,
+         * exit speed ~15 m/s → TOF ≈ 0.2s). Increase if shots trail behind when
+         * strafing, decrease if they lead too far. Bench-test with static hub first.
+         */
+        public static final double kShotLeadTimeSec = 0.0;
     }
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.50;  // was 0.30 — more torque to prevent jam stalls
-        public static final double kUptakeSpeed = 0.70;
+        public static final double kHopperSpeed = 0.30;  // was 0.30 — more torque to prevent jam stalls
+        public static final double kUptakeSpeed = 0.50;
 
         // Jam detection (set kJamDetectionEnabled = false to disable entirely)
         public static final boolean kJamDetectionEnabled = true;
@@ -259,8 +335,10 @@ public final class Constants {
         public static final double kJamGracePeriod = 0.50;        // was 0.25 — longer grace prevents buzz loop re-trigger
 
         // Current limits
-        public static final double kHopperSupplyCurrentLimit = 40.0;
-        public static final double kUptakeSupplyCurrentLimit = 30.0;
+        public static final double kHopperStatorCurrentLimit = 70.0;
+        public static final double kHopperSupplyCurrentLimit = 50.0;
+        public static final double kUptakeStatorCurrentLimit = 60.0;
+        public static final double kUptakeSupplyCurrentLimit = 40.0;
     }
 
     // ==================== VisionConstants ====================
@@ -412,7 +490,7 @@ public final class Constants {
         /** Hardcoded hub center coordinates from official WPILib 2026 field layout.
          *  Derived from geometric center of all hub tag positions in 2026-rebuilt-welded.json.
          *  Using hardcoded values eliminates field-to-field tag placement variation. */
-        public static final double kRedHubCenterX = 12.004 + 0.1;
+        public static final double kRedHubCenterX = 12.004 + 0.1; // add 0.1 to shift the shooting alignment.
         public static final double kRedHubCenterY = 4.035;
         public static final double kBlueHubCenterX = 4.537;
         public static final double kBlueHubCenterY = 4.035;
@@ -487,7 +565,7 @@ public final class Constants {
         public static final double kArmKV = 0.12;  // Volts per rotation/second of velocity (motor characteristic, unchanged)
         public static final double kArmKS = 0.20;  // Volts to overcome static friction 
         public static final double kArmKA = 0.005; // Volts per rotation/second^2 of acceleration 
-        public static final double kArmKG = 0.20;  // Volts to hold arm horizontal 
+        public static final double kArmKG = 0.30;  // Volts to hold arm horizontal — bumped 0.20→0.30 (2026-04-23) after practice logs showed motor stalling at 140° upward. Needs bench tuning for final value; our back-calc suggests ~1.0 V for actual arm mass.
 
         // Motion Magic profile constraints
         public static final double kArmCruiseVelocity = 6.0;  // rotations per second
@@ -510,12 +588,12 @@ public final class Constants {
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
         public static final double kBopBottomPosition = 105.0;  // bop oscillation low end
-        public static final double kBopTopPosition    = 150.0;  // bop oscillation high end
-        /** Optional dwell time at the bottom position before going back up.
-         *  0.0 = no dwell (bop as fast as the arm can move). Increase to slow down bop. */
-        public static final double kBopDwellSeconds = 0.0;
-        /** Position tolerance (degrees) for detecting arm arrival at bop endpoints. */
-        public static final double kBopPositionToleranceDeg = 3.0;
+        public static final double kBopTopPosition    = 135.0;  // bop oscillation high end — lowered 150→135 (2026-04-23) after practice logs showed motor stalling at 140° on upward swing
+        /** Time per bop phase (seconds). Every N seconds, flip the target between
+         *  kBopBottomPosition and kBopTopPosition regardless of whether the arm
+         *  reached the previous target — avoids total-stall pathology when the
+         *  arm physically can't reach an endpoint. */
+        public static final double kBopPhaseSeconds = 0.5;
 
         /** Soft limit margin beyond lowered/raised, in degrees. The firmware
          *  cuts output if reported position drifts this far past either end

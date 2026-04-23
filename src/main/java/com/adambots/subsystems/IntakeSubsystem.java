@@ -1,5 +1,9 @@
 package com.adambots.subsystems;
 
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.log;
+
 import com.adambots.Constants;
 import com.adambots.Constants.IntakeConstants;
 import com.adambots.Constants.SimConstants;
@@ -22,8 +26,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj.Timer;
-
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Intake subsystem using TalonFX onboard PID with gravity compensation.
@@ -403,64 +405,47 @@ public class IntakeSubsystem extends SubsystemBase {
      *                 motor), or null
      */
     private Command bopCommandBase(Runnable runExtra, String name) {
-        // Position-based bop: switches direction when the arm arrives at the
-        // target, not after a fixed timer. This lets Motion Magic complete the
-        // full profile (accel → cruise → decel) instead of being interrupted
-        // mid-swing. An optional dwell at the bottom slows down the bop cycle.
-        boolean[] bopUp = { true };
-        double[] dwellStart = { 0 };
-        boolean[] dwelling = { false };
-        return runEnd(
-                () -> {
-                    // Safety clamp: guard against constants pushing past stops.
-                    double loDeg = Math.min(armLoweredPosition, armRaisedPosition);
-                    double hiDeg = Math.max(armLoweredPosition, armRaisedPosition);
-                    double bopBottom = degreesToMechanismRotations(
-                        clamp(IntakeConstants.kBopBottomPosition, loDeg, hiDeg));
-                    double bopTop = degreesToMechanismRotations(
-                        clamp(IntakeConstants.kBopTopPosition, loDeg, hiDeg));
-
-                    targetPosition = bopUp[0] ? bopTop : bopBottom;
-
-                    // Check if arm has arrived at current target
-                    double currentDeg = intakeArmMotor.getPosition() * 360.0;
-                    double targetDeg = targetPosition * 360.0;
-                    boolean atTarget = Math.abs(currentDeg - targetDeg)
-                        < IntakeConstants.kBopPositionToleranceDeg;
-
-                    if (atTarget) {
-                        if (!bopUp[0] && IntakeConstants.kBopDwellSeconds > 0) {
-                            // At bottom — dwell before going back up
-                            double now = Timer.getFPGATimestamp();
-                            if (!dwelling[0]) {
-                                dwelling[0] = true;
-                                dwellStart[0] = now;
-                            } else if (now - dwellStart[0] >= IntakeConstants.kBopDwellSeconds) {
-                                bopUp[0] = true;
-                                dwelling[0] = false;
-                                targetPosition = bopTop;
-                            }
-                        } else {
-                            // At top, or at bottom with no dwell — flip direction
-                            bopUp[0] = !bopUp[0];
-                            dwelling[0] = false;
-                            targetPosition = bopUp[0] ? bopTop : bopBottom;
-                        }
-                    }
-
-                    intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
-                    if (runExtra != null)
-                        runExtra.run();
-                },
-                () -> {
-                    bopUp[0] = false;
-                    lowerIntakeArm();
-                }).withName(name);
-    }
-
-    /** Small clamp helper used by bopCommandBase. */
-    private static double clamp(double value, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, value));
+        // Timer-based bop: flip between top and bottom every kBopPhaseSeconds,
+        // regardless of whether the arm reached the target. This replaced the
+        // earlier position-based design, which stalled when the motor couldn't
+        // physically reach kBopTopPosition (saw this at MICMP1 practice — arm
+        // maxed out around 140° while target was 150°, atTarget never fired,
+        // state machine stuck).
+        //
+        // Time-based flipping always makes forward progress: if the arm can't
+        // reach a target in one phase, we just move on to the other direction
+        // after the phase timer expires. Worst case is a partial oscillation
+        // instead of a total stall.
+        double[] lastFlip = { 0 };
+        boolean[] goingUp = { true };
+        return run(() -> {
+            if (Timer.getFPGATimestamp() - lastFlip[0] >= IntakeConstants.kBopPhaseSeconds) {
+                goingUp[0] = !goingUp[0];
+                lastFlip[0] = Timer.getFPGATimestamp();
+                targetPosition = degreesToMechanismRotations(
+                    goingUp[0] ? IntakeConstants.kBopTopPosition
+                               : IntakeConstants.kBopBottomPosition);
+                intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+            }
+            if (runExtra != null) runExtra.run();
+        })
+        .beforeStarting(() -> {
+            // Pick initial direction: if arm is below midpoint, go up first.
+            double currentDeg = intakeArmMotor.getPosition() * 360.0;
+            double midpoint = (IntakeConstants.kBopBottomPosition
+                             + IntakeConstants.kBopTopPosition) / 2.0;
+            goingUp[0] = currentDeg < midpoint;
+            targetPosition = degreesToMechanismRotations(
+                goingUp[0] ? IntakeConstants.kBopTopPosition
+                           : IntakeConstants.kBopBottomPosition);
+            intakeArmMotor.set(BaseMotor.ControlMode.MOTION_MAGIC, targetPosition);
+            lastFlip[0] = Timer.getFPGATimestamp();
+            // Mirror raiseIntakeArm's pattern — ensure brake mode in case a
+            // prior runIntake left the arm in coast.
+            restoreBrakeMode();
+        })
+        .finallyDo(interrupted -> lowerIntakeArm())
+        .withName(name);
     }
 
     /**
@@ -556,10 +541,17 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        if (Constants.CURRENT_LOGGING) {
-            Logger.recordOutput("Intake/RollerCurrent", intakeMotor.getCurrentDraw().in(Amps));
-            Logger.recordOutput("Intake/ArmCurrent", intakeArmMotor.getCurrentDraw().in(Amps));
-        }
+        // ESSENTIAL: currents + arm position + roller velocity + jam state.
+        // Arm position in degrees lets us verify mechanical integrity post-match.
+        // Roller RPS distinguishes "commanded zero" from "stalled" without reading duty.
+        log(ESSENTIAL, "Intake/RollerCurrent", intakeMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Intake/ArmCurrent", intakeArmMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Intake/ArmPositionDeg", intakeArmMotor.getPosition() * 360.0);
+        log(ESSENTIAL, "Intake/RollerRPS", intakeMotor.getVelocity().in(RotationsPerSecond));
+        log(ESSENTIAL, "Intake/RollerReversing", rollerReversing);
+        // DIAGNOSTIC: Motion-Magic setpoint + velocity lets us see profile tracking
+        log(DIAGNOSTIC, "Intake/ArmTargetRotations", targetPosition);
+        log(DIAGNOSTIC, "Intake/ArmVelocityRPS", intakeArmMotor.getVelocity().in(RotationsPerSecond));
 
         // ==================== Roller jam detection ====================
         //

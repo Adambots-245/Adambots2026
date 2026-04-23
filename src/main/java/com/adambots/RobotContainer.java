@@ -6,11 +6,11 @@ package com.adambots;
 
 import java.io.File;
 
-import org.littletonrobotics.junction.Logger;
-
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
+import com.adambots.commands.DriveCommands;
+// import com.adambots.commands.DriveCommands;  // uncomment when enabling the back-to-hub wiring below
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
@@ -30,9 +30,16 @@ import com.adambots.subsystems.ShooterSubsystem;
 import com.adambots.subsystems.TurretSubsystem;
 import com.adambots.subsystems.VisionSubsystem;
 import com.adambots.utils.DashboardSetup;
+import com.adambots.utils.FieldGeometry;
 import com.adambots.utils.HubActivation;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.util.PathPlannerLogging;
+
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
+import edu.wpi.first.math.geometry.Pose2d;
 
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.XboxController;
@@ -178,13 +185,26 @@ public class RobotContainer {
                         };
                         turret.setDefaultCommand(turret.poseTrackCommand(
                                         swerve::getPose,
-                                        visionSubsystem::getHubCenter,
+                                        FieldGeometry::getHubCenter,
                                         () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
                                         xboxJog));
-                        // OPTION: Pose tracker with TOF lead (shoot while moving)
+                        // OPTION A: Pose tracker with translational lead compensation.
+                        // Identical behavior to the above when
+                        // Constants.TurretTrackingConstants.kShotLeadTimeSec is 0;
+                        // once it's set non-zero (start around 0.15–0.20 s), the turret
+                        // aims ahead of the hub to compensate for robot drift during
+                        // fuel flight. Zero-safe: just set kShotLeadTimeSec = 0 to revert.
+                        // turret.setDefaultCommand(turret.poseTrackCommand(
+                        //                 swerve::getPose,
+                        //                 FieldGeometry::getHubCenter,
+                        //                 swerve::getFieldVelocity,
+                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        //                 xboxJog));
+                        // OPTION B: Pose tracker with TOF lead from vision distance
+                        //            (distance-dependent lead instead of constant).
                         // turret.setDefaultCommand(turret.poseTrackCommandTOF(
                         //                 swerve::getPose,
-                        //                 visionSubsystem::getHubCenter,
+                        //                 FieldGeometry::getHubCenter,
                         //                 swerve::getFieldVelocity,
                         //                 () -> shooter.getEstimatedTOF(visionSubsystem.getHubDistance()),
                         //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
@@ -217,7 +237,48 @@ public class RobotContainer {
                                 intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand().withTimeout(1)));
 
                 // Button 5: Toggle auto-track on/off
-                Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+                // Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+
+                // Alternative strategy — fixed turret, rotate chassis so its back faces the hub.
+                // Three wiring options (pick one, comment the auto-track toggle above):
+                //
+                // (1) Hold-to-aim, chassis stops translating while rotating:
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(swerve));
+                //
+                // (2) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
+                // Buttons.JoystickButton5.onTrue(DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
+                //
+                // (3) Hold-to-aim WITH driver translation passthrough — drive + auto-aim at once.
+                //     Uses the same forward/strafe suppliers as the default drive command, scaled
+                //     to m/s via YAGSL's configured max chassis velocity:
+                final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
+                final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
+                        Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
+                        Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(
+                //         swerve,
+                //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                //         1.0 /* tolerance deg — settle detection prevents premature termination */));
+                //
+                // --- FRONT-facing-hub variants (mirror of the three above) ---
+                // Use these for the forward-mounted shooter strategy: robot's FRONT faces the
+                // hub. Same pose-trust guard and driver passthrough as the back variants.
+                //
+                // (1F) Hold-to-aim, chassis stops translating while rotating:
+                // Buttons.JoystickButton5.whileTrue(DriveCommands.frontToHubCommand(swerve));
+                //
+                // (2F) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
+                // Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
+                //
+                // (3F) Hold-to-aim WITH driver translation passthrough:
+                Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(
+                        swerve,
+                        () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                        () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                        1.0 /* tolerance deg — settle detection in DriveCommands prevents premature termination */).withTimeout(1.5));
+                
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
                                 intake.runLowerIntakeArmCommand());
@@ -233,7 +294,6 @@ public class RobotContainer {
                 Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
                 // Button 12: Lower intake but do not run
                 Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); 
-                // Button 13: None
                 // Button 13: Force pose reset from vision (only if cameras see 2+ tags)
                 Buttons.JoystickButton13.onTrue(Commands.runOnce(() -> {
                         if (visionSubsystem != null && visionSubsystem.getHubVisibleTagCount() >= 2) {
@@ -329,6 +389,28 @@ public class RobotContainer {
                                 turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5));
                 NamedCommands.registerCommand("waitForHub",
                                 visionSubsystem.waitForHubCommand().withTimeout(2.0));
+
+                // Chassis-aim variants — pure rotation (no driver translation in auton).
+                // Use at stop events between path segments; mid-path would conflict with the
+                // path-follow command for SwerveSubsystem ownership. Settle detection in
+                // DriveCommands terminates cleanly once the chassis is within ~1° and
+                // not sweeping; 1.5s timeout is a safety backstop.
+                NamedCommands.registerCommand("faceHub",
+                                DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
+                NamedCommands.registerCommand("backToHub",
+                                DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
+
+                // Log PathPlanner trajectory target/current/active-path at ESSENTIAL.
+                // These callbacks fire at PathPlanner's internal rate whenever a path-
+                // following command is active. Without these, post-match auto debugging
+                // is blind — we had this gap at MICMP1. Logger.recordOutput is thread-safe
+                // per AdvantageKit docs, so off-main-thread callbacks are fine.
+                PathPlannerLogging.setLogActivePathCallback(poses ->
+                                log(ESSENTIAL, "PathPlanner/ActivePath", poses.toArray(new Pose2d[0])));
+                PathPlannerLogging.setLogCurrentPoseCallback(pose ->
+                                log(ESSENTIAL, "PathPlanner/CurrentPose", pose));
+                PathPlannerLogging.setLogTargetPoseCallback(pose ->
+                                log(ESSENTIAL, "PathPlanner/TargetPose", pose));
         }
 
         // ==================== AUTO CHOOSER ====================
@@ -351,9 +433,15 @@ public class RobotContainer {
                                 visionSubsystem);
                 tuningPeriodic = tuning != null ? tuning : () -> {
                 };
-                Dash.add("Auto-Track", () -> turret.isAutoTrackEnabled());
-                if (visionSubsystem != null) {
-                        Dash.add("Camera Online", visionSubsystem::isCameraOnline);
+                // Dash.add registers suppliers that fire every Shuffleboard.update() tick
+                // even with TUNING_ENABLED=false — gate them to avoid always-on NT chatter.
+                // These two are duplicated in AdvantageKit ESSENTIAL logs ("Turret/Locked"
+                // and "Vision/CamOnline"), so comp doesn't need them on Shuffleboard.
+                if (Constants.TUNING_ENABLED) {
+                        Dash.add("Auto-Track", () -> turret.isAutoTrackEnabled());
+                        if (visionSubsystem != null) {
+                                Dash.add("Camera Online", visionSubsystem::isCameraOnline);
+                        }
                 }
         }
 
@@ -402,23 +490,26 @@ public class RobotContainer {
         }
 
         /**
-         * Logs swerve drive and steer motor currents for all 4 modules.
-         * Called from {@link Robot#robotPeriodic()} when CURRENT_LOGGING is enabled.
-         * Swerve motors are managed by YAGSL in the lib, so we log from outside.
+         * Logs swerve drive and steer motor applied output (duty cycle) for all 4
+         * modules at {@link com.adambots.logging.LogUtil.Level#DIAGNOSTIC}.
          *
-         * <p>Uses getAppliedOutput() (duty cycle 0-1) since YAGSL's SwerveMotor
-         * doesn't expose current directly. Multiply by ~60A (stall current at
-         * that duty cycle) for a rough current estimate, or check PDH channel
-         * currents for true values.
+         * <p>Called from {@link Robot#robotPeriodic()}. Swerve motors are managed by
+         * YAGSL in the lib, so we log from outside.
+         *
+         * <p>Note: this is <b>duty cycle (0–1)</b>, not current. Actual stator/supply
+         * currents are logged to the CTRE {@code .hoot} file when {@code SignalLogger}
+         * is enabled (see {@link Robot#robotInit()}) — use Tuner X → Log Extractor for
+         * the real numbers. Demoted from ESSENTIAL because the duty cycle is a weak
+         * proxy for current and PDH channel currents already cover the battery-side view.
          */
         public void logSwerveCurrent() {
-                if (!Constants.CURRENT_LOGGING) return;
+                if (!DIAGNOSTIC.enabled()) return;
                 var modules = swerve.getSwerveDrive().getModules();
                 for (int i = 0; i < modules.length && i < 4; i++) {
                         String name = modules[i].configuration.name;
-                        Logger.recordOutput("Swerve/" + name + "/DriveOutput",
+                        log(DIAGNOSTIC, "Swerve/" + name + "/DriveOutput",
                                 modules[i].getDriveMotor().getAppliedOutput());
-                        Logger.recordOutput("Swerve/" + name + "/SteerOutput",
+                        log(DIAGNOSTIC, "Swerve/" + name + "/SteerOutput",
                                 modules[i].getAngleMotor().getAppliedOutput());
                 }
         }

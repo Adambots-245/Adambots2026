@@ -3,6 +3,10 @@ package com.adambots.subsystems;
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.log;
+
 import com.adambots.Constants;
 import com.adambots.Constants.HopperConstants;
 import com.adambots.lib.actuators.BaseMotor;
@@ -11,8 +15,6 @@ import com.adambots.lib.utils.Dash;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Hopper subsystem with hopper + uptake motors.
@@ -40,13 +42,13 @@ public class HopperSubsystem extends SubsystemBase {
 
         hopperMotor.configure()
             .brakeMode(true)
-            .currentLimits(70, HopperConstants.kHopperSupplyCurrentLimit, 3000)
+            .currentLimits(HopperConstants.kHopperStatorCurrentLimit, HopperConstants.kHopperSupplyCurrentLimit, 3000)
             .apply();
 
         uptakeMotor.configure()
             .brakeMode(true)
             .inverted(true)
-            .currentLimits(60, HopperConstants.kUptakeSupplyCurrentLimit, 3000)
+            .currentLimits(HopperConstants.kUptakeStatorCurrentLimit, HopperConstants.kUptakeSupplyCurrentLimit, 3000)
             .apply();
 
         if (Constants.HOPPER_TAB) {
@@ -75,10 +77,16 @@ public class HopperSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        if (Constants.CURRENT_LOGGING) {
-            Logger.recordOutput("Hopper/HopperCurrent", hopperMotor.getCurrentDraw().in(Amps));
-            Logger.recordOutput("Hopper/UptakeCurrent", uptakeMotor.getCurrentDraw().in(Amps));
-        }
+        // ESSENTIAL: currents + velocities + jam state. Velocities let us tell real
+        // stalls from commanded zeroes without inferring from duty cycle.
+        log(ESSENTIAL, "Hopper/HopperCurrent", hopperMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Hopper/UptakeCurrent", uptakeMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Hopper/HopperRPS", hopperMotor.getVelocity().in(RotationsPerSecond));
+        log(ESSENTIAL, "Hopper/UptakeRPS", uptakeMotor.getVelocity().in(RotationsPerSecond));
+        log(ESSENTIAL, "Hopper/Reversing", reversing);
+        // DIAGNOSTIC: jam state-machine internals
+        log(DIAGNOSTIC, "Hopper/StallTimerRunning", stallTimerRunning);
+        log(DIAGNOSTIC, "Hopper/WasFeedingLastCycle", wasFeedingLastCycle);
 
         // ==================== Hopper jam detection ====================
         //

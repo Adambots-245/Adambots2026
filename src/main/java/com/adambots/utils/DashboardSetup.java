@@ -231,7 +231,7 @@ public final class DashboardSetup {
             Dash.addCommand("Manual Align",
                 turret.manualAlignCommand(
                     swerve::getPose,
-                    visionSubsystem::getHubCenter,
+                    FieldGeometry::getHubCenter,
                     () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond))
                     .withName("Manual Align"), col++, row);
         }

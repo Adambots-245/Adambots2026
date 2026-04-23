@@ -5,7 +5,9 @@ import static edu.wpi.first.units.Units.*;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
-import com.adambots.Constants;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
+
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.RobotMap;
 import com.adambots.lib.actuators.BaseMotor;
@@ -18,8 +20,6 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Flywheel-only shooter subsystem with PID velocity control.
@@ -57,8 +57,8 @@ public class ShooterSubsystem extends SubsystemBase {
                  ShooterConstants.kFlywheelD, ShooterConstants.kFlywheelFF)
             .brakeMode(false)  // coast for flywheels
             .inverted(true)
-            .currentLimits(ShooterConstants.kFlywheelStallCurrentLimit,
-                           ShooterConstants.kFlywheelFreeCurrentLimit, 3000)
+            .currentLimits(ShooterConstants.kFlywheelStatorCurrentLimit,
+                           ShooterConstants.kFlywheelSupplyCurrentLimit, 3000)
             .apply();
 
         rightFlywheel.setStrictFollower(RobotMap.kShooterMotor2Port, true);
@@ -242,9 +242,16 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     @Override
     public void periodic() {
-        if (Constants.CURRENT_LOGGING) {
-            Logger.recordOutput("Shooter/LeaderCurrent", leftFlywheel.getCurrentDraw().in(Amps));
-        }
+        // ESSENTIAL: match-critical shooter state. Post-match we need to answer
+        // "did we spin up to the right target?", "was it at speed when we shot?",
+        // and "how much current did each flywheel draw?".
+        log(ESSENTIAL, "Shooter/TargetRPS", targetRPS);
+        log(ESSENTIAL, "Shooter/LeftActualRPS", getLeftRPS());
+        log(ESSENTIAL, "Shooter/RightActualRPS", getRightRPS());
+        log(ESSENTIAL, "Shooter/AtSpeed", isAtSpeed());
+        log(ESSENTIAL, "Shooter/ShotBoost", shotBoostActive);
+        log(ESSENTIAL, "Shooter/LeaderCurrent", leftFlywheel.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Shooter/FollowerCurrent", rightFlywheel.getCurrentDraw().in(Amps));
     }
 
     public Command idleCommand() {

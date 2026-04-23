@@ -4,7 +4,10 @@
 
 package com.adambots.subsystems;
 
-import com.adambots.Constants;
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
+
 import com.adambots.Constants.ClimberConstants;
 import com.adambots.lib.actuators.BaseMotor;
 import com.adambots.lib.actuators.BaseSolenoid;
@@ -15,8 +18,6 @@ import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Climber subsystem — single Kraken X60 elevator + solenoid ratchet.
@@ -170,16 +171,15 @@ public class ClimberSubsystem extends SubsystemBase {
             engageRatchet();
         }
 
-        if (Constants.CURRENT_LOGGING) {
-            Logger.recordOutput("Climber/ElevatorCurrent", elevatorMotor.getCurrentDraw().in(Amps));
-        }
-
-        if (Constants.TUNING_ENABLED) {
-            Logger.recordOutput("Climber/Position", elevatorMotor.getPosition());
-            Logger.recordOutput("Climber/RatchetEngaged", isRatchetEngaged());
-            Logger.recordOutput("Climber/RaisedLimit", isAtRaisedLimit());
-            Logger.recordOutput("Climber/LoweredLimit", isAtLoweredLimit());
-            Logger.recordOutput("Timing/ClimberSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
-        }
+        // ESSENTIAL: these are endgame-critical. Previously gated by TUNING_ENABLED
+        // which silenced them at competition — exactly when we needed them most for
+        // "did we climb?" post-match forensics.
+        log(ESSENTIAL, "Climber/ElevatorCurrent", elevatorMotor.getCurrentDraw().in(Amps));
+        log(ESSENTIAL, "Climber/Position", elevatorMotor.getPosition());
+        log(ESSENTIAL, "Climber/RatchetEngaged", isRatchetEngaged());
+        log(ESSENTIAL, "Climber/RaisedLimit", isAtRaisedLimit());
+        log(ESSENTIAL, "Climber/LoweredLimit", isAtLoweredLimit());
+        // DIAGNOSTIC: per-subsystem timing — leave on at bench to catch new overruns
+        log(DIAGNOSTIC, "Timing/ClimberSubsystem", (Timer.getFPGATimestamp() - startTime) * 1000.0);
     }
 }

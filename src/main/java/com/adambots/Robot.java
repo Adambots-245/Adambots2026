@@ -4,6 +4,11 @@
 
 package com.adambots;
 
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
+
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,9 +20,11 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 
+import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
 /**
@@ -35,17 +42,42 @@ public class Robot extends LoggedRobot {
 
     /**
      * Constructor - AdvantageKit Logger MUST be configured here, before LoggedRobot initialization.
+     *
+     * <p>Receiver configuration is driven by {@link Constants#MODE}:
+     * <ul>
+     *   <li>{@code REAL} → WPILOGWriter (defaults to {@code /U/logs} if USB stick mounted,
+     *       else {@code /home/lvuser/logs}) + NT4Publisher for live AdvantageScope.</li>
+     *   <li>{@code SIM} → NT4Publisher only (no disk writes in sim).</li>
+     *   <li>{@code REPLAY} → reads a saved log, writes a new {@code _sim} log alongside it;
+     *       no NT or hardware contact.</li>
+     * </ul>
      */
     public Robot() {
         // Configure AdvantageKit Logger FIRST (required before LoggedRobot parent init)
         Logger.recordMetadata("ProjectName", "Adambots2026");
+        Logger.recordMetadata("LogLevel", Constants.LOG_LEVEL.name());
+        Logger.recordMetadata("Mode", Constants.MODE.name());
+        Logger.recordMetadata("BatteryId", String.valueOf(Constants.BATTERY_ID));
 
-        // Publish to NT so DataLogManager captures AdvantageKit outputs in
-        // its .wpilog file — works even without a USB stick on the robot.
-        Logger.addDataReceiver(new NT4Publisher());
-
-        // Also log to USB stick if present (higher throughput, no bandwidth impact).
-        Logger.addDataReceiver(new WPILOGWriter());
+        switch (Constants.MODE) {
+            case REAL:
+                // WPILOGWriter default path picks /U (USB stick) if mounted, else /home/lvuser/logs
+                Logger.addDataReceiver(new WPILOGWriter());
+                // NT4Publisher has no measurable CPU/bandwidth impact per MICMP1 analysis
+                // (LogPeriodicMS mean was 2.3ms); keep on for live dashboards.
+                Logger.addDataReceiver(new NT4Publisher());
+                break;
+            case SIM:
+                Logger.addDataReceiver(new NT4Publisher());
+                break;
+            case REPLAY:
+                // Tie robot clock to log playback so commands/triggers fire in order.
+                setUseTiming(false);
+                String logPath = LogFileUtil.findReplayLog();
+                Logger.setReplaySource(new WPILOGReader(logPath));
+                Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
+                break;
+        }
 
         Logger.start();
     }
@@ -56,12 +88,26 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotInit() {
+        // Log the configured battery ID once at boot as an ESSENTIAL signal so
+        // it appears on the AdvantageScope timeline in addition to the metadata
+        // header. Lets match-analysis scripts correlate sag/brownout events to
+        // a specific physical battery (see MICMP1 Q19/Q58 forensics).
+        log(ESSENTIAL, "System/BatteryId", Constants.BATTERY_ID);
+
         // 1. WPILib DataLogManager — logs DS data, joystick inputs to USB for post-match review
         DataLogManager.start();
 
-        // CTRE SignalLogger — logs all TalonFX signals (current, voltage, velocity) to .hoot file
-        // Runs on CANivore processor, no roboRIO CPU impact. Uncomment to enable.
-        // com.ctre.phoenix6.SignalLogger.start();
+        // CTRE SignalLogger — logs all TalonFX signals (stator/supply current, voltage,
+        // velocity, position, temperature) at 1 kHz to .hoot file. Runs on CANivore
+        // processor with zero roboRIO CPU impact. Writes to /media/sda1/ctre-logs/ if a
+        // USB stick is present, else /home/lvuser/logs. See Tuner X → Log Extractor.
+        //
+        // Only enabled in REAL mode (avoids filling sim workstation disk). If no USB stick
+        // is mounted, disable to avoid filling RIO flash — we leave enablement to the
+        // team's deploy workflow via this single gate.
+        if (Constants.MODE == Constants.Mode.REAL && hasUsbStorage()) {
+            com.ctre.phoenix6.SignalLogger.start();
+        }
 
         // 2. Initialize buttons with driver joystick (Extreme 3D Pro) and operator Xbox controller
         Buttons.init(
@@ -74,8 +120,10 @@ public class Robot extends LoggedRobot {
         // 3. Create RobotContainer (creates all subsystems)
         container = new RobotContainer();
 
-        // 4. CommandScheduler timing hooks disabled — high overhead from per-command logging
-        // setupCommandSchedulerHooks();
+        // 4. CommandScheduler timing hooks — Running/* at ESSENTIAL, Duration/* at DIAGNOSTIC.
+        //    The callbacks themselves only fire on command transitions (not per tick), so
+        //    overhead is modest. Gated internally by LogUtil level checks.
+        setupCommandSchedulerHooks();
     }
 
     /**
@@ -87,19 +135,18 @@ public class Robot extends LoggedRobot {
      */
     @Override
     public void robotPeriodic() {
-        // Time the entire scheduler run (includes command execute + subsystem periodic)
-        double schedulerStart = Timer.getFPGATimestamp();
-
         // Runs the Scheduler. This is responsible for polling buttons, adding newly-scheduled
         // commands, running already-scheduled commands, removing finished or interrupted commands,
         // and running subsystem periodic() methods. This must be called from the robot's periodic
         // block in order for anything in the Command-based framework to work.
+        //
+        // No manual timing: AdvantageKit auto-logs LoggedRobot/UserCodeMS, LoggedRobot/FullCycleMS,
+        // and LoggedRobot/LogPeriodicMS, and WPILib Tracer prints per-subsystem + per-command
+        // breakdowns on overruns (captured in the WPILog `messages` stream). That's enough for
+        // post-match diagnosis.
         CommandScheduler.getInstance().run();
         container.getTuningPeriodic().run();
         container.logSwerveCurrent();
-
-        double schedulerMs = (Timer.getFPGATimestamp() - schedulerStart) * 1000.0;
-        Logger.recordOutput("Timing/CommandSchedulerTotal", schedulerMs);
     }
 
     /** This function is called once each time the robot enters Disabled mode. */
@@ -167,31 +214,45 @@ public class Robot extends LoggedRobot {
     public void simulationPeriodic() {}
 
     /**
-     * Sets up CommandScheduler hooks to log command timing for troubleshooting overruns.
-     * Logs:
-     * - Commands/Running/{name}: Boolean indicating if command is active
-     * - Commands/Duration/{name}: How long the command ran (in milliseconds)
+     * Sets up CommandScheduler hooks for command lifecycle logging.
+     * <ul>
+     *   <li>{@code Commands/Running/{name}} (ESSENTIAL) — boolean, active/inactive.
+     *       Visible in AdvantageScope as a timeline so we can correlate match events
+     *       with which commands were running.</li>
+     *   <li>{@code Commands/Duration/{name}} (DIAGNOSTIC) — how long each command ran
+     *       on finish. Useful for catching commands that overshot their expected time.</li>
+     * </ul>
+     * Callbacks fire on command state transitions only (not per tick).
      */
     private void setupCommandSchedulerHooks() {
         CommandScheduler scheduler = CommandScheduler.getInstance();
 
         scheduler.onCommandInitialize(command -> {
             commandStartTimes.put(command, Timer.getFPGATimestamp());
-            Logger.recordOutput("Commands/Running/" + command.getName(), true);
+            log(ESSENTIAL, "Commands/Running/" + command.getName(), true);
         });
 
         scheduler.onCommandFinish(command -> {
             Double startTime = commandStartTimes.remove(command);
             if (startTime != null) {
                 double durationMs = (Timer.getFPGATimestamp() - startTime) * 1000.0;
-                Logger.recordOutput("Commands/Duration/" + command.getName(), durationMs);
+                log(DIAGNOSTIC, "Commands/Duration/" + command.getName(), durationMs);
             }
-            Logger.recordOutput("Commands/Running/" + command.getName(), false);
+            log(ESSENTIAL, "Commands/Running/" + command.getName(), false);
         });
 
         scheduler.onCommandInterrupt(command -> {
             commandStartTimes.remove(command);
-            Logger.recordOutput("Commands/Running/" + command.getName(), false);
+            log(ESSENTIAL, "Commands/Running/" + command.getName(), false);
         });
+    }
+
+    /**
+     * Detect whether a FAT32 USB stick is mounted at the roboRIO's conventional path.
+     * Guards {@code SignalLogger.start()} so it doesn't fill RIO onboard flash when no
+     * stick is present.
+     */
+    private static boolean hasUsbStorage() {
+        return new File("/U").exists() || new File("/media/sda1").exists();
     }
 }

@@ -9,6 +9,7 @@ import java.io.File;
 import com.adambots.Constants.ShooterConstants;
 import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
+import com.adambots.commands.DriveCommands;
 // import com.adambots.commands.DriveCommands;  // uncomment when enabling the back-to-hub wiring below
 import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
@@ -232,7 +233,8 @@ public class RobotContainer {
                                 intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand().withTimeout(1)));
 
                 // Button 5: Toggle auto-track on/off
-                Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+                // Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
+
                 // Alternative strategy — fixed turret, rotate chassis so its back faces the hub.
                 // Three wiring options (pick one, comment the auto-track toggle above):
                 //
@@ -245,11 +247,11 @@ public class RobotContainer {
                 // (3) Hold-to-aim WITH driver translation passthrough — drive + auto-aim at once.
                 //     Uses the same forward/strafe suppliers as the default drive command, scaled
                 //     to m/s via YAGSL's configured max chassis velocity:
-                // final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
-                // final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
-                //         Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
-                // final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
-                //         Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
+                final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
+                        Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
+                        Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
                 // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(
                 //         swerve,
                 //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
@@ -267,11 +269,11 @@ public class RobotContainer {
                 // Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
                 //
                 // (3F) Hold-to-aim WITH driver translation passthrough:
-                // Buttons.JoystickButton5.whileTrue(DriveCommands.frontToHubCommand(
-                //         swerve,
-                //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                //         2.0 /* tolerance deg */));
+                Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(
+                        swerve,
+                        () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                        () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                        3.0 /* tolerance deg */).withTimeout(1.5));
                 
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(

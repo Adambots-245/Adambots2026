@@ -232,7 +232,7 @@ public final class Constants {
         // WCP GreyT Turret: 200-tooth ring gear.
         // Motor has a 4:1 planetary before a 20T pinion.
         // Pot has its own separate 18T pinion (no planetary).
-        public static final double kTurretPotGearRatio = 200.0 / 18.0;            // pot → turret (18T pinion)
+        public static final double kTurretPotGearRatio = 200.0 / 20.0;            // pot → turret (18T pinion)
         public static final double kTurretMotorGearRatio = (200.0 / 20.0) * 4.0;  // motor → turret (20T pinion + 4:1 planetary)
 
         // ==================== Potentiometer Calibration ====================
@@ -241,9 +241,9 @@ public final class Constants {
         // at each mechanical stop, reading "Pot Raw (deg)" on the Shooter
         // tab, and putting the value here.
         /** Pot reading (degrees) when turret is at 0° — determine empirically via dashboard */
-        public static final double kTurretPotAtZeroDeg = 107;
+        public static final double kTurretPotAtZeroDeg = 3046.0;
         /** Pot reading (degrees) when turret is at max — determine empirically via dashboard */
-        public static final double kTurretPotAtMaxDeg = 2660.0;
+        public static final double kTurretPotAtMaxDeg = 348.0;
 
         /**
          * Turret physical range in degrees, derived from the pot endpoints and
@@ -265,7 +265,7 @@ public final class Constants {
 
         /** Turret angle (degrees) that faces straight ahead on the robot.
          *  Re-measure after any change to the pot calibration. */
-        public static final double kTurretForwardDegrees = 88.0;
+        public static final double kTurretForwardDegrees = 91.0;
 
         /** Turret pivot offset from robot center (meters).
          *  X = forward/back (negative = behind center), Y = left/right.
@@ -323,8 +323,8 @@ public final class Constants {
 
     // ==================== HopperConstants ====================
     public static final class HopperConstants {
-        public static final double kHopperSpeed = 0.40;  // was 0.30 — more torque to prevent jam stalls
-        public static final double kUptakeSpeed = 0.60;
+        public static final double kHopperSpeed = 0.30;  // was 0.30 — more torque to prevent jam stalls
+        public static final double kUptakeSpeed = 0.50;
 
         // Jam detection (set kJamDetectionEnabled = false to disable entirely)
         public static final boolean kJamDetectionEnabled = true;

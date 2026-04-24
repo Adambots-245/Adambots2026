@@ -161,12 +161,13 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            {1.5, 39.0 + 2},
-            {2.0, 40.5 + 2},
-            {2.5, 43.0 + 2},
-            {3.0, 46.0 + 3},
-            {4.0, 53.0 + 3},
-            {5.0, 59.0 + 3}
+            // All + k had a 1 added for our 4/23 Auton testing
+            {1.5, 39.0 + 3},
+            {2.0, 40.5 + 3},
+            {2.5, 43.0 + 3},
+            {3.0, 46.0 + 4},
+            {4.0, 53.0 + 4},
+            {5.0, 59.0 + 4}
         };
         
 

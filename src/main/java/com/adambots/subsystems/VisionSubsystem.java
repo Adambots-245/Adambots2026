@@ -633,7 +633,7 @@ public class VisionSubsystem extends SubsystemBase {
 
     /** Distance to hub center using the active vision mode. */
     public double getHubDistance() {
-        if (visionMode == 3) return hubBlendedDistanceMeters;
+        if (visionMode == 3) return hubBlendedDistanceMeters + 0.5; // REMOVE ME!!! This is just for temp auton testing on 4/23
         if (visionMode == 2) return hubCamHasTarget ? hubCamDistanceMeters : hubPoseDistanceMeters;
         return visionMode == 0 ? hubCamDistanceMeters : hubPoseDistanceMeters;
     }

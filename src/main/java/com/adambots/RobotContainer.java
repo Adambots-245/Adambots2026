@@ -373,7 +373,7 @@ public class RobotContainer {
                                                 shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem)));
                 NamedCommands.registerCommand("legacyShoot",
                                 ShootCommands.shootAtDistanceTimerCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem));
+                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem).alongWith(intake.bopArmAndRunCommand()));
                 NamedCommands.registerCommand("shootNoPoint", Commands.race(
                                 Commands.waitSeconds(3),
                                 ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, turret,

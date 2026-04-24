@@ -8,8 +8,8 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.171709685390546,
-        "y": 4.028460113879625
+        "x": 2.0703857894407314,
+        "y": 4.035613118761435
       },
       "isLocked": false,
       "linkedName": "MStart"
@@ -20,12 +20,12 @@
         "y": 4.0
       },
       "prevControl": {
-        "x": 2.3123702891087237,
-        "y": 3.984455886933503
+        "x": 2.3703811099390526,
+        "y": 3.9975243318627562
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "MP1 End"
+      "linkedName": null
     }
   ],
   "rotationTargets": [],

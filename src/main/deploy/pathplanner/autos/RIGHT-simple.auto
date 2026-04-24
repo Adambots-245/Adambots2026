@@ -24,22 +24,15 @@
           }
         },
         {
-          "type": "race",
+          "type": "named",
           "data": {
-            "commands": [
-              {
-                "type": "named",
-                "data": {
-                  "name": "legacyShoot"
-                }
-              },
-              {
-                "type": "wait",
-                "data": {
-                  "waitTime": 6.0
-                }
-              }
-            ]
+            "name": "faceHub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootShortTimer"
           }
         },
         {

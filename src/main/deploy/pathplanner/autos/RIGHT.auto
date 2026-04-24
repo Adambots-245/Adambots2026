@@ -32,7 +32,13 @@
         {
           "type": "named",
           "data": {
-            "name": "legacyShoot"
+            "name": "faceHub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootLongTimer"
           }
         }
       ]

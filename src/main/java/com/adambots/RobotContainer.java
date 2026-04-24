@@ -4,10 +4,12 @@
 
 package com.adambots;
 
+import static com.adambots.logging.LogUtil.DIAGNOSTIC;
+import static com.adambots.logging.LogUtil.ESSENTIAL;
+import static com.adambots.logging.LogUtil.log;
+
 import java.io.File;
 
-import com.adambots.Constants.ShooterConstants;
-import com.adambots.Constants.TurretConstants;
 import com.adambots.Constants.VisionConstants;
 import com.adambots.commands.DriveCommands;
 // import com.adambots.commands.DriveCommands;  // uncomment when enabling the back-to-hub wiring below
@@ -15,12 +17,11 @@ import com.adambots.commands.LEDCommands;
 import com.adambots.commands.ShootCommands;
 import com.adambots.commands.TuningCommands;
 import com.adambots.lib.subsystems.CANdleSubsystem;
+import com.adambots.lib.subsystems.CANdleSubsystem.AnimationTypes;
 import com.adambots.lib.subsystems.SwerveConfig;
 import com.adambots.lib.subsystems.SwerveSubsystem;
-import com.adambots.lib.subsystems.CANdleSubsystem.AnimationTypes;
 import com.adambots.lib.utils.Buttons;
 import com.adambots.lib.utils.Buttons.InputCurve;
-
 import com.adambots.lib.utils.Dash;
 import com.adambots.lib.vision.VisionSystem;
 import com.adambots.subsystems.ClimberSubsystem;
@@ -36,13 +37,8 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.util.PathPlannerLogging;
 
-import static com.adambots.logging.LogUtil.DIAGNOSTIC;
-import static com.adambots.logging.LogUtil.ESSENTIAL;
-import static com.adambots.logging.LogUtil.log;
 import edu.wpi.first.math.geometry.Pose2d;
-
 import edu.wpi.first.wpilibj.Filesystem;
-import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -135,8 +131,8 @@ public class RobotContainer {
                 // Scale vision std devs by robot speed — trust vision less when driving fast
                 vision.setStdDevScaler(() -> {
                         double speed = Math.hypot(
-                                swerve.getRobotVelocity().vxMetersPerSecond,
-                                swerve.getRobotVelocity().vyMetersPerSecond);
+                                        swerve.getRobotVelocity().vxMetersPerSecond,
+                                        swerve.getRobotVelocity().vyMetersPerSecond);
                         return 1.0 + speed * VisionConstants.kVisionSpeedScaling;
                 });
         }
@@ -162,7 +158,7 @@ public class RobotContainer {
                                 .onTrue(Commands.runOnce(() -> Buttons.rumbleOperator(1000, 1.0)));
 
                 HubActivation.nearEndTrigger(15)
-                        .onTrue(Commands.runOnce(()-> Buttons.rumbleOperator(1000, 1.0)));
+                                .onTrue(Commands.runOnce(() -> Buttons.rumbleOperator(1000, 1.0)));
         }
 
         // ==================== DEFAULT COMMANDS ====================
@@ -195,20 +191,20 @@ public class RobotContainer {
                         // aims ahead of the hub to compensate for robot drift during
                         // fuel flight. Zero-safe: just set kShotLeadTimeSec = 0 to revert.
                         // turret.setDefaultCommand(turret.poseTrackCommand(
-                        //                 swerve::getPose,
-                        //                 FieldGeometry::getHubCenter,
-                        //                 swerve::getFieldVelocity,
-                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
-                        //                 xboxJog));
+                        // swerve::getPose,
+                        // FieldGeometry::getHubCenter,
+                        // swerve::getFieldVelocity,
+                        // () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        // xboxJog));
                         // OPTION B: Pose tracker with TOF lead from vision distance
-                        //            (distance-dependent lead instead of constant).
+                        // (distance-dependent lead instead of constant).
                         // turret.setDefaultCommand(turret.poseTrackCommandTOF(
-                        //                 swerve::getPose,
-                        //                 FieldGeometry::getHubCenter,
-                        //                 swerve::getFieldVelocity,
-                        //                 () -> shooter.getEstimatedTOF(visionSubsystem.getHubDistance()),
-                        //                 () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
-                        //                 xboxJog));
+                        // swerve::getPose,
+                        // FieldGeometry::getHubCenter,
+                        // swerve::getFieldVelocity,
+                        // () -> shooter.getEstimatedTOF(visionSubsystem.getHubDistance()),
+                        // () -> Math.toDegrees(swerve.getRobotVelocity().omegaRadiansPerSecond),
+                        // xboxJog));
                 } else {
                         turret.setDefaultCommand(turret.holdPositionCommand());
                 }
@@ -220,13 +216,15 @@ public class RobotContainer {
         // ==================== BUTTON BINDINGS ====================
         private void configureButtonBindings() {
                 // === Driver (Thrustmaster) ===
-                // All the possible buttons are being mapped with unused ones registered as Commands.none() to 
+                // All the possible buttons are being mapped with unused ones registered as
+                // Commands.none() to
                 // avoid any conflicts in the future.
 
                 // Trigger (1): Hold-to-shoot at vision distance (no timer)
                 Buttons.JoystickButton1.whileTrue(
-                        ShootCommands.holdShootAtDistanceCommand(
-                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance, visionSubsystem));
+                                ShootCommands.holdShootAtDistanceCommand(
+                                                shooter, hopper, turret, swerve, visionSubsystem::getHubDistance,
+                                                visionSubsystem));
                 // Button 2: Toggle bop
                 Buttons.JoystickButton2.toggleOnTrue(intake.bopArmCommand());
                 // Button 3: Drop arm and run intake
@@ -239,7 +237,8 @@ public class RobotContainer {
                 // Button 5: Toggle auto-track on/off
                 // Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
 
-                // Alternative strategy — fixed turret, rotate chassis so its back faces the hub.
+                // Alternative strategy — fixed turret, rotate chassis so its back faces the
+                // hub.
                 // Three wiring options (pick one, comment the auto-track toggle above):
                 //
                 // (1) Hold-to-aim, chassis stops translating while rotating:
@@ -248,19 +247,22 @@ public class RobotContainer {
                 // (2) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
                 // Buttons.JoystickButton5.onTrue(DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
                 //
-                // (3) Hold-to-aim WITH driver translation passthrough — drive + auto-aim at once.
-                //     Uses the same forward/strafe suppliers as the default drive command, scaled
-                //     to m/s via YAGSL's configured max chassis velocity:
+                // (3) Hold-to-aim WITH driver translation passthrough — drive + auto-aim at
+                // once.
+                // Uses the same forward/strafe suppliers as the default drive command, scaled
+                // to m/s via YAGSL's configured max chassis velocity:
                 final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
                 final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
-                        Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                                Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
                 final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
-                        Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                                Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
                 // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(
-                //         swerve,
-                //         () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                //         () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                //         1.0 /* tolerance deg — settle detection prevents premature termination */));
+                // swerve,
+                // () -> fwd.getAsDouble() * maxSpeed *
+                // Constants.DriveConstants.kTranslationScale,
+                // () -> strf.getAsDouble() * maxSpeed *
+                // Constants.DriveConstants.kTranslationScale,
+                // 1.0 /* tolerance deg — settle detection prevents premature termination */));
                 //
                 // --- FRONT-facing-hub variants (mirror of the three above) ---
                 // Use these for the forward-mounted shooter strategy: robot's FRONT faces the
@@ -274,11 +276,14 @@ public class RobotContainer {
                 //
                 // (3F) Hold-to-aim WITH driver translation passthrough:
                 Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(
-                        swerve,
-                        () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                        () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                        1.0 /* tolerance deg — settle detection in DriveCommands prevents premature termination */).withTimeout(1.5));
-                
+                                swerve,
+                                () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                                () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                                1.0 /*
+                                     * tolerance deg — settle detection in DriveCommands prevents premature
+                                     * termination
+                                     */).withTimeout(1.5));
+
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
                                 intake.runLowerIntakeArmCommand());
@@ -293,13 +298,13 @@ public class RobotContainer {
                 // Button 11: Zero Gyro
                 Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
                 // Button 12: Lower intake but do not run
-                Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand()); 
+                Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand());
                 // Button 13: Force pose reset from vision (only if cameras see 2+ tags)
                 Buttons.JoystickButton13.onTrue(Commands.runOnce(() -> {
                         if (visionSubsystem != null && visionSubsystem.getHubVisibleTagCount() >= 2) {
                                 swerve.resetOdometry(swerve.getPose());
                                 System.out.println("[POSE RESET] Forced from vision — tags visible: "
-                                        + visionSubsystem.getHubVisibleTagCount());
+                                                + visionSubsystem.getHubVisibleTagCount());
                         } else {
                                 System.out.println("[POSE RESET] Skipped — not enough tags visible");
                         }
@@ -326,13 +331,14 @@ public class RobotContainer {
                 // B: Reverse Intake
                 Buttons.XboxBButton.onTrue(intake.reverseIntakeCommand());
 
-                // Y: Manual shoot — driver throttle controls flywheel speed, operator holds to shoot
+                // Y: Manual shoot — driver throttle controls flywheel speed, operator holds to
+                // shoot
                 Buttons.XboxYButton.whileTrue(
                                 ShootCommands.manualShootCommand(shooter, hopper, Buttons.JoystickThrottle));
 
                 // X: Toggle flywheel idle pre-spin
                 Buttons.XboxXButton.onTrue(
-                        Commands.runOnce(() -> shooter.setIdleEnabled(!shooter.isIdleEnabled())));
+                                Commands.runOnce(() -> shooter.setIdleEnabled(!shooter.isIdleEnabled())));
 
                 // === D-pad: Turret manual control ===
                 // Up = snap to forward (Motion Magic point-to-point)
@@ -343,15 +349,15 @@ public class RobotContainer {
                 // Start: Extend climber → lock when at top
                 Buttons.XboxStartButton.onTrue(
                                 climber.extendCommand()
-                                .until(climber::isAtRaisedLimit)
-                                .andThen(climber.lockCommand())
-                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));
+                                                .until(climber::isAtRaisedLimit)
+                                                .andThen(climber.lockCommand())
+                                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));
                 // Back: Retract climber → lock when at bottom
                 Buttons.XboxBackButton.onTrue(
                                 climber.retractCommand()
-                                .until(climber::isAtLoweredLimit)
-                                .andThen(climber.lockCommand())
-                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));    
+                                                .until(climber::isAtLoweredLimit)
+                                                .andThen(climber.lockCommand())
+                                                .alongWith(leds.setAnimationCommand(AnimationTypes.Fire)));
         }
 
         // ==================== PATHPLANNER ====================
@@ -360,35 +366,18 @@ public class RobotContainer {
                                 intake.runLowerIntakeArmCommand().andThen(
                                                 intake.runIntakeCommand()));
 
-                 NamedCommands.registerCommand("intakeTimer",
-                                intake.runLowerIntakeArmCommand().withTimeout(1));
-                                                
-                NamedCommands.registerCommand("spinUp",
-                                shooter.spinUpCommand()
-                                                .until(shooter.isAtSpeedTrigger())
-                                                .withTimeout(ShootCommands.kSpinUpTimeoutSeconds));
-                NamedCommands.registerCommand("shoot", Commands.sequence(
-                                turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5),
-                                ShootCommands.shootAtDistanceTimerCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem)));
-                NamedCommands.registerCommand("legacyShoot",
-                                ShootCommands.shootAtDistanceTimerCommand(
-                                                shooter, hopper, turret, visionSubsystem::getHubDistance, visionSubsystem).alongWith(intake.bopArmAndRunCommand()));
-                NamedCommands.registerCommand("shootNoPoint", Commands.race(
-                                Commands.waitSeconds(3),
-                                ShootCommands.shootAtDistanceTimerCommand(shooter, hopper, turret,
-                                                visionSubsystem::getHubDistance, visionSubsystem)));
-                NamedCommands.registerCommand("shootWithBop",
-                                ShootCommands.shootAtDistanceTimerWithBopCommand(
-                                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem));
-                NamedCommands.registerCommand("LowerIntakeArm", intake.runLowerIntakeArmCommand());
-                NamedCommands.registerCommand("intakeLob",
-                                ShootCommands.autonLobCommand(shooter, turret, hopper, intake));
+                NamedCommands.registerCommand("shoot", ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem));
+
+                NamedCommands.registerCommand("shootShortTimer", ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem)
+                                .withTimeout(5.0));
+
+                NamedCommands.registerCommand("shootLongTimer", ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem)
+                                .withTimeout(5.0));
+
                 NamedCommands.registerCommand("intakeUp", intake.runRaiseIntakeArmCommand());
-                NamedCommands.registerCommand("aimForward",
-                                turret.aimTurretCommand(() -> TurretConstants.kTurretForwardDegrees).withTimeout(1.5));
-                NamedCommands.registerCommand("waitForHub",
-                                visionSubsystem.waitForHubCommand().withTimeout(2.0));
 
                 // Chassis-aim variants — pure rotation (no driver translation in auton).
                 // Use at stop events between path segments; mid-path would conflict with the
@@ -405,12 +394,10 @@ public class RobotContainer {
                 // following command is active. Without these, post-match auto debugging
                 // is blind — we had this gap at MICMP1. Logger.recordOutput is thread-safe
                 // per AdvantageKit docs, so off-main-thread callbacks are fine.
-                PathPlannerLogging.setLogActivePathCallback(poses ->
-                                log(ESSENTIAL, "PathPlanner/ActivePath", poses.toArray(new Pose2d[0])));
-                PathPlannerLogging.setLogCurrentPoseCallback(pose ->
-                                log(ESSENTIAL, "PathPlanner/CurrentPose", pose));
-                PathPlannerLogging.setLogTargetPoseCallback(pose ->
-                                log(ESSENTIAL, "PathPlanner/TargetPose", pose));
+                PathPlannerLogging.setLogActivePathCallback(
+                                poses -> log(ESSENTIAL, "PathPlanner/ActivePath", poses.toArray(new Pose2d[0])));
+                PathPlannerLogging.setLogCurrentPoseCallback(pose -> log(ESSENTIAL, "PathPlanner/CurrentPose", pose));
+                PathPlannerLogging.setLogTargetPoseCallback(pose -> log(ESSENTIAL, "PathPlanner/TargetPose", pose));
         }
 
         // ==================== AUTO CHOOSER ====================
@@ -458,13 +445,13 @@ public class RobotContainer {
                 // blue-side default (~1, 4). Mirror to red side if on red alliance
                 // so the pose estimator converges quickly from nearby vision data.
                 if (noAutoRan && com.adambots.lib.utils.Utils.isOnRedAlliance()
-                        && swerve.getPose().getX() < 8.0) {
-                    var current = swerve.getPose();
-                    swerve.resetOdometry(new edu.wpi.first.math.geometry.Pose2d(
-                        16.541 - current.getX(),
-                        current.getY(),
-                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(
-                            180 - current.getRotation().getDegrees())));
+                                && swerve.getPose().getX() < 8.0) {
+                        var current = swerve.getPose();
+                        swerve.resetOdometry(new edu.wpi.first.math.geometry.Pose2d(
+                                        16.541 - current.getX(),
+                                        current.getY(),
+                                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(
+                                                        180 - current.getRotation().getDegrees())));
                 }
         }
 
@@ -476,7 +463,8 @@ public class RobotContainer {
          * will resume driving to that target the moment the robot is re-enabled
          * — unless the subsystem explicitly replaces the latched request here.
          *
-         * <p>Add new subsystem cleanup calls here as the need arises.
+         * <p>
+         * Add new subsystem cleanup calls here as the need arises.
          */
         public void onDisabledInit() {
                 if (intake != null) {
@@ -493,24 +481,28 @@ public class RobotContainer {
          * Logs swerve drive and steer motor applied output (duty cycle) for all 4
          * modules at {@link com.adambots.logging.LogUtil.Level#DIAGNOSTIC}.
          *
-         * <p>Called from {@link Robot#robotPeriodic()}. Swerve motors are managed by
+         * <p>
+         * Called from {@link Robot#robotPeriodic()}. Swerve motors are managed by
          * YAGSL in the lib, so we log from outside.
          *
-         * <p>Note: this is <b>duty cycle (0–1)</b>, not current. Actual stator/supply
+         * <p>
+         * Note: this is <b>duty cycle (0–1)</b>, not current. Actual stator/supply
          * currents are logged to the CTRE {@code .hoot} file when {@code SignalLogger}
          * is enabled (see {@link Robot#robotInit()}) — use Tuner X → Log Extractor for
          * the real numbers. Demoted from ESSENTIAL because the duty cycle is a weak
-         * proxy for current and PDH channel currents already cover the battery-side view.
+         * proxy for current and PDH channel currents already cover the battery-side
+         * view.
          */
         public void logSwerveCurrent() {
-                if (!DIAGNOSTIC.enabled()) return;
+                if (!DIAGNOSTIC.enabled())
+                        return;
                 var modules = swerve.getSwerveDrive().getModules();
                 for (int i = 0; i < modules.length && i < 4; i++) {
                         String name = modules[i].configuration.name;
                         log(DIAGNOSTIC, "Swerve/" + name + "/DriveOutput",
-                                modules[i].getDriveMotor().getAppliedOutput());
+                                        modules[i].getDriveMotor().getAppliedOutput());
                         log(DIAGNOSTIC, "Swerve/" + name + "/SteerOutput",
-                                modules[i].getAngleMotor().getAppliedOutput());
+                                        modules[i].getAngleMotor().getAppliedOutput());
                 }
         }
 }

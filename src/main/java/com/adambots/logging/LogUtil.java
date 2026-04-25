@@ -55,6 +55,9 @@ import org.littletonrobotics.junction.Logger;
  *
  * <h3>Level guidelines</h3>
  * <ul>
+ *   <li><b>NONE</b> — kill-switch. Set {@code Constants.LOG_LEVEL = NONE} to disable
+ *       every team-side {@code log(...)} call. Useful as a diagnostic to isolate the
+ *       cost of logging from the cost of the work being logged.</li>
  *   <li><b>ESSENTIAL</b> — must-have for post-match forensics (currents, target
  *       setpoints, at-speed flags, PathPlanner target/current pose, scheduler timing,
  *       subsystem positions). ~25–30 signals total.</li>
@@ -68,18 +71,32 @@ import org.littletonrobotics.junction.Logger;
 public final class LogUtil {
 
     public enum Level {
+        /**
+         * Kill-switch level. Set {@code Constants.LOG_LEVEL = Level.NONE} to disable
+         * every {@code log(...)} call in team code — useful as a diagnostic to measure
+         * the cost of logging itself. AdvantageKit's auto-logged signals (DriverStation,
+         * SystemStats, PowerDistribution) and NT passthrough still flow regardless of
+         * this setting; see {@code Robot()} data-receiver configuration to disable those.
+         *
+         * <p>Not intended as a value to pass into {@code log(...)} call sites — only
+         * as a value for {@code Constants.LOG_LEVEL}.
+         */
+        NONE,
         ESSENTIAL,
         DIAGNOSTIC,
         DEBUG;
 
-        /** True if {@code Constants.LOG_LEVEL} permits this level. */
+        /** True if {@code Constants.LOG_LEVEL} permits this level. NONE is a sentinel
+         *  kill-switch and is never "enabled" as a call-site level. */
         public boolean enabled() {
+            if (this == NONE) return false;
             return this.ordinal() <= Constants.LOG_LEVEL.ordinal();
         }
     }
 
     // Static-import convenience: `import static com.adambots.logging.LogUtil.*;`
     // lets call sites write `log(ESSENTIAL, ...)` instead of `log(Level.ESSENTIAL, ...)`.
+    public static final Level NONE       = Level.NONE;
     public static final Level ESSENTIAL  = Level.ESSENTIAL;
     public static final Level DIAGNOSTIC = Level.DIAGNOSTIC;
     public static final Level DEBUG      = Level.DEBUG;

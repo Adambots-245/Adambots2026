@@ -60,12 +60,12 @@ public final class Constants {
      * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
      */
     public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
-        com.adambots.logging.LogUtil.Level.DIAGNOSTIC;
+        com.adambots.logging.LogUtil.Level.NONE;
 
     // ==================== Tuning / Shuffleboard (separate from logging) ====================
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = true;
+    public static final boolean TUNING_ENABLED = false;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.

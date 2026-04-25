@@ -322,8 +322,8 @@ public final class ShootCommands {
             TurretSubsystem turret,
             DoubleSupplier distanceSupplier,
             VisionSubsystem vision) {
-        return withAutoTrackSuppressed(
-            shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, distanceSupplier), turret, vision)
+        // return withAutoTrackSuppressed(
+            return shootAtDistanceTimerWithBopCommand(shooter, hopper, intake, distanceSupplier)
             .withName("Shoot At Distance With Bop");
     }
 
@@ -341,7 +341,7 @@ public final class ShootCommands {
                 shooter.spinForDistanceCommand(distanceSupplier)
                     .until(shooter.isAtSpeedTrigger().debounce(kFireGateDebounceSeconds))
                     .withTimeout(kSpinUpTimeoutSeconds),
-                intake.bopArmCommand()),
+                intake.bopArmAndRunCommand()), // TODO(vx-clutch): seperate out
             Commands.defer(() -> {
                 double dist = distanceSupplier.getAsDouble();
                 shooter.setShotBoost(true);
@@ -349,7 +349,7 @@ public final class ShootCommands {
                     shooter.spinForDistanceCommand(() -> dist),
                     hopper.feedCommand(),
                     intake.bopArmCommand()
-                ).withTimeout(kShootDurationSeconds);
+                ); // TODO(vx-clutch): I removed the timeout
             }, Set.of(shooter, hopper, intake)),
             stopAllCommand(shooter, hopper)
         ).finallyDo(() -> shooter.setShotBoost(false))

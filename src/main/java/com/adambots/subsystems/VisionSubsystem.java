@@ -256,11 +256,8 @@ public class VisionSubsystem extends SubsystemBase {
 
         if (Constants.VISION_TAB) setupDash();
         // Hub distance on default Shuffleboard — useful for pit crew / coach quick glance.
-        // Gated behind TUNING_ENABLED to avoid an always-on NT supplier at comp
         // (the same value is logged to AdvantageKit as Vision/OutputDist at ESSENTIAL).
-        if (Constants.TUNING_ENABLED) {
-            Dash.add("Dist (m)", this::getHubDistance);
-        }
+        Dash.add("Dist (m)", this::getHubDistance);
     }
 
     private void setupDash() {
@@ -639,7 +636,7 @@ public class VisionSubsystem extends SubsystemBase {
 
     /** Distance to hub center using the active vision mode. */
     public double getHubDistance() {
-        if (visionMode == 3) return hubBlendedDistanceMeters + 0.0; // REMOVE ME!!! This is just for temp auton testing on 4/23
+        if (visionMode == 3) return hubBlendedDistanceMeters;
         if (visionMode == 2) return hubCamHasTarget ? hubCamDistanceMeters : hubPoseDistanceMeters;
         return visionMode == 0 ? hubCamDistanceMeters : hubPoseDistanceMeters;
     }

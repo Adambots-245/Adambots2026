@@ -375,7 +375,7 @@ public class RobotContainer {
 
                 NamedCommands.registerCommand("shootLongTimer", ShootCommands.shootAtDistanceTimerWithBopCommand(
                                 shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem)
-                                .withTimeout(5.0));
+                                .withTimeout(8.0));
 
                 NamedCommands.registerCommand("intakeUp", intake.runRaiseIntakeArmCommand());
 
@@ -385,7 +385,7 @@ public class RobotContainer {
                 // DriveCommands terminates cleanly once the chassis is within ~1° and
                 // not sweeping; 1.5s timeout is a safety backstop.
                 NamedCommands.registerCommand("faceHub",
-                                DriveCommands.frontToHubCommand(swerve).withTimeout(2));
+                                DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
                 NamedCommands.registerCommand("backToHub",
                                 DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
 

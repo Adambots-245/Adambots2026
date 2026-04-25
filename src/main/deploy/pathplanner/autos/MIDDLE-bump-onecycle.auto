@@ -9,15 +9,28 @@
           "data": {
             "commands": [
               {
-                "type": "path",
+                "type": "sequential",
                 "data": {
-                  "pathName": "MIDDLE-part1-onecycle"
+                  "commands": [
+                    {
+                      "type": "wait",
+                      "data": {
+                        "waitTime": 0.5
+                      }
+                    },
+                    {
+                      "type": "named",
+                      "data": {
+                        "name": "intake"
+                      }
+                    }
+                  ]
                 }
               },
               {
-                "type": "named",
+                "type": "path",
                 "data": {
-                  "name": "intake"
+                  "pathName": "MIDDLE-part1-onecycle"
                 }
               }
             ]
@@ -26,7 +39,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "MIDDLE-part3"
+            "pathName": "MIDDLE-part3-one"
           }
         },
         {

@@ -13,20 +13,8 @@
                 "data": {
                   "pathName": "MIDDLE-part1"
                 }
-              },
-              {
-                "type": "named",
-                "data": {
-                  "name": "intake"
-                }
               }
             ]
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "faceHub"
           }
         },
         {
@@ -79,7 +67,7 @@
               {
                 "type": "path",
                 "data": {
-                  "pathName": "MIDDLE-part4-trench"
+                  "pathName": "MIDDLE-part4-bump"
                 }
               },
               {

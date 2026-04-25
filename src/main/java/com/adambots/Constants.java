@@ -76,7 +76,7 @@ public final class Constants {
     public static final boolean VISION_TAB   = TUNING_ENABLED && false;
     public static final boolean INTAKE_TAB   = TUNING_ENABLED && false;
     public static final boolean HOPPER_TAB   = TUNING_ENABLED && false;
-    public static final boolean TURRET_TAB  = TUNING_ENABLED && true;
+    public static final boolean TURRET_TAB   = TUNING_ENABLED && true;
 
     /**
      * @deprecated Replaced by {@link #LOG_LEVEL} — current logging is now part of ESSENTIAL.
@@ -161,13 +161,12 @@ public final class Constants {
         // ==================== Interpolation Table ====================
         // distance (meters) -> RPS, tuned on the field
         public static final double[][] kDefaultInterpolationTable = {
-            // All + k had a 1 added for our 4/23 Auton testing
-            {1.5, 39.0 + 3},
-            {2.0, 40.5 + 3},
-            {2.5, 43.0 + 3},
-            {3.0, 46.0 + 4},
-            {4.0, 53.0 + 4},
-            {5.0, 59.0 + 4}
+            {1.5, 41},
+            {2.0, 43.5},
+            {2.5, 46},
+            {3.0, 51},
+            {4.0, 57},
+            {5.0, 63}
         };
         
 
@@ -370,10 +369,10 @@ public final class Constants {
         /** Back-right ArduCam OV9281 (on back-right swerve module, facing backward) */
         public static final String kBackRightCameraName = "back_right";
 
-        /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
+        /** Shooter ArduCam OV9281 (on top of shooter, facing forward) */
         public static final String kShooterCameraName = "shooter_cam";
 
-        /** Shooter LifeCam HD-3000 (on top of shooter, facing forward) */
+        /** Shooter ArduCam OV9281 (on top of shooter, facing forward) */
         public static final String kFrontCameraName = "forward_camera";
 
 
@@ -430,10 +429,10 @@ public final class Constants {
 
         // Shooter LifeCam (on top of climb, facing forward)
         public static final double kFrontCameraX = -0.155;   // behind center (climb is at back)
-        public static final double kFrontCameraY = 0.13;
+        public static final double kFrontCameraY = 0.09;
         public static final double kFrontCameraZ = 0.48;     // on top of climb
         public static final double kFrontCameraRoll = 0.0;
-        public static final double kFrontCameraPitch = 0.0;  // level
+        public static final double kFrontCameraPitch = 6.0;  // level
         public static final double kFrontCameraYaw = 0.0;     // facing forward
 
 
@@ -444,21 +443,21 @@ public final class Constants {
          * Lower = more strict, rejects more ambiguous poses.
          * Raised to 0.8 — LifeCam at 3-4m hub distance routinely reports 0.3-0.8.
          */
-        public static final double kAmbiguityThreshold = 0.8;
+        public static final double kAmbiguityThreshold = 0.2;
 
         /**
          * Standard deviations for single-tag pose estimation.
          * Higher values = less trust in the measurement.
          * Format: {x meters, y meters, rotation radians}
          */
-        public static final double[] kSingleTagStdDevs = {0.5, 0.5, 1.0};
+        public static final double[] kSingleTagStdDevs = {1.5, 1.5, 2.5};
 
         /**
          * Standard deviations for multi-tag pose estimation.
          * Multi-tag is more accurate, so lower std devs.
          * Format: {x meters, y meters, rotation radians}
          */
-        public static final double[] kMultiTagStdDevs = {0.2, 0.2, 0.5};
+        public static final double[] kMultiTagStdDevs = {0.1, 0.1, 0.3};
 
         /** Maximum distance to recognize AprilTags for odometry cameras (meters) */
         public static final double kOdomMaxTagDistance = 4.0;
@@ -521,12 +520,13 @@ public final class Constants {
         public static final double kCameraOfflineThresholdSeconds = 2.0;
 
         /** Vision mode: 0 = Camera-only, 1 = Pose-only, 2 = Hybrid (camera primary, pose fallback), 3 = Blended (weighted avg) */
-        public static final int kVisionMode = 3;
+        public static final int kVisionMode = 0;
 
         /** Blend weight for mode 3: fraction of camera vs pose. 0.6 = 60% camera, 40% pose. */
         public static final double kVisionBlendWeight = 0.6;
+
         /** Max disagreement (degrees) between camera and pose before blend falls back to camera-only. */
-        public static final double kBlendDisagreementThreshold = 20.0;
+        public static final double kBlendDisagreementThreshold = 10.0;
 
         /** Vision std dev scaling per m/s of robot speed. At 2 m/s: stdDevs *= 1 + 2*1.0 = 3x. */
         public static final double kVisionSpeedScaling = 1.0;

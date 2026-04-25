@@ -41,7 +41,7 @@ public class RobotMap {
     public static final boolean LEDS_ENABLED = true;
     public static final boolean BACK_CAMERAS_ENABLED = true;
     public static final boolean SHOOTER_CAMERA_ENABLED = true;
-    public static final boolean FRONT_CAMERA_ENABLED = true;
+    public static final boolean FRONT_CAMERA_ENABLED = false;
 
     // ==================== CONTROLLER PORTS ====================
     /** Driver controller port - Logitech Extreme 3D Pro joystick */

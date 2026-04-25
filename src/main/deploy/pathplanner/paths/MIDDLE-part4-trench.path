@@ -3,13 +3,13 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 2.3064,
-        "y": 5.282288888888888
+        "x": 2.686433333333334,
+        "y": 5.6136
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.3030596538921695,
-        "y": 6.718583498357329
+        "x": 2.6830929872255034,
+        "y": 7.049894609468441
       },
       "isLocked": false,
       "linkedName": "M3 End"
@@ -109,7 +109,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -28.009176708013833
+    "rotation": -39.00747255212106
   },
   "useDefaultConstraints": true
 }

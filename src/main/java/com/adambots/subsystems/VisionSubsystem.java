@@ -438,23 +438,29 @@ public class VisionSubsystem extends SubsystemBase {
         }
 
         // ==================== Structured logging (AdvantageScope) ====================
-        // 3-tier split: ESSENTIAL = things we need to diagnose "did vision work?" at comp,
-        // DIAGNOSTIC = pipeline internals for tuning, DEBUG = EWMA intermediates + conversions.
+        // 3-tier split: ESSENTIAL = match-critical for forensics, DIAGNOSTIC = pipeline
+        // internals for tuning, DEBUG = high-rate intermediates.
         //
-        // ESSENTIAL (always on at comp — covers MICMP1's Vision blackout gap):
+        // ESSENTIAL — minimum to answer post-match "did vision work?" forensics:
+        //   - CamOnline: was the camera up? (covers MICMP1 blackout gap)
+        //   - OutputAngle / OutputDist: what did the shooter actually receive?
+        //   - OutputVisible: did vision think it had a target? (gates shoot commands)
         log(ESSENTIAL, "Vision/CamOnline", cameraOnline);
-        log(ESSENTIAL, "Vision/CamHasTarget", hubCamHasTarget);
-        log(ESSENTIAL, "Vision/HubTagCount", hubVisibleTagCount);
-        log(ESSENTIAL, "Vision/Mode", visionMode);
         log(ESSENTIAL, "Vision/OutputAngle", getHubAngle());
         log(ESSENTIAL, "Vision/OutputDist", getHubDistance());
         log(ESSENTIAL, "Vision/OutputVisible", isHubVisible());
-        log(ESSENTIAL, "Vision/OutputFresh", isTrackingDataFresh());
 
         // DIAGNOSTIC (bench / practice): pipeline internals, raw-vs-filtered pairs,
-        // rejection counters, pose-based approach outputs.
+        // rejection counters, pose-based approach outputs. Includes signals previously
+        // at ESSENTIAL that were redundant with the four above (CamHasTarget is a subset
+        // of OutputVisible; HubTagCount and OutputFresh are debug aids; Mode is a
+        // ~constant per match — bench-only need to track changes).
         if (DIAGNOSTIC.enabled()) {
             Pose2d currentPose = poseSupplier.get();
+            log(DIAGNOSTIC, "Vision/CamHasTarget", hubCamHasTarget);
+            log(DIAGNOSTIC, "Vision/HubTagCount", hubVisibleTagCount);
+            log(DIAGNOSTIC, "Vision/Mode", visionMode);
+            log(DIAGNOSTIC, "Vision/OutputFresh", isTrackingDataFresh());
             log(DIAGNOSTIC, "Vision/CamRawAngle", rawCamAngle);
             log(DIAGNOSTIC, "Vision/CamEWMAAngle", hubCamAngleDegrees);
             log(DIAGNOSTIC, "Vision/CamRawDist", rawCamDist);
@@ -519,9 +525,11 @@ public class VisionSubsystem extends SubsystemBase {
      * Uses shooter_cam only — the lib doesn't have this camera-only pattern.
      */
     private void updateHubCameraOnly(Translation2d hubCenter, int[] hubTagIds) {
-        // Use getVisionCamera() (concrete type) so we can call getEstimatedGlobalPose()
-        // to populate the results cache. ALIGNMENT cameras are skipped by the lib's
-        // updatePoseEstimation(), so their resultsList is never populated automatically.
+        // ALIGNMENT cameras are skipped by the lib's updatePoseEstimation(), so their
+        // resultsList is never populated automatically. Use refreshResults() to fetch
+        // the latest pipeline results without triggering pose estimation — the static
+        // robotToCamera transform is wrong for a turret-mounted camera, so the pose
+        // would be discarded anyway. Saves the per-tick cost of poseEstimator.update().
         VisionCamera cam = photonVision.getVisionCamera(VisionConstants.kShooterCameraName);
         if (cam == null) {
             hubCamHasTarget = false;
@@ -532,9 +540,7 @@ public class VisionSubsystem extends SubsystemBase {
             prevHubCamHasTarget = false;
             return;
         }
-        // Trigger results fetch — populates internal resultsList from NetworkTables.
-        // The returned pose is ignored (static transform is wrong for turret-mounted camera).
-        cam.getEstimatedGlobalPose();
+        cam.refreshResults();
         Optional<? extends VisionResult> resultOpt = cam.getLatestResult();
 
         // Camera health: track last time we got any result (even with no targets)

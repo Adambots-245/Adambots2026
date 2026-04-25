@@ -60,12 +60,12 @@ public final class Constants {
      * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
      */
     public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
-        com.adambots.logging.LogUtil.Level.DIAGNOSTIC;
+        com.adambots.logging.LogUtil.Level.ESSENTIAL;
 
     // ==================== Tuning / Shuffleboard (separate from logging) ====================
 
     /** Set false for competition — disables all Shuffleboard tunables and their NT reads. */
-    public static final boolean TUNING_ENABLED = true;
+    public static final boolean TUNING_ENABLED = false;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific subsystem.
@@ -589,7 +589,7 @@ public final class Constants {
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
         public static final double kBopBottomPosition = 105.0;  // bop oscillation low end
-        public static final double kBopTopPosition    = 135.0;  // bop oscillation high end — lowered 150→135 (2026-04-23) after practice logs showed motor stalling at 140° on upward swing
+        public static final double kBopTopPosition    = 155.0;  // bop oscillation high end — lowered 150→135 (2026-04-23) after practice logs showed motor stalling at 140° on upward swing
         /** Time per bop phase (seconds). Every N seconds, flip the target between
          *  kBopBottomPosition and kBopTopPosition regardless of whether the arm
          *  reached the previous target — avoids total-stall pathology when the

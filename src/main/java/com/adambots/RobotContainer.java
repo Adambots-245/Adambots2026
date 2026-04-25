@@ -385,7 +385,7 @@ public class RobotContainer {
                 // DriveCommands terminates cleanly once the chassis is within ~1° and
                 // not sweeping; 1.5s timeout is a safety backstop.
                 NamedCommands.registerCommand("faceHub",
-                                DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
+                                DriveCommands.frontToHubCommand(swerve).withTimeout(2));
                 NamedCommands.registerCommand("backToHub",
                                 DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
 

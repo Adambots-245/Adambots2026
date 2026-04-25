@@ -26,6 +26,12 @@
         {
           "type": "named",
           "data": {
+            "name": "faceHub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
             "name": "shootShortTimer"
           }
         },

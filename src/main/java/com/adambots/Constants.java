@@ -60,7 +60,7 @@ public final class Constants {
      * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
      */
     public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
-        com.adambots.logging.LogUtil.Level.NONE;
+        com.adambots.logging.LogUtil.Level.ESSENTIAL;
 
     // ==================== Tuning / Shuffleboard (separate from logging) ====================
 

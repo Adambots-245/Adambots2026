@@ -608,7 +608,7 @@ public final class Constants {
         public static final double kRollerJamGracePeriod = 0.25;      // seconds before jam detection activates
 
         // Roller motor current limits
-        public static final int kRollerStatorCurrentLimit = 35;  // was 45 — reduced to prevent battery sag (54A peaks → 9.25V)
+        public static final int kRollerStatorCurrentLimit = 40;  // 45→35 (Q-sag MICMP1) → 40 (Apr-25 logs showed 13% chronic pinning at 35; 40 still below original 45, supply gate at 30A)
         public static final int kRollerSupplyCurrentLimit = 30;  // supply amps (must be ≤ PDH breaker)
 
         // Arm motor current limits

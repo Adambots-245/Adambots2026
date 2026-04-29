@@ -9,28 +9,15 @@
           "data": {
             "commands": [
               {
-                "type": "sequential",
+                "type": "named",
                 "data": {
-                  "commands": [
-                    {
-                      "type": "wait",
-                      "data": {
-                        "waitTime": 0.5
-                      }
-                    },
-                    {
-                      "type": "named",
-                      "data": {
-                        "name": "intake"
-                      }
-                    }
-                  ]
+                  "name": "intake"
                 }
               },
               {
                 "type": "path",
                 "data": {
-                  "pathName": "MIDDLE-part1-onecycle"
+                  "pathName": "MIDDLE-part1-offset"
                 }
               }
             ]
@@ -39,7 +26,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "MIDDLE-part3-one"
+            "pathName": "MIDDLE-part2-offset"
           }
         },
         {
@@ -61,7 +48,7 @@
               {
                 "type": "path",
                 "data": {
-                  "pathName": "MIDDLE-part4-bump"
+                  "pathName": "MIDDLE-part4-offset"
                 }
               },
               {

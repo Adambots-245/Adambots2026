@@ -27,7 +27,7 @@ public final class Constants {
      *
      * <p>Default {@code 0} means "unset" — treat those logs with caution.
      */
-    public static final int BATTERY_ID = 0;
+    public static final int BATTERY_ID = 3;
 
     // ==================== Operating Mode ====================
 
@@ -60,7 +60,7 @@ public final class Constants {
      * A change requires {@code ./gradlew clean deploy} to take effect (static final inline).
      */
     public static final com.adambots.logging.LogUtil.Level LOG_LEVEL =
-        com.adambots.logging.LogUtil.Level.ESSENTIAL;
+        com.adambots.logging.LogUtil.Level.DIAGNOSTIC;
 
     // ==================== Tuning / Shuffleboard (separate from logging) ====================
 

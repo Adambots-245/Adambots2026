@@ -233,74 +233,25 @@ public class RobotContainer {
                 // Button 4: Stop intake and raise arm
                 Buttons.JoystickButton4.onTrue(
                                 intake.stopIntakeCommand().andThen(intake.runRaiseIntakeArmCommand().withTimeout(1)));
-
-                // Button 5: Toggle auto-track on/off
-                // Buttons.JoystickButton5.onTrue(turret.toggleAutoTrackCommand());
-
-                // Alternative strategy — fixed turret, rotate chassis so its back faces the
-                // hub.
-                // Three wiring options (pick one, comment the auto-track toggle above):
-                //
-                // (1) Hold-to-aim, chassis stops translating while rotating:
-                // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(swerve));
-                //
-                // (2) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
-                // Buttons.JoystickButton5.onTrue(DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
-                //
-                // (3) Hold-to-aim WITH driver translation passthrough — drive + auto-aim at
-                // once.
-                // Uses the same forward/strafe suppliers as the default drive command, scaled
-                // to m/s via YAGSL's configured max chassis velocity:
-                final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
-                final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
-                                Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
-                final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
-                                Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
-                // Buttons.JoystickButton5.whileTrue(DriveCommands.backToHubCommand(
-                // swerve,
-                // () -> fwd.getAsDouble() * maxSpeed *
-                // Constants.DriveConstants.kTranslationScale,
-                // () -> strf.getAsDouble() * maxSpeed *
-                // Constants.DriveConstants.kTranslationScale,
-                // 1.0 /* tolerance deg — settle detection prevents premature termination */));
-                //
-                // --- FRONT-facing-hub variants (mirror of the three above) ---
-                // Use these for the forward-mounted shooter strategy: robot's FRONT faces the
-                // hub. Same pose-trust guard and driver passthrough as the back variants.
-                //
-                // (1F) Hold-to-aim, chassis stops translating while rotating:
-                // Buttons.JoystickButton5.whileTrue(DriveCommands.frontToHubCommand(swerve));
-                //
-                // (2F) One-press auto-aim with safety timeout (ends at tolerance OR 1.5 s):
-                // Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
-                //
-                // (3F) Hold-to-aim WITH driver translation passthrough:
-                Buttons.JoystickButton5.onTrue(DriveCommands.frontToHubCommand(
-                                swerve,
-                                () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                                () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
-                                1.0 /*
-                                     * tolerance deg — settle detection in DriveCommands prevents premature
-                                     * termination
-                                     */).withTimeout(1.5));
-
+                // Button 5: None
+                Buttons.JoystickButton5.onTrue(Commands.none());
                 // Button 6: Lower Intake Arm withour running rollers
                 Buttons.JoystickButton6.whileTrue(
                                 intake.runLowerIntakeArmCommand());
-                // Button 7: Reverse a jam in the shooter/hopper
-                Buttons.JoystickButton7.onTrue(ShootCommands.ejectCommand(shooter, hopper).withTimeout(0.5));
+                // Button 7: Zero Gyro
+                Buttons.JoystickButton7.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
                 // Button 8: None
                 Buttons.JoystickButton8.onTrue(Commands.none());
                 // Button 9: Bop and run intake
                 Buttons.JoystickButton9.whileTrue(intake.bopArmAndRunCommand());
-                // Button 10: Lob
-                Buttons.JoystickButton10.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
-                // Button 11: Zero Gyro
-                Buttons.JoystickButton11.onTrue(Commands.runOnce(() -> swerve.zeroGyro()));
+                // Buttons 10: None
+                Buttons.JoystickButton10.onTrue(Commands.none());
+                // Button 11: Lob
+                Buttons.JoystickButton11.whileTrue(ShootCommands.lobShotCommand(shooter, hopper, intake));
                 // Button 12: Lower intake but do not run
                 Buttons.JoystickButton12.onTrue(intake.runLowerIntakeArmCommand());
                 // Button 13: Force pose reset from vision (only if cameras see 2+ tags)
-                Buttons.JoystickButton13.onTrue(Commands.runOnce(() -> {
+                Buttons.JoystickButton8.onTrue(Commands.runOnce(() -> {
                         if (visionSubsystem != null && visionSubsystem.getHubVisibleTagCount() >= 2) {
                                 swerve.resetOdometry(swerve.getPose());
                                 System.out.println("[POSE RESET] Forced from vision — tags visible: "
@@ -309,8 +260,8 @@ public class RobotContainer {
                                 System.out.println("[POSE RESET] Skipped — not enough tags visible");
                         }
                 }));
-                // Button 14: None
-                Buttons.JoystickButton14.onTrue(Commands.none());
+                // Button 14: Reverse a jam in the shooter/hopper
+                Buttons.JoystickButton14.onTrue(ShootCommands.ejectCommand(shooter, hopper).withTimeout(0.5));
                 // Button 15: None
                 Buttons.JoystickButton15.onTrue(Commands.none());
 

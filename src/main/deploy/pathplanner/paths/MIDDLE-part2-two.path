@@ -3,13 +3,29 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.6250213980028523,
-        "y": 6.486875891583452
+        "x": 1.8653637660485018,
+        "y": 4.830727532097005
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.1954071874435837,
-        "y": 6.522489010344887
+        "x": 1.6365349432168044,
+        "y": 5.125454885153142
+      },
+      "isLocked": false,
+      "linkedName": "MID3offsetEnd"
+    },
+    {
+      "anchor": {
+        "x": 1.3866333808844504,
+        "y": 6.0
+      },
+      "prevControl": {
+        "x": 1.5673621580930501,
+        "y": 5.827265784834954
+      },
+      "nextControl": {
+        "x": 1.032105826154918,
+        "y": 6.338844980121265
       },
       "isLocked": false,
       "linkedName": null
@@ -20,19 +36,24 @@
         "y": 5.982268188302426
       },
       "prevControl": {
-        "x": 0.7866150614369125,
-        "y": 5.979792520165182
+        "x": 0.8117746670979455,
+        "y": 6.026602752986559
       },
       "nextControl": null,
       "isLocked": false,
       "linkedName": "MidoffsetEnd1"
     }
   ],
-  "rotationTargets": [],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 1,
+      "rotationDegrees": 180.0
+    }
+  ],
   "constraintZones": [
     {
       "name": "Constraints Zone",
-      "minWaypointRelativePos": 0.6263027295285362,
+      "minWaypointRelativePos": 0.5945409429280395,
       "maxWaypointRelativePos": 1.0,
       "constraints": {
         "maxVelocity": 0.67,
@@ -62,7 +83,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": -15.802513953935545
   },
   "useDefaultConstraints": true
 }

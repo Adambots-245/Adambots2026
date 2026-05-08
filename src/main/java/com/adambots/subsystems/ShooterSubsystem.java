@@ -32,7 +32,7 @@ public class ShooterSubsystem extends SubsystemBase {
     private final BaseMotor rightFlywheel;
     private final Supplier<Pose2d> robotPose;
 
-    private boolean idleEnabled = false;
+    private boolean idleEnabled = true;
     private boolean shotBoostActive = false;
 
     private double targetRPS = 0;

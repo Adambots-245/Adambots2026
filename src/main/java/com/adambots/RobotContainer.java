@@ -264,6 +264,20 @@ public class RobotContainer {
                 Buttons.JoystickButton14.onTrue(ShootCommands.ejectCommand(shooter, hopper).withTimeout(0.5));
                 // Button 15: None
                 Buttons.JoystickButton15.onTrue(Commands.none());
+                // Button 16: Auto-Align
+                final double maxSpeed = swerve.getSwerveDrive().getMaximumChassisVelocity();
+                final java.util.function.DoubleSupplier fwd = Buttons.createForwardSupplier(
+                                Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                final java.util.function.DoubleSupplier strf = Buttons.createStrafeSupplier(
+                                Constants.DriveConstants.kDeadzone, InputCurve.CUBIC, true);
+                Buttons.JoystickButton16.onTrue(DriveCommands.frontToHubCommand(
+                                swerve,
+                                () -> fwd.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                                () -> strf.getAsDouble() * maxSpeed * Constants.DriveConstants.kTranslationScale,
+                                1.0 /*
+                                     * tolerance deg — settle detection in DriveCommands prevents premature
+                                     * termination
+                                     */).withTimeout(1.5));
 
                 // === Operator (Xbox Controller) ===
 
@@ -328,6 +342,14 @@ public class RobotContainer {
                                 shooter, hopper, intake, turret, visionSubsystem::getHubDistance, visionSubsystem)
                                 .withTimeout(8.0));
 
+                NamedCommands.registerCommand("shootSetDistLongTimer", ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, turret, () -> 2.78, visionSubsystem)
+                                .withTimeout(8.0));
+
+                NamedCommands.registerCommand("shootSetDistShortTimer", ShootCommands.shootAtDistanceTimerWithBopCommand(
+                                shooter, hopper, intake, turret, () -> 2.78, visionSubsystem)
+                                .withTimeout(5.0));
+
                 NamedCommands.registerCommand("intakeUp", intake.runRaiseIntakeArmCommand());
 
                 // Chassis-aim variants — pure rotation (no driver translation in auton).
@@ -336,9 +358,9 @@ public class RobotContainer {
                 // DriveCommands terminates cleanly once the chassis is within ~1° and
                 // not sweeping; 1.5s timeout is a safety backstop.
                 NamedCommands.registerCommand("faceHub",
-                                DriveCommands.frontToHubCommand(swerve).withTimeout(1.5));
+                                DriveCommands.frontToHubCommand(swerve).withTimeout(0.5));
                 NamedCommands.registerCommand("backToHub",
-                                DriveCommands.backToHubCommand(swerve).withTimeout(1.5));
+                                DriveCommands.backToHubCommand(swerve).withTimeout(0.5));
 
                 // Log PathPlanner trajectory target/current/active-path at ESSENTIAL.
                 // These callbacks fire at PathPlanner's internal rate whenever a path-

@@ -78,7 +78,7 @@ public final class Constants {
      * inline).
      */
     public static final com.adambots.logging.LogUtil.Level LOG_LEVEL = Match.matchMode
-            ? com.adambots.logging.LogUtil.Level.ESSENTIAL
+            ? com.adambots.logging.LogUtil.Level.NONE
             : com.adambots.logging.LogUtil.Level.DIAGNOSTIC;
 
     // ==================== Tuning / Shuffleboard (separate from logging)
@@ -88,19 +88,19 @@ public final class Constants {
      * Set false for competition — disables all Shuffleboard tunables and their NT
      * reads.
      */
-    public static final boolean TUNING_ENABLED = Match.matchMode ? false : false;
+    public static final boolean TUNING_ENABLED = Match.matchMode ? false : true;
 
     // Per-tab enables — only effective when TUNING_ENABLED is true.
     // Set individual flags to false to reduce bandwidth while tuning a specific
     // subsystem.
-    public static final boolean SHOOTER_TAB = TUNING_ENABLED && true;
+    public static final boolean SHOOTER_TAB = TUNING_ENABLED && false;
     public static final boolean SWERVE_TAB = TUNING_ENABLED && false;
     public static final boolean CLIMBER_TAB = TUNING_ENABLED && false;
     public static final boolean COMMANDS_TAB = TUNING_ENABLED && false;
     public static final boolean VISION_TAB = TUNING_ENABLED && false;
-    public static final boolean INTAKE_TAB = TUNING_ENABLED && false;
+    public static final boolean INTAKE_TAB = TUNING_ENABLED && true;
     public static final boolean HOPPER_TAB = TUNING_ENABLED && false;
-    public static final boolean TURRET_TAB = TUNING_ENABLED && true;
+    public static final boolean TURRET_TAB = TUNING_ENABLED && false;
 
     /**
      * @deprecated Replaced by {@link #LOG_LEVEL} — current logging is now part of
@@ -693,15 +693,15 @@ public final class Constants {
 
         public static final double kIntakeSpeed = 0.80;
 
-        public static final double kArmRaisedPosition = 193.0; // throughbore degrees when arm is raised (retracted) —
+        public static final double kArmRaisedPosition = 350.0; // throughbore degrees when arm is raised (retracted) —
                                                                // CALIBRATE
-        public static final double kArmLoweredPosition = 100.0; // throughbore degrees when arm is lowered (deployed) —
+        public static final double kArmLoweredPosition = 243.0; // throughbore degrees when arm is lowered (deployed) —
                                                                 // CALIBRATE
         // Bop positions: absolute throughbore degrees, captured the same way as
         // lowered/raised. Park the arm where you want each bop endpoint, read
         // "Arm Encoder (deg)" on the dashboard, put the value here — CALIBRATE.
-        public static final double kBopBottomPosition = 105.0; // bop oscillation low end
-        public static final double kBopTopPosition = 155.0; // bop oscillation high end — lowered 150→135 (2026-04-23)
+        public static final double kBopBottomPosition = 243; // bop oscillation low end
+        public static final double kBopTopPosition = 280; // bop oscillation high end — lowered 150→135 (2026-04-23)
                                                             // after practice logs showed motor stalling at 140° on
                                                             // upward swing
         /**

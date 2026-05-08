@@ -42,22 +42,40 @@
           }
         },
         {
-          "type": "parallel",
+          "type": "race",
           "data": {
             "commands": [
-              {
-                "type": "path",
-                "data": {
-                  "pathName": "MIDDLE-part4-offset"
-                }
-              },
               {
                 "type": "named",
                 "data": {
                   "name": "intake"
                 }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "MIDDLE-part2-two"
+                }
               }
             ]
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "MIDDLE-part2-offset"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "faceHub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "shootSetDistLongTimer"
           }
         }
       ]
